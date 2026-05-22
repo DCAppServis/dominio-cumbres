@@ -100,7 +100,7 @@ window.publicarReporte = async function() {
   // Leer campos del formulario
   const categoria   = document.getElementById('sol-categoria')?.value?.trim() || '';
   const descripcion = document.getElementById('sol-descripcion')?.value?.trim() || '';
-  const zona        = document.getElementById('sol-zona')?.value?.trim() || '';
+  const referencia  = document.getElementById('sol-referencia')?.value?.trim() || '';
 
   if (!categoria || !descripcion) {
     const errEl = document.getElementById('sol-error');
@@ -127,7 +127,7 @@ window.publicarReporte = async function() {
       vecinoNombre:   nombre,
       categoria,
       descripcion,
-      zona,
+      referencia,
       estado:         'publicado',
       postulantes:    [],           // array de proveedorId — max DC_MAX_POSTULANTES
       totalPostulantes: 0,
@@ -141,7 +141,7 @@ window.publicarReporte = async function() {
     if (btnEl) { btnEl.textContent = 'Publicar solicitud →'; btnEl.disabled = false; }
     document.getElementById('sol-categoria').value    = '';
     document.getElementById('sol-descripcion').value  = '';
-    if (document.getElementById('sol-zona')) document.getElementById('sol-zona').value = '';
+    if (document.getElementById('sol-referencia')) document.getElementById('sol-referencia').value = '';
 
     if (typeof go === 'function') go('v-solicitud-enviada', 'right');
 
@@ -171,20 +171,19 @@ window.cargarMisReportes = async function() {
   }
 
   try {
-    const { getDocs, collection, query, where, orderBy } = await import(
+    const { getDocs, collection } = await import(
       'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js'
     );
 
     const uid = window._fbAuth.currentUser.uid;
-    const q   = query(
-      collection(window._fbDb, 'reportes'),
-      where('vecinoId', '==', uid)
-    );
-    const snap = await getDocs(q);
+    // Sin where() — filtramos en cliente para evitar cualquier requisito de índice
+    const snap = await getDocs(collection(window._fbDb, 'reportes'));
 
-    // Ordenar por fechaCreacion desc en cliente (evita índice compuesto en Firestore)
     const _docs = [];
-    snap.forEach(d => _docs.push({ id: d.id, ...d.data() }));
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.vecinoId === uid) _docs.push({ id: d.id, ...data });
+    });
     _docs.sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
 
     if (_docs.length === 0) {
@@ -220,7 +219,7 @@ window.cargarMisReportes = async function() {
         <div style="font-size:12px;color:var(--text-primary);margin-bottom:8px;line-height:1.5;">${r.descripcion || ''}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           ${_badgePostulantes(r.totalPostulantes || 0)}
-          ${r.zona ? `<span style="font-size:10px;color:var(--text-muted);">📍 ${r.zona}</span>` : ''}
+          ${r.referencia ? `<span style="font-size:10px;color:var(--text-muted);">📍 ${r.referencia}</span>` : ''}
         </div>`;
       card.onclick = () => window.verDetalleReporte(id, r);
       contenedor.appendChild(card);
@@ -308,7 +307,7 @@ window.cargarReportesDisponibles = async function() {
             <div style="width:38px;height:38px;border-radius:12px;background:#E8F5EE;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">${cat.ic}</div>
             <div style="flex:1;">
               <div style="font-size:13px;font-weight:700;color:var(--text-primary);">${cat.label}</div>
-              <div style="font-size:11px;color:var(--text-muted);">${_formatFecha(r.fechaCreacion)}${r.zona ? ' · 📍 ' + r.zona : ''}</div>
+              <div style="font-size:11px;color:var(--text-muted);">${_formatFecha(r.fechaCreacion)}${r.referencia ? ' · 📍 ' + r.referencia : ''}</div>
             </div>
           </div>
           ${_badgePostulantes(r.totalPostulantes || 0)}
@@ -378,7 +377,7 @@ function _renderDetalleReporte(id, r) {
   const elCat = document.getElementById('det-rep-categoria');
   const elFecha = document.getElementById('det-rep-fecha');
   const elDesc  = document.getElementById('det-rep-descripcion');
-  const elZona  = document.getElementById('det-rep-zona');
+  const elRef   = document.getElementById('det-rep-zona');
   const elEstado = document.getElementById('det-rep-estado');
   const elPostulantes = document.getElementById('det-rep-postulantes');
   const elAccion = document.getElementById('det-rep-accion');
@@ -387,7 +386,7 @@ function _renderDetalleReporte(id, r) {
   if (elCat)         elCat.textContent = cat.label;
   if (elFecha)       elFecha.textContent = _formatFecha(r.fechaCreacion);
   if (elDesc)        elDesc.textContent = r.descripcion || '';
-  if (elZona)        elZona.textContent = r.zona ? '📍 ' + r.zona : '';
+  if (elRef)         elRef.textContent  = r.referencia ? '📍 ' + r.referencia : '';
   if (elEstado)      elEstado.innerHTML = _badgeEstado(r.estado);
   if (elPostulantes) elPostulantes.innerHTML = _badgePostulantes(r.totalPostulantes || 0);
 
