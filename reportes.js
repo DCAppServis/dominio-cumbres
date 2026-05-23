@@ -321,6 +321,20 @@ window.cargarReportesDisponibles = async function() {
   // Categorías del proveedor — soporta legado y nuevo formato
   const categoriasProveedor = _categoriasDeProveedor(perfil);
 
+  // Sin categoría configurada → error explícito, no mostrar todo
+  if (categoriasProveedor.length === 0) {
+    contenedor.innerHTML = `
+      <div style="text-align:center;padding:30px 20px;">
+        <div style="font-size:36px;margin-bottom:10px;">⚙️</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Sin categoría configurada</div>
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.6;">
+          No tienes categorías configuradas en tu perfil.<br>
+          Contacta al administrador para actualizar tu perfil de proveedor.
+        </div>
+      </div>`;
+    return;
+  }
+
   try {
     const { getDocs, collection } = await import(
       'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js'
@@ -336,12 +350,9 @@ window.cargarReportesDisponibles = async function() {
       // Solo reportes activos (publicado o en cotización)
       if (r.estado !== 'publicado' && r.estado !== 'en_cotizacion') return;
 
-      // Filtrar por categoría del proveedor
-      // Si el proveedor no tiene categoría definida, ve todas
-      if (categoriasProveedor.length > 0) {
-        const catReporte = (r.categoria || '').toLowerCase().trim();
-        if (!categoriasProveedor.includes(catReporte)) return;
-      }
+      // Filtrar por categoría — categoriasProveedor ya validado (no vacío)
+      const catReporte = (r.categoria || '').toLowerCase().trim();
+      if (!categoriasProveedor.includes(catReporte)) return;
 
       // NO filtrar por zona — proveedor ve solicitudes de todo el fraccionamiento
 
@@ -501,11 +512,12 @@ window.iniciarFormularioSolicitud = async function() {
     return;
   }
 
-  // Mostrar zona del perfil como referencia informativa (no editable)
+  // Mostrar zona del perfil — solo perfil.zona, sin fraccionamiento
   const zonaEl = document.getElementById('sol-zona-perfil');
-  if (zonaEl && perfil) {
+  if (zonaEl) {
     const z = perfil ? (perfil.zona || '') : '';
-    zonaEl.textContent = z ? `📍 Zona: ${z}` : '';
+    zonaEl.textContent = z ? `📍 Zona: ${z}` : '📍 Zona no definida en tu perfil';
+    zonaEl.style.color = z ? 'var(--text-muted)' : '#D63A2A';
   }
 };
 
