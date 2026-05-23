@@ -524,11 +524,13 @@ window.iniciarFormularioSolicitud = async function() {
   // Mostrar zona del perfil — SOLO perfil.zona, sin fallback a fraccionamiento
   const zonaEl = document.getElementById('sol-zona-perfil');
   if (zonaEl) {
+    // Usar perfil.zona exacto — sin conversión de mayúsculas/minúsculas
     const z = (perfil && perfil.zona) ? String(perfil.zona).trim() : '';
     if (z) {
-      zonaEl.innerHTML = `<span style="font-size:13px;font-weight:700;color:var(--text-primary);">📍 Zona: ${z}</span>`;
+      zonaEl.innerHTML = '<span style="font-size:11px;font-weight:600;color:#3a6b4a;text-transform:uppercase;letter-spacing:.6px;">Zona de registro</span>'
+        + `<div style="font-size:14px;font-weight:700;color:#1a3a28;margin-top:3px;">📍 ${z}</div>`;
     } else {
-      zonaEl.innerHTML = '<span style="font-size:12px;color:#D63A2A;">📍 Zona no definida en tu perfil</span>';
+      zonaEl.innerHTML = '<span style="font-size:12px;color:#c0392b;">📍 Zona no definida en tu perfil</span>';
     }
   }
 };
