@@ -891,10 +891,19 @@
     // 7. Limpiar mensajes de error de formularios
     ['v-firebase-msg','p-firebase-msg','r-firebase-msg','b-firebase-msg','login-err']
       .forEach(id=>{const el=document.getElementById(id);if(el){el.textContent='';el.style.display='none';}});
-    // 8. Limpiar selects de registro
+    // 8. Limpiar selects de registro (selectedIndex=0 fuerza 'Selecciona tu zona')
     ['zona-sel','frac-sel'].forEach(id=>{
       const el=document.getElementById(id);
-      if(el)el.value='';
+      if(el){el.value='';el.selectedIndex=0;}
+    });
+    // Limpiar checkboxes de términos (quitar clase 'on' de todos los formularios)
+    ['v-chk1','v-chk2',
+     'p-chk1','p-chk2','p-chk3',
+     'r-chk1','r-chk2',
+     'b-chk1','b-chk2','b-chk3'
+    ].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)el.classList.remove('on');
     });
     const ab=document.getElementById('agregar-box');
     if(ab)ab.classList.remove('show');
