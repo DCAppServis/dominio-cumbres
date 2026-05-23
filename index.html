@@ -690,7 +690,8 @@
 
   // ─── REGISTRO VECINO ────────────────────────────────────
   window.registrarVecino = async function() {
-    const nombre  = document.getElementById('v-nombre').value.trim();
+    const _nomRaw  = document.getElementById('v-nombre').value.trim();
+    const nombre   = _nomRaw.replace(/\b\w/g, c => c.toUpperCase());
     const usuario = document.getElementById('v-usr').value.trim();
     const correo  = document.getElementById('v-correo').value.trim();
     const tel     = document.getElementById('v-tel').value.trim();
@@ -1839,13 +1840,13 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 <div class="view go-right" id="v-reg-vecino">
       <div class="si64 hdr">
         <div class="sbar dk"><span>9:41</span><span>▲</span></div>
-        <div class="back-row"><button class="btn-back" onclick="setBtn('btn-reg-vecino','Crear mi cuenta →',false);go('v-role','left')">‹</button><div><div class="hdr-title">Registro · Vecino</div><div class="hdr-sub">Rápido y sencillo</div></div></div>
+        <div class="back-row"><button class="btn-back" onclick="(function(){var b=document.getElementById('btn-reg-vecino');if(b){b.textContent='Crear mi cuenta →';b.disabled=false;}go('v-role','left');})()">‹</button><div><div class="hdr-title">Registro · Vecino</div><div class="hdr-sub">Rápido y sencillo</div></div></div>
       </div>
       <div class="si27 scroll">
         <div class="sec-div">Tus datos</div>
         <div class="form-g">
           <label class="form-l">Nombre completo<span class="req-b">REQ</span></label>
-          <input class="inp" id="v-nombre" placeholder="Como te conocen en la zona" oninput="sugerirUsr(this.value)">
+          <input class="inp" id="v-nombre" placeholder="Como te conocen en la zona" oninput="vNombreInput(this)">
         </div>
         <div class="form-g">
           <label class="form-l">Usuario<span class="req-b">REQ</span></label>
@@ -4175,7 +4176,9 @@ function checkPass(id1,id2,sid){
   const p1=document.getElementById(id1);
   const p2=document.getElementById(id2);
   const s=document.getElementById(sid);
-  if(!p2||!s||!p2.value)return;
+  if(!p2||!s)return;
+  if(!p2.value){s.innerHTML='';return;}
+  if(p1.value.length<6){s.innerHTML='<span style="color:#D63A2A;">🔐 Mínimo 6 números</span>';return;}
   if(p1.value===p2.value){s.innerHTML='<span style="color:#1FC26A;">✅ Contraseñas coinciden</span>';}
   else{s.innerHTML='<span style="color:#D63A2A;">❌ No coinciden</span>';}
 }
@@ -4184,6 +4187,13 @@ function checkPass(id1,id2,sid){
 const usedUsr=['juanc','maria42','dominio1','vecino99'];
 
 // Sugerir usuario desde nombre
+function vNombreInput(el){
+  // Mostrar en formato Nombre Propio mientras escribe
+  const pos=el.selectionStart;
+  el.value=el.value.replace(/\b\w/g,c=>c.toUpperCase());
+  try{el.setSelectionRange(pos,pos);}catch(e){}
+  sugerirUsr(el.value);
+}
 function sugerirUsr(v){
   const u=document.getElementById('v-usr');
   const s=document.getElementById('v-usr-st');
