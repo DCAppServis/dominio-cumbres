@@ -689,70 +689,72 @@
   }
 
   // ─── REGISTRO VECINO ────────────────────────────────────
+  // ── Modal de errores para registro vecino ──────────────────
+  function mostrarErroresVecino(errores) {
+    const ya = document.getElementById('modal-errores-v');
+    const lista = errores.map(e => '<li style="padding:3px 0;">'+e+'</li>').join('');
+    const html = '<div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:12px;">⚠️ Corrige lo siguiente</div>'
+      + '<ul style="padding-left:18px;font-size:13px;color:#444;line-height:1.8;margin-bottom:16px;">'+lista+'</ul>'
+      + '<button onclick="document.getElementById('modal-errores-v').style.display='none'" '
+      + 'style="width:100%;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Entendido</button>';
+    if (ya) { ya.querySelector('.modal-errores-body').innerHTML = html; ya.style.display='flex'; return; }
+    const m = document.createElement('div');
+    m.id = 'modal-errores-v';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:flex-end;justify-content:center;';
+    m.innerHTML = '<div class="modal-errores-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;max-height:70vh;overflow-y:auto;">'+html+'</div>';
+    m.addEventListener('click', e => { if(e.target===m) m.style.display='none'; });
+    document.body.appendChild(m);
+  }
+
   window.registrarVecino = async function() {
-    const _nomRaw  = document.getElementById('v-nombre').value.trim();
-    const nombre   = _nomRaw.replace(/\b\w/g, c => c.toUpperCase());
-    const usuario = document.getElementById('v-usr').value.trim();
-    const correo  = document.getElementById('v-correo').value.trim();
-    const tel     = document.getElementById('v-tel').value.trim();
-    const pass1   = document.getElementById('vp1').value;
-    const pass2   = document.getElementById('vp2').value;
-
-    // Forzar minúsculas en usuario antes de validar
-    const usrEl = document.getElementById('v-usr');
-    if (usrEl) usrEl.value = usrEl.value.toLowerCase();
-    const usuarioFinal = (usrEl ? usrEl.value : usuario).trim();
-
-    // Leer prefijo + número de WhatsApp
-    const _prefijo = (document.getElementById('v-tel-prefijo')?.value || '+52').replace('-CA','');
+    // ── Leer y normalizar campos ──────────────────────────────
+    const _nomRaw    = (document.getElementById('v-nombre')?.value || '').trim();
+    const nombre     = _nomRaw.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    const usrEl      = document.getElementById('v-usr');
+    if (usrEl) usrEl.value = usrEl.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+    const usuario    = (usrEl?.value || '').trim();
+    const correo     = (document.getElementById('v-correo')?.value || '').trim();
+    const tel        = (document.getElementById('v-tel')?.value || '').trim();
+    const pass1      = document.getElementById('vp1')?.value || '';
+    const pass2      = document.getElementById('vp2')?.value || '';
+    const calle      = (document.getElementById('v-calle')?.value || '').trim();
+    const _prefijo   = (document.getElementById('v-tel-prefijo')?.value || '+52').replace('-CA','');
     const _numLimpio = tel.replace(/[^0-9]/g,'');
-    const _telCompleto = _prefijo + _numLimpio;
+    const _telFull   = _prefijo + _numLimpio;
 
-    // Campos obligatorios
-    if (!nombre||!usuarioFinal||!correo||!_numLimpio||!pass1)
-      return showMsg('v-firebase-msg','⚠️ Llena todos los campos obligatorios','error');
-
-    // Usuario: solo a-z 0-9 _ -
-    if (!/^[a-z0-9_-]+$/.test(usuarioFinal))
-      return showMsg('v-firebase-msg','⚠️ Usuario: solo letras minúsculas, números, _ y -','error');
-
-    // Correo: formato válido
+    // ── Recolectar TODOS los errores ─────────────────────────
+    const errores = [];
+    if (!nombre)                                          errores.push('Escribe tu nombre completo');
+    if (!usuario)                                         errores.push('Escribe un nombre de usuario');
+    else if (!/^[a-z0-9_-]+$/.test(usuario))             errores.push('Usuario: solo minúsculas, números, _ y -');
     const _correoErr = vValidarCorreo(correo);
-    if (_correoErr)
-      return showMsg('v-firebase-msg', _correoErr, 'error');
+    if (_correoErr)                                       errores.push(_correoErr.replace(/^[📧⚠️]\s*/,''));
+    if (!_numLimpio)                                      errores.push('Escribe tu número de WhatsApp');
+    else if (!/^[0-9]{8,15}$/.test(_numLimpio))          errores.push('WhatsApp: entre 8 y 15 dígitos, solo números');
+    if (!pass1 || pass1.length < 6)                      errores.push('Contraseña: mínimo 6 números');
+    else if (pass1 !== pass2)                             errores.push('Las contraseñas no coinciden');
+    if (!calle)                                           errores.push('Escribe tu calle y número');
+    if (!todosChecks(['v-chk1','v-chk2']))                errores.push('Acepta los Términos y Condiciones');
 
-    // WhatsApp: 8-15 dígitos (sin prefijo)
-    if (!/^[0-9]{8,15}$/.test(_numLimpio))
-      return showMsg('v-firebase-msg','⚠️ WhatsApp: entre 8 y 15 dígitos, solo números','error');
+    if (errores.length > 0) return mostrarErroresVecino(errores);
 
-    // Contraseña: mínimo 6 caracteres (solo números permitidos)
-    if (pass1.length < 6)
-      return showMsg('v-firebase-msg','🔐 La contraseña debe tener mínimo 6 números','error');
-    if (pass1 !== pass2)
-      return showMsg('v-firebase-msg','❌ Las contraseñas no coinciden','error');
-
-    // Términos
-    if (!todosChecks(['v-chk1','v-chk2']))
-      return showMsg('v-firebase-msg','☑️ Debes aceptar los Términos y Condiciones','warn');
-
+    // ── Crear cuenta ─────────────────────────────────────────
     setBtn('btn-reg-vecino','Creando cuenta... ⏳',true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, correo, pass1);
       await setDoc(doc(db,'usuarios',cred.user.uid),{
-        nombre, usuario:usuarioFinal, correo,
-        prefijoWhatsapp:_prefijo, telefono:_numLimpio,
-        whatsapp:_telCompleto, tipo:'vecino',
+        nombre, usuario, correo,
+        prefijoWhatsapp:_prefijo, telefono:_numLimpio, whatsapp:_telFull,
+        calle, tipo:'vecino',
         zona: document.getElementById('zona-sel')?.value||'',
         fraccionamiento: (function(){
           const sel = document.getElementById('frac-sel')?.value||'';
           if(sel==='agregar'){
-            const nuevo = (document.getElementById('frac-nuevo-inp')?.value||'')
-              .trim();
-            const zona = document.getElementById('zona-sel')?.value||'';
-            // Persistir en fracs[] para futuros registros en esta sesión
-            if(nuevo && zona && typeof fracs!=='undefined'){
-              if(!fracs[zona]) fracs[zona]=[];
-              if(!fracs[zona].includes(nuevo)) fracs[zona].push(nuevo);
+            const nuevo=(document.getElementById('frac-nuevo-inp')?.value||'').trim();
+            const zona=document.getElementById('zona-sel')?.value||'';
+            if(nuevo&&zona&&typeof fracs!=='undefined'){
+              if(!fracs[zona])fracs[zona]=[];
+              if(!fracs[zona].includes(nuevo))fracs[zona].push(nuevo);
             }
             return nuevo;
           }
@@ -764,8 +766,9 @@
       setNombre(nombre);
       go('v-ok-vecino','right');
     } catch(e) {
+      mostrarErroresVecino([firebaseError(e.code)]);
+    } finally {
       setBtn('btn-reg-vecino','Crear mi cuenta →',false);
-      showMsg('v-firebase-msg', firebaseError(e.code), 'error');
     }
   };
 
@@ -1917,7 +1920,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         </div>
         <div class="si12 form-g" id="calle-group">
           <label class="form-l">Calle y número<span class="req-b">REQ</span></label>
-          <input class="inp" placeholder="Ej. Calle Cedro #42">
+          <input class="inp" id="v-calle" placeholder="Ej. Calle Cedro #42" autocomplete="street-address">
           <div class="form-h">🔒 Solo visible para ti — nunca se comparte sin tu permiso</div>
         </div>
 
@@ -4098,6 +4101,9 @@ function _goCore(id,dir){
         const cel=document.getElementById(cid);
         if(cel)cel.classList.remove('on');
       });
+      // Reset registro vecino btn siempre al entrar
+      const _bv=document.getElementById('btn-reg-vecino');
+      if(_bv){_bv.textContent='Crear mi cuenta →';_bv.disabled=false;}
     }
   }));
 }
@@ -4187,10 +4193,12 @@ function checkPass(id1,id2,sid){
 const usedUsr=['juanc','maria42','dominio1','vecino99'];
 
 // Sugerir usuario desde nombre
+function _toTitleCase(str){
+  return str.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+}
 function vNombreInput(el){
-  // Mostrar en formato Nombre Propio mientras escribe
   const pos=el.selectionStart;
-  el.value=el.value.replace(/\b\w/g,c=>c.toUpperCase());
+  el.value=_toTitleCase(el.value);
   try{el.setSelectionRange(pos,pos);}catch(e){}
   sugerirUsr(el.value);
 }
