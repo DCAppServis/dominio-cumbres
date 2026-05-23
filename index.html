@@ -4051,6 +4051,9 @@ function _goCore(id,dir){
   }));
 }
 function go(id,dir){
+  if(['v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz'].includes(id)){
+    document.querySelectorAll('.check-row .chk.on').forEach(el=>el.classList.remove('on'));
+  }
   const cur=document.querySelector('.view.active');
   if(!id||!document.getElementById(id)||(cur&&cur.id===id))return;
   history.pushState({viewId:id},'','');
