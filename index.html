@@ -750,8 +750,23 @@
         return;
       }
     }
-    if (!_numLimpio)                                      errores.push('Escribe tu número de WhatsApp');
-    else if (!/^[0-9]{8,15}$/.test(_numLimpio))          errores.push('WhatsApp: entre 8 y 15 dígitos, solo números');
+    // WhatsApp: validar dígitos según prefijo
+    const _waReglas = {
+      '+52': { digitos: 10, msg: 'WhatsApp México debe tener 10 dígitos' },
+      '+1':  { digitos: 10, msg: 'WhatsApp USA/Canadá debe tener 10 dígitos' },
+      '+34': { digitos:  9, msg: 'WhatsApp España debe tener 9 dígitos' },
+      '+57': { digitos: 10, msg: 'WhatsApp Colombia debe tener 10 dígitos' }
+    };
+    if (!_numLimpio) {
+      errores.push('Escribe tu número de WhatsApp');
+    } else {
+      const _waRegla = _waReglas[_prefijo];
+      if (_waRegla) {
+        if (_numLimpio.length !== _waRegla.digitos) errores.push(_waRegla.msg);
+      } else {
+        if (!/^[0-9]{8,15}$/.test(_numLimpio)) errores.push('WhatsApp debe tener entre 8 y 15 dígitos');
+      }
+    }
     if (!pass1 || pass1.length < 6)                      errores.push('Contraseña: mínimo 6 números');
     else if (pass1 !== pass2)                             errores.push('Las contraseñas no coinciden');
     // Validación condicional — basada en selects, no en display
@@ -5032,5 +5047,3 @@ function showAdminTab(i,btn){
 
 </body>
 </html>
-
-
