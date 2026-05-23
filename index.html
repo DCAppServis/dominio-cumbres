@@ -709,7 +709,21 @@
       await setDoc(doc(db,'usuarios',cred.user.uid),{
         nombre, usuario, correo, telefono:tel, tipo:'vecino',
         zona: document.getElementById('zona-sel')?.value||'',
-        fraccionamiento: document.getElementById('frac-sel')?.value||'',
+        fraccionamiento: (function(){
+          const sel = document.getElementById('frac-sel')?.value||'';
+          if(sel==='agregar'){
+            const nuevo = (document.getElementById('frac-nuevo-inp')?.value||'')
+              .trim();
+            const zona = document.getElementById('zona-sel')?.value||'';
+            // Persistir en fracs[] para futuros registros en esta sesión
+            if(nuevo && zona && typeof fracs!=='undefined'){
+              if(!fracs[zona]) fracs[zona]=[];
+              if(!fracs[zona].includes(nuevo)) fracs[zona].push(nuevo);
+            }
+            return nuevo;
+          }
+          return sel;
+        })(),
         creadoEn: new Date().toISOString()
       });
       notificarBienvenido(nombre, correo, 'vecino');
@@ -849,12 +863,35 @@
 
   // ─── CERRAR SESIÓN ──────────────────────────────────────
   window.cerrarSesion = async function() {
+    // 1. Cerrar sesión Firebase
     try {
       const { signOut } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js");
       await signOut(auth);
     } catch(e) {}
+    // 2. Limpiar localStorage de sesión
     localStorage.removeItem('dcuser');
     localStorage.removeItem('dcuserTipo');
+    // 3. Cancelar subscripciones activas
+    if(window._chatUnsubscribe){window._chatUnsubscribe();window._chatUnsubscribe=null;}
+    if(window._provNotifUnsub){window._provNotifUnsub();window._provNotifUnsub=null;}
+    // 4. Limpiar variables globales de sesión
+    window._chatProveedorId=null; window._chatProveedorNombre=null;
+    window._chatIdExacto=null; window._chatUserId=null;
+    window._proveedorActual=null; window._reporteActualId=null;
+    window._filtroMain=null; window._filtroSub=null;
+    window._todosUsuarios=[];
+    // 5. Limpiar nombre en pantalla
+    document.querySelectorAll('.user-name-display').forEach(el=>el.textContent='Usuario');
+    // 6. Limpiar formularios de registro
+    ['v-nombre','v-usr','v-correo','v-tel','vp1','vp2',
+     'p-nombre','p-usr','p-correo','p-tel','pp1','pp2',
+     'r-nombre','r-usr','r-correo','r-tel','rp1','rp2',
+     'login-user','login-pass'
+    ].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    // 7. Limpiar mensajes de error de formularios
+    ['v-firebase-msg','p-firebase-msg','r-firebase-msg','b-firebase-msg','login-err']
+      .forEach(id=>{const el=document.getElementById(id);if(el){el.textContent='';el.style.display='none';}});
+    // 8. Navegar a splash limpio
     go('v-splash','left');
   };
 
@@ -1798,7 +1835,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         </div>
         <div class="agregar-box" id="agregar-box">
           <div style="font-size:11px;color:#1A6840;font-weight:600;margin-bottom:6px;">✍️ Escribe el nombre exacto de tu fraccionamiento</div>
-          <input class="inp" placeholder="Nombre del fraccionamiento">
+          <input class="inp" id="frac-nuevo-inp" placeholder="Nombre del fraccionamiento">
           <div class="form-h" style="margin-top:6px;">Lo verificaremos y lo agregamos para todos.</div>
         </div>
         <div class="si12 form-g" id="calle-group">
