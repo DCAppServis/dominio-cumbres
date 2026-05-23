@@ -729,6 +729,7 @@
     const pass1      = document.getElementById('vp1')?.value || '';
     const pass2      = document.getElementById('vp2')?.value || '';
     const calle      = (document.getElementById('v-calle')?.value || '').trim();
+    const numero     = (document.getElementById('v-numero')?.value || '').trim();
     const _prefijo   = (document.getElementById('v-tel-prefijo')?.value || '+52').replace('-CA','');
     const _numLimpio = tel.replace(/[^0-9]/g,'');
     const _telFull   = _prefijo + _numLimpio;
@@ -753,9 +754,8 @@
       errores.push('Selecciona tu fraccionamiento');
     } else {
       // Zona y fraccionamiento completos — validar calle
-      if (!calle)             errores.push('Escribe tu calle y número');
-      else if (!/[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(calle)) errores.push('Escribe la calle (ej. Calle Cedro 42)');
-      else if (!/[0-9]/.test(calle))                    errores.push('Escribe el número (ej. Calle Cedro 42)');
+      if (!calle)  errores.push('Escribe la calle');
+      if (!numero) errores.push('Escribe el número');
     }
     if (!todosChecks(['v-chk1','v-chk2']))                errores.push('Acepta los Términos y Condiciones');
 
@@ -768,7 +768,7 @@
       await setDoc(doc(db,'usuarios',cred.user.uid),{
         nombre, usuario, correo,
         prefijoWhatsapp:_prefijo, telefono:_numLimpio, whatsapp:_telFull,
-        calle, tipo:'vecino',
+        calle, numero, direccion: calle + ' ' + numero, tipo:'vecino',
         zona: document.getElementById('zona-sel')?.value||'',
         fraccionamiento: (function(){
           const sel = document.getElementById('frac-sel')?.value||'';
@@ -943,7 +943,7 @@
     // 5. Limpiar nombre en pantalla
     document.querySelectorAll('.user-name-display').forEach(el=>el.textContent='Usuario');
     // 6. Limpiar formularios de registro
-    ['v-nombre','v-usr','v-correo','v-tel','vp1','vp2','v-calle',
+    ['v-nombre','v-usr','v-correo','v-tel','vp1','vp2','v-calle','v-numero',
      'p-nombre','p-usr','p-correo','p-tel','pp1','pp2',
      'r-nombre','r-usr','r-correo','r-tel','rp1','rp2',
      'login-user','login-pass'
@@ -1942,8 +1942,12 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
           <div class="form-h" style="margin-top:6px;">Lo verificaremos y lo agregamos para todos.</div>
         </div>
         <div class="si12 form-g" id="calle-group" style="display:none;">
-          <label class="form-l">Calle y número<span class="req-b">REQ</span></label>
-          <input class="inp" id="v-calle" placeholder="Ej. Calle Cedro #42" autocomplete="street-address">
+          <label class="form-l">Calle<span class="req-b">REQ</span></label>
+          <input class="inp" id="v-calle" placeholder="Ej. Calle Cedro" autocomplete="address-line1">
+        </div>
+        <div class="si12 form-g" id="numero-group" style="display:none;">
+          <label class="form-l">Número<span class="req-b">REQ</span></label>
+          <input class="inp" id="v-numero" placeholder="Ej. 42" inputmode="numeric" autocomplete="address-line2">
           <div class="form-h">🔒 Solo visible para ti — nunca se comparte sin tu permiso</div>
         </div>
 
@@ -4337,9 +4341,14 @@ function onZona(z){
   const fh=document.getElementById('frac-hint');
   ab.classList.remove('show');
   cg.style.display='none';
-  // Limpiar calle al cambiar zona — valor real del input, no solo display
+  // Ocultar y limpiar número
+  const ng=document.getElementById('numero-group');
+  if(ng)ng.style.display='none';
+  // Limpiar calle y número
   const ci=document.getElementById('v-calle');
-  if(ci){ci.value='';}
+  if(ci)ci.value='';
+  const ni=document.getElementById('v-numero');
+  if(ni)ni.value='';
   // Limpiar fraccionamiento nuevo
   const fn=document.getElementById('frac-nuevo-inp');
   if(fn)fn.value='';
@@ -4372,10 +4381,28 @@ function onZona(z){
 function onFrac(v){
   const ab=document.getElementById('agregar-box');
   const cg=document.getElementById('calle-group');
+  const ng=document.getElementById('numero-group');
   const ci=document.getElementById('v-calle');
-  if(v==='agregar'){ab.classList.add('show');cg.style.display='block';if(ci)ci.value='';}
-  else if(v){ab.classList.remove('show');cg.style.display='block';if(ci)ci.value='';}
-  else{ab.classList.remove('show');cg.style.display='none';if(ci)ci.value='';}
+  const ni=document.getElementById('v-numero');
+  if(v==='agregar'){
+    ab.classList.add('show');
+    if(cg)cg.style.display='block';
+    if(ng)ng.style.display='block';
+    if(ci)ci.value='';
+    if(ni)ni.value='';
+  } else if(v){
+    ab.classList.remove('show');
+    if(cg)cg.style.display='block';
+    if(ng)ng.style.display='block';
+    if(ci)ci.value='';
+    if(ni)ni.value='';
+  } else {
+    ab.classList.remove('show');
+    if(cg)cg.style.display='none';
+    if(ng)ng.style.display='none';
+    if(ci)ci.value='';
+    if(ni)ni.value='';
+  }
 }
 
 /* CATEGORÍA NEGOCIO */
