@@ -744,17 +744,18 @@
     else if (!/^[0-9]{8,15}$/.test(_numLimpio))          errores.push('WhatsApp: entre 8 y 15 dígitos, solo números');
     if (!pass1 || pass1.length < 6)                      errores.push('Contraseña: mínimo 6 números');
     else if (pass1 !== pass2)                             errores.push('Las contraseñas no coinciden');
-    // Validación condicional según campos visibles
+    // Validación condicional — basada en selects, no en display
     const _zona = document.getElementById('zona-sel')?.value || '';
     const _frac = document.getElementById('frac-sel')?.value || '';
-    const _calleVisible = document.getElementById('calle-group')?.style.display !== 'none';
     if (!_zona) {
       errores.push('Selecciona tu zona');
     } else if (!_frac) {
       errores.push('Selecciona tu fraccionamiento');
-    } else if (_calleVisible) {
-      if (!calle)                    errores.push('Escribe tu calle y número');
-      else if (!/[0-9]/.test(calle)) errores.push('Calle y número: incluye el número (ej. Calle Cedro 42)');
+    } else {
+      // Zona y fraccionamiento completos — validar calle
+      if (!calle)             errores.push('Escribe tu calle y número');
+      else if (!/[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(calle)) errores.push('Escribe la calle (ej. Calle Cedro 42)');
+      else if (!/[0-9]/.test(calle))                    errores.push('Escribe el número (ej. Calle Cedro 42)');
     }
     if (!todosChecks(['v-chk1','v-chk2']))                errores.push('Acepta los Términos y Condiciones');
 
@@ -1940,7 +1941,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
           <input class="inp" id="frac-nuevo-inp" placeholder="Nombre del fraccionamiento">
           <div class="form-h" style="margin-top:6px;">Lo verificaremos y lo agregamos para todos.</div>
         </div>
-        <div class="si12 form-g" id="calle-group">
+        <div class="si12 form-g" id="calle-group" style="display:none;">
           <label class="form-l">Calle y número<span class="req-b">REQ</span></label>
           <input class="inp" id="v-calle" placeholder="Ej. Calle Cedro #42" autocomplete="street-address">
           <div class="form-h">🔒 Solo visible para ti — nunca se comparte sin tu permiso</div>
@@ -4336,11 +4337,14 @@ function onZona(z){
   const fh=document.getElementById('frac-hint');
   ab.classList.remove('show');
   cg.style.display='none';
-  // Limpiar calle al cambiar zona
+  // Limpiar calle al cambiar zona — valor real del input, no solo display
   const ci=document.getElementById('v-calle');
-  if(ci)ci.value='';
-  // Resetear fraccionamiento
-  if(fs)fs.value='';
+  if(ci){ci.value='';}
+  // Limpiar fraccionamiento nuevo
+  const fn=document.getElementById('frac-nuevo-inp');
+  if(fn)fn.value='';
+  // Resetear fraccionamiento select
+  if(fs){fs.selectedIndex=0;}
   if(!z){fg.style.display='none';return;}
   fg.style.display='block';
   fs.innerHTML='<option value="">Selecciona tu fraccionamiento...</option>';
