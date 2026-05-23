@@ -670,6 +670,7 @@
     if (!b) return;
     b.textContent = txt; b.disabled = disabled;
   }
+  window.setBtn = setBtn; // exponer globalmente para onclick attrs
   function todosChecks(ids) {
     return ids.every(id => { const el=document.getElementById(id); return el && el.classList.contains('on'); });
   }
@@ -696,12 +697,22 @@
     const pass1   = document.getElementById('vp1').value;
     const pass2   = document.getElementById('vp2').value;
 
+    // Forzar minúsculas en usuario antes de validar
+    const usrEl = document.getElementById('v-usr');
+    if (usrEl) usrEl.value = usrEl.value.toLowerCase();
+    const usuarioFinal = (usrEl ? usrEl.value : usuario).trim();
+
+    // Leer prefijo + número de WhatsApp
+    const _prefijo = (document.getElementById('v-tel-prefijo')?.value || '+52').replace('-CA','');
+    const _numLimpio = tel.replace(/[^0-9]/g,'');
+    const _telCompleto = _prefijo + _numLimpio;
+
     // Campos obligatorios
-    if (!nombre||!usuario||!correo||!tel||!pass1)
+    if (!nombre||!usuarioFinal||!correo||!_numLimpio||!pass1)
       return showMsg('v-firebase-msg','⚠️ Llena todos los campos obligatorios','error');
 
     // Usuario: solo a-z 0-9 _ -
-    if (!/^[a-z0-9_-]+$/.test(usuario))
+    if (!/^[a-z0-9_-]+$/.test(usuarioFinal))
       return showMsg('v-firebase-msg','⚠️ Usuario: solo letras minúsculas, números, _ y -','error');
 
     // Correo: formato válido
@@ -709,16 +720,13 @@
     if (_correoErr)
       return showMsg('v-firebase-msg', _correoErr, 'error');
 
-    // WhatsApp: 8-15 dígitos
-    const _telLimpio = tel.replace(/[\s\-\(\)]/g,'');
-    if (!/^\+?[0-9]{8,15}$/.test(_telLimpio))
-      return showMsg('v-firebase-msg','⚠️ WhatsApp: solo números, entre 8 y 15 dígitos. Puedes incluir +52','error');
+    // WhatsApp: 8-15 dígitos (sin prefijo)
+    if (!/^[0-9]{8,15}$/.test(_numLimpio))
+      return showMsg('v-firebase-msg','⚠️ WhatsApp: entre 8 y 15 dígitos, solo números','error');
 
-    // Contraseña: mín 6 chars, al menos 1 letra y 1 número
+    // Contraseña: mínimo 6 caracteres (solo números permitidos)
     if (pass1.length < 6)
-      return showMsg('v-firebase-msg','🔐 La contraseña debe tener mínimo 6 caracteres','error');
-    if (!/[a-zA-Z]/.test(pass1) || !/[0-9]/.test(pass1))
-      return showMsg('v-firebase-msg','🔐 La contraseña debe tener al menos una letra y un número','error');
+      return showMsg('v-firebase-msg','🔐 La contraseña debe tener mínimo 6 números','error');
     if (pass1 !== pass2)
       return showMsg('v-firebase-msg','❌ Las contraseñas no coinciden','error');
 
@@ -730,7 +738,9 @@
     try {
       const cred = await createUserWithEmailAndPassword(auth, correo, pass1);
       await setDoc(doc(db,'usuarios',cred.user.uid),{
-        nombre, usuario, correo, telefono:_telLimpio, tipo:'vecino',
+        nombre, usuario:usuarioFinal, correo,
+        prefijoWhatsapp:_prefijo, telefono:_numLimpio,
+        whatsapp:_telCompleto, tipo:'vecino',
         zona: document.getElementById('zona-sel')?.value||'',
         fraccionamiento: (function(){
           const sel = document.getElementById('frac-sel')?.value||'';
@@ -1849,15 +1859,27 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         </div>
         <div class="form-g">
           <label class="form-l">WhatsApp<span class="req-b">REQ</span></label>
-          <input class="inp" type="tel" id="v-tel" placeholder="+52 81 1234 5678" oninput="vTelInput(this)">
-          <div id="v-tel-st" class="form-h"></div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="v-tel-prefijo" class="sel" style="width:90px;flex-shrink:0;padding:10px 8px;font-size:13px;">
+              <option value="+52">🇲🇽 +52</option>
+              <option value="+1">🇺🇸 +1</option>
+              <option value="+1-CA">🇨🇦 +1</option>
+              <option value="+34">🇪🇸 +34</option>
+              <option value="+57">🇨🇴 +57</option>
+              <option value="+54">🇦🇷 +54</option>
+              <option value="+55">🇧🇷 +55</option>
+            </select>
+            <input class="inp" type="tel" id="v-tel" placeholder="8112345678" oninput="vTelInput(this)" style="flex:1;" autocomplete="off">
+          </div>
+          <div id="v-tel-st" class="form-h">Solo dígitos, sin espacios ni guiones</div>
         </div>
         <div class="form-g">
           <label class="form-l">Contraseña<span class="req-b">REQ</span></label>
           <div class="pass-w">
-            <input class="inp inp-pass" type="password" id="vp1" placeholder="Mínimo 6 caracteres, letras y números" oninput="checkPass('vp1','vp2','vp-m')">
+            <input class="inp inp-pass" type="password" id="vp1" placeholder="Mínimo 6 números" oninput="checkPass('vp1','vp2','vp-m')" inputmode="numeric">
             <button class="pass-eye" onclick="togglePass('vp1',this)">👁️</button>
           </div>
+          <div class="form-h">🔐 Usa mínimo 6 números como contraseña</div>
         </div>
         <div class="form-g">
           <label class="form-l">Confirmar contraseña<span class="req-b">REQ</span></label>
@@ -4173,12 +4195,14 @@ function sugerirUsr(v){
 
 // Campo usuario: forzar minúsculas y caracteres válidos
 function vUsrInput(el){
+  const original=el.value;
   let v=el.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
-  el.value=v;
+  el.value=v; // fuerza minúsculas y limpia caracteres no válidos
   const s=document.getElementById('v-usr-st');
   if(!v){s.textContent='Solo letras minúsculas, números, _ y -';s.style.color='#aaa';return;}
+  const hint=original!==v?' (convertido a minúsculas)':'';
   if(usedUsr.includes(v)){s.innerHTML='❌ "'+v+'" ya existe — prueba otro';s.style.color='#D63A2A';}
-  else{s.innerHTML='✅ "'+v+'" disponible';s.style.color='#1FC26A';}
+  else{s.innerHTML='✅ "'+v+'" disponible'+hint;s.style.color='#1FC26A';}
 }
 
 // Validar correo — devuelve mensaje de error o ''
@@ -4211,14 +4235,14 @@ function vCorreoInput(el){
 
 // Limpiar y validar teléfono en tiempo real
 function vTelInput(el){
+  // Solo dígitos — sin prefijo (el prefijo está en el select)
+  el.value=el.value.replace(/[^0-9]/g,'');
   const s=document.getElementById('v-tel-st');
-  // Permitir solo +, números, espacios y guiones mientras escribe
-  el.value=el.value.replace(/[^0-9+\s\-]/g,'');
   if(!s)return;
-  const limpio=el.value.replace(/[\s\-]/g,'');
-  if(!el.value){s.textContent='';return;}
-  if(!/^\+?[0-9]{8,15}$/.test(limpio)){
-    s.innerHTML='<span style="color:#D63A2A;">⚠️ Entre 8 y 15 dígitos. Puedes incluir +52</span>';
+  const n=el.value.length;
+  if(!el.value){s.textContent='Solo dígitos, sin espacios ni guiones';s.style.color='#aaa';return;}
+  if(n<8||n>15){
+    s.innerHTML='<span style="color:#D63A2A;">⚠️ Entre 8 y 15 dígitos</span>';
   } else {
     s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';
   }
