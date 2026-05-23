@@ -1,16 +1,16 @@
 // ============================================================
-// reportes.js — Fase 1
+// reportes.js — Fase 1 (v3)
 // Dominio Cumbres AppServis
 // Funciones: publicarReporte, cargarMisReportes,
 //            cargarReportesDisponibles, verDetalleReporte
 // ------------------------------------------------------------
-// Depende de: firebase.js (window._fbAuth, window._fbDb)
-// NO modifica: chat viejo, firebase.js, reglas Firestore
+// Depende de: firebase.js  →  window._fbAuth, window._fbDb
+// NO modifica: chat, login, firebase.js, style.css, reglas
 // ============================================================
 
 // ── Constantes ──────────────────────────────────────────────
 
-const DC_MAX_POSTULANTES = 4; // Límite máximo de proveedores por reporte
+const DC_MAX_POSTULANTES = 4;
 
 const DC_CATEGORIAS = {
   plomero:      { ic: '💧', label: 'Plomería' },
@@ -34,7 +34,10 @@ const DC_ESTADOS_LABEL = {
   cancelado:    { label: 'Cancelado',  color: '#D63A2A', bg: '#FDECEA' }
 };
 
-// ── Helper: esperar Firebase ─────────────────────────────────
+// Tipos que se consideran proveedor de servicio
+const DC_TIPOS_PROVEEDOR = ['proveedor', 'transporte', 'negocio'];
+
+// ── Helpers ─────────────────────────────────────────────────
 
 async function _esperarFirebase() {
   let tries = 0;
@@ -45,66 +48,109 @@ async function _esperarFirebase() {
   return !!(window._fbDb && window._fbAuth);
 }
 
-// ── Helper: ID único para reporte ───────────────────────────
-
 function _generarReporteId() {
   const ts  = Date.now().toString(36);
   const rnd = Math.random().toString(36).slice(2, 7);
   return 'rep_' + ts + '_' + rnd;
 }
 
-// ── Helper: formatear fecha ──────────────────────────────────
-
 function _formatFecha(isoStr) {
   if (!isoStr) return '';
   const d = new Date(isoStr);
-  return d.toLocaleDateString('es-MX', {
-    day: '2-digit', month: 'short', year: 'numeric'
-  });
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-
-// ── Helper: render badge de estado ──────────────────────────
 
 function _badgeEstado(estado) {
   const e = DC_ESTADOS_LABEL[estado] || DC_ESTADOS_LABEL.publicado;
-  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
-    background:${e.bg};color:${e.color};">${e.label}</span>`;
+  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${e.bg};color:${e.color};">${e.label}</span>`;
 }
 
-// ── Helper: render indicador de postulantes ──────────────────
-
 function _badgePostulantes(total) {
-  const resta = DC_MAX_POSTULANTES - total;
-  const color  = total >= DC_MAX_POSTULANTES ? '#D63A2A' : '#1A7AB5';
-  const bg     = total >= DC_MAX_POSTULANTES ? '#FDECEA' : '#E8F0F8';
-  const texto  = total >= DC_MAX_POSTULANTES
-    ? '🔒 Completo (4/4)'
-    : `👷 ${total}/${DC_MAX_POSTULANTES} postulantes`;
-  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
-    background:${bg};color:${color};">${texto}</span>`;
+  const lleno  = total >= DC_MAX_POSTULANTES;
+  const color  = lleno ? '#D63A2A' : '#1A7AB5';
+  const bg     = lleno ? '#FDECEA' : '#E8F0F8';
+  const texto  = lleno ? '🔒 Completo (4/4)' : `👷 ${total}/${DC_MAX_POSTULANTES} postulantes`;
+  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${bg};color:${color};">${texto}</span>`;
+}
+
+// Lee el perfil del usuario desde Firestore — sin caché para garantizar frescura
+async function _leerPerfil(uid) {
+  const { getDoc, doc } = await import(
+    'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js'
+  );
+  const snap = await getDoc(doc(window._fbDb, 'usuarios', uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+// Devuelve true si el tipo corresponde a proveedor de servicios
+function _esProveedor(tipo) {
+  return DC_TIPOS_PROVEEDOR.includes(tipo);
+}
+
+// Devuelve array de categorías del proveedor
+// Soporta: categorias[] (nuevo) o categoria (legado)
+function _categoriasDeProveedor(perfil) {
+  if (!perfil) return [];
+  if (Array.isArray(perfil.categorias) && perfil.categorias.length > 0) {
+    return perfil.categorias.map(c => c.toLowerCase().trim());
+  }
+  if (perfil.categoria) {
+    return [perfil.categoria.toLowerCase().trim()];
+  }
+  return [];
+}
+
+// ── Redirigir si el rol no corresponde ──────────────────────
+
+function _redirigirSiRolIncorrecto(tipoEsperado, perfil) {
+  const tipo = perfil ? (perfil.tipo || 'vecino') : 'vecino';
+  if (tipoEsperado === 'vecino' && _esProveedor(tipo)) {
+    // Proveedor intentando entrar a vista de vecino
+    alert('Esta sección es solo para residentes.');
+    if (typeof go === 'function') go('v-reportes-disponibles', 'right');
+    setTimeout(() => window.cargarReportesDisponibles && window.cargarReportesDisponibles(), 300);
+    return true;
+  }
+  if (tipoEsperado === 'proveedor' && !_esProveedor(tipo)) {
+    // Vecino intentando entrar a vista de proveedor
+    alert('Esta sección es solo para proveedores.');
+    if (typeof go === 'function') go('v-solicitud-nueva', 'right');
+    return true;
+  }
+  return false;
 }
 
 // ============================================================
 // 1. publicarReporte()
-// Guarda un nuevo reporte en Firestore (colección: reportes)
-// Llamar desde el formulario de la vista v-solicitud-nueva
+// Solo residentes (tipo vecino). Lee zona del perfil.
 // ============================================================
 
 window.publicarReporte = async function() {
   const listo = await _esperarFirebase();
   if (!listo || !window._fbAuth.currentUser) {
-    alert('Debes iniciar sesión para publicar un reporte.');
+    alert('Debes iniciar sesión para publicar una solicitud.');
     return;
   }
 
-  // Leer campos del formulario
+  const uid    = window._fbAuth.currentUser.uid;
+  const perfil = await _leerPerfil(uid);
+
+  // Bloquear a proveedores
+  if (perfil && _esProveedor(perfil.tipo)) {
+    alert('Solo los residentes pueden publicar solicitudes.');
+    return;
+  }
+
   const categoria   = document.getElementById('sol-categoria')?.value?.trim() || '';
   const descripcion = document.getElementById('sol-descripcion')?.value?.trim() || '';
   const referencia  = document.getElementById('sol-referencia')?.value?.trim() || '';
 
   if (!categoria || !descripcion) {
     const errEl = document.getElementById('sol-error');
-    if (errEl) { errEl.textContent = '⚠️ Selecciona categoría y escribe una descripción.'; errEl.style.display = 'block'; }
+    if (errEl) {
+      errEl.textContent = '⚠️ Selecciona categoría y escribe una descripción.';
+      errEl.style.display = 'block';
+    }
     return;
   }
 
@@ -113,9 +159,13 @@ window.publicarReporte = async function() {
   if (errEl) errEl.style.display = 'none';
   if (btnEl) { btnEl.textContent = 'Publicando... ⏳'; btnEl.disabled = true; }
 
-  const user    = window._fbAuth.currentUser;
-  const nombre  = localStorage.getItem('dcuser') || user.email || 'Vecino';
-  const reporteId = _generarReporteId();
+  // Zona del perfil — automática, el usuario no la escribe
+  const zonaAutomatica = perfil
+    ? (perfil.fraccionamiento || perfil.zona || '')
+    : '';
+
+  const nombre     = perfil ? (perfil.nombre || perfil.usuario || '') : (localStorage.getItem('dcuser') || '');
+  const reporteId  = _generarReporteId();
 
   try {
     const { setDoc, doc } = await import(
@@ -123,39 +173,43 @@ window.publicarReporte = async function() {
     );
 
     await setDoc(doc(window._fbDb, 'reportes', reporteId), {
-      vecinoId:       user.uid,
-      vecinoNombre:   nombre,
+      vecinoId:             uid,
+      vecinoNombre:         nombre,
       categoria,
       descripcion,
-      referencia,
-      estado:         'publicado',
-      postulantes:    [],           // array de proveedorId — max DC_MAX_POSTULANTES
-      totalPostulantes: 0,
+      referencia,               // escrita por el usuario: "cerca de caseta", etc.
+      zona:                 zonaAutomatica, // tomada del perfil, sin intervención del usuario
+      estado:               'publicado',
+      postulantes:          [],
+      totalPostulantes:     0,
       proveedorContratadoId: null,
-      imagenUrl:      '',           // se agrega en fases futuras
-      fechaCreacion:  new Date().toISOString(),
-      fechaActualizacion: new Date().toISOString()
+      imagenUrl:            '',
+      fechaCreacion:        new Date().toISOString(),
+      fechaActualizacion:   new Date().toISOString()
     });
 
-    // Éxito: limpiar y navegar
     if (btnEl) { btnEl.textContent = 'Publicar solicitud →'; btnEl.disabled = false; }
-    document.getElementById('sol-categoria').value    = '';
-    document.getElementById('sol-descripcion').value  = '';
-    if (document.getElementById('sol-referencia')) document.getElementById('sol-referencia').value = '';
+    document.getElementById('sol-categoria').value   = '';
+    document.getElementById('sol-descripcion').value = '';
+    const refEl = document.getElementById('sol-referencia');
+    if (refEl) refEl.value = '';
 
     if (typeof go === 'function') go('v-solicitud-enviada', 'right');
 
   } catch (e) {
     console.error('publicarReporte error:', e.message);
-    if (errEl) { errEl.textContent = '❌ Error al publicar: ' + e.message; errEl.style.display = 'block'; }
+    if (errEl) {
+      errEl.textContent = '❌ Error al publicar: ' + e.message;
+      errEl.style.display = 'block';
+    }
     if (btnEl) { btnEl.textContent = 'Publicar solicitud →'; btnEl.disabled = false; }
   }
 };
 
 // ============================================================
 // 2. cargarMisReportes()
-// Carga los reportes del vecino autenticado
-// Destino: elemento con id="mis-reportes-lista"
+// Solo residentes. Filtra en cliente, sin where() para evitar
+// cualquier requisito de índice en Firestore.
 // ============================================================
 
 window.cargarMisReportes = async function() {
@@ -166,7 +220,16 @@ window.cargarMisReportes = async function() {
 
   const listo = await _esperarFirebase();
   if (!listo || !window._fbAuth.currentUser) {
-    contenedor.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:var(--text-muted);">Inicia sesión para ver tus reportes.</div>';
+    contenedor.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:var(--text-muted);">Inicia sesión para ver tus solicitudes.</div>';
+    return;
+  }
+
+  const uid    = window._fbAuth.currentUser.uid;
+  const perfil = await _leerPerfil(uid);
+
+  // Proveedor no debe ver esta vista
+  if (perfil && _esProveedor(perfil.tipo)) {
+    contenedor.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:var(--text-muted);">Esta sección es solo para residentes.</div>';
     return;
   }
 
@@ -175,8 +238,7 @@ window.cargarMisReportes = async function() {
       'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js'
     );
 
-    const uid = window._fbAuth.currentUser.uid;
-    // Sin where() — filtramos en cliente para evitar cualquier requisito de índice
+    // Sin where() — filtra en cliente para evitar requisitos de índice
     const snap = await getDocs(collection(window._fbDb, 'reportes'));
 
     const _docs = [];
@@ -192,7 +254,7 @@ window.cargarMisReportes = async function() {
           <div style="font-size:36px;margin-bottom:10px;">📋</div>
           <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Sin solicitudes aún</div>
           <div style="font-size:11px;color:var(--text-muted);line-height:1.5;">
-            Publica tu primera solicitud de servicio y proveedores verificados te contactarán.
+            Publica tu primera solicitud de servicio<br>y proveedores verificados te contactarán.
           </div>
         </div>`;
       return;
@@ -200,8 +262,7 @@ window.cargarMisReportes = async function() {
 
     contenedor.innerHTML = '';
     _docs.forEach(r => {
-      const id  = r.id;
-      const cat = DC_CATEGORIAS[r.categoria] || DC_CATEGORIAS.otro;
+      const cat  = DC_CATEGORIAS[r.categoria] || DC_CATEGORIAS.otro;
       const card = document.createElement('div');
       card.className = 'prov-card';
       card.style.cursor = 'pointer';
@@ -221,7 +282,7 @@ window.cargarMisReportes = async function() {
           ${_badgePostulantes(r.totalPostulantes || 0)}
           ${r.referencia ? `<span style="font-size:10px;color:var(--text-muted);">📍 ${r.referencia}</span>` : ''}
         </div>`;
-      card.onclick = () => window.verDetalleReporte(id, r);
+      card.onclick = () => window.verDetalleReporte(r.id, r);
       contenedor.appendChild(card);
     });
 
@@ -233,9 +294,9 @@ window.cargarMisReportes = async function() {
 
 // ============================================================
 // 3. cargarReportesDisponibles()
-// Para el proveedor: carga reportes publicados de su categoría
-// Destino: elemento con id="reportes-disponibles-lista"
-// RESPETA el límite DC_MAX_POSTULANTES visualmente
+// Solo proveedores. Filtra por categoría(s) del proveedor.
+// Sin filtro de zona — ve solicitudes de todo el fraccionamiento.
+// Soporta: categoria (legado) y categorias[] (nuevo).
 // ============================================================
 
 window.cargarReportesDisponibles = async function() {
@@ -250,42 +311,57 @@ window.cargarReportesDisponibles = async function() {
     return;
   }
 
+  const uid    = window._fbAuth.currentUser.uid;
+  const perfil = await _leerPerfil(uid);
+
+  // Vecinos no deben ver esta vista
+  if (perfil && !_esProveedor(perfil.tipo)) {
+    contenedor.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:var(--text-muted);">Esta sección es solo para proveedores.</div>';
+    return;
+  }
+
+  // Categorías del proveedor — soporta legado y nuevo formato
+  const categoriasProveedor = _categoriasDeProveedor(perfil);
+
   try {
-    const { getDocs, collection, query, where } = await import(
+    const { getDocs, collection } = await import(
       'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js'
     );
 
-    // Leer categoría del proveedor autenticado
-    const { getDoc, doc } = await import(
-      'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js'
-    );
-    const uid        = window._fbAuth.currentUser.uid;
-    const userSnap   = await getDoc(doc(window._fbDb, 'usuarios', uid));
-    const categoriaProv = userSnap.exists() ? (userSnap.data().categoria || '') : '';
+    // Sin where() para evitar requisitos de índice
+    const snap = await getDocs(collection(window._fbDb, 'reportes'));
 
-    // Query: reportes publicados o en_cotizacion (puede recibir más postulantes)
-    const q = query(
-      collection(window._fbDb, 'reportes'),
-      where('estado', 'in', ['publicado', 'en_cotizacion'])
-    );
-    const snap = await getDocs(q);
-
-    // Filtrar y ordenar en cliente (evita índice compuesto en Firestore)
     const docs = [];
     snap.forEach(docSnap => {
       const r = docSnap.data();
-      if (categoriaProv && r.categoria !== categoriaProv) return;
+
+      // Solo reportes activos (publicado o en cotización)
+      if (r.estado !== 'publicado' && r.estado !== 'en_cotizacion') return;
+
+      // Filtrar por categoría del proveedor
+      // Si el proveedor no tiene categoría definida, ve todas
+      if (categoriasProveedor.length > 0) {
+        const catReporte = (r.categoria || '').toLowerCase().trim();
+        if (!categoriasProveedor.includes(catReporte)) return;
+      }
+
+      // NO filtrar por zona — proveedor ve solicitudes de todo el fraccionamiento
+
       docs.push({ id: docSnap.id, ...r });
     });
     docs.sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
 
     if (docs.length === 0) {
+      const msgCat = categoriasProveedor.length > 0
+        ? `de ${categoriasProveedor.join(', ')}`
+        : '';
       contenedor.innerHTML = `
         <div style="text-align:center;padding:30px 20px;">
           <div style="font-size:36px;margin-bottom:10px;">📋</div>
           <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Sin solicitudes activas</div>
           <div style="font-size:11px;color:var(--text-muted);line-height:1.5;">
-            No hay solicitudes de tu categoría en este momento.<br>Cuando un vecino publique una, aparecerá aquí.
+            No hay solicitudes ${msgCat} en este momento.<br>
+            Cuando un residente publique una, aparecerá aquí.
           </div>
         </div>`;
       return;
@@ -293,14 +369,14 @@ window.cargarReportesDisponibles = async function() {
 
     contenedor.innerHTML = '';
     docs.forEach(r => {
-      const cat      = DC_CATEGORIAS[r.categoria] || DC_CATEGORIAS.otro;
-      const lleno    = (r.totalPostulantes || 0) >= DC_MAX_POSTULANTES;
+      const cat         = DC_CATEGORIAS[r.categoria] || DC_CATEGORIAS.otro;
+      const lleno       = (r.totalPostulantes || 0) >= DC_MAX_POSTULANTES;
       const yaPostulado = Array.isArray(r.postulantes) && r.postulantes.includes(uid);
 
       const card = document.createElement('div');
-      card.className = 'prov-card';
+      card.className   = 'prov-card';
       card.style.opacity = lleno ? '0.65' : '1';
-      card.style.cursor  = lleno ? 'default' : 'pointer';
+      card.style.cursor  = (lleno || yaPostulado) ? 'default' : 'pointer';
       card.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div style="display:flex;gap:10px;align-items:center;flex:1;">
@@ -318,7 +394,7 @@ window.cargarReportesDisponibles = async function() {
             ? `<span style="font-size:11px;font-weight:700;color:#1A7AB5;padding:7px 14px;border-radius:10px;background:#E8F0F8;">✓ Ya postulado</span>`
             : lleno
               ? `<span style="font-size:11px;font-weight:700;color:#D63A2A;padding:7px 14px;border-radius:10px;background:#FDECEA;">🔒 Sin cupo</span>`
-              : `<button onclick="window.verDetalleReporte('${r.id}', null)" style="background:var(--green);color:#fff;border:none;border-radius:10px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Ver solicitud →</button>`
+              : `<button onclick="event.stopPropagation();window.verDetalleReporte('${r.id}',null)" style="background:var(--green);color:#fff;border:none;border-radius:10px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Ver solicitud →</button>`
           }
         </div>`;
       if (!lleno && !yaPostulado) {
@@ -335,23 +411,17 @@ window.cargarReportesDisponibles = async function() {
 
 // ============================================================
 // 4. verDetalleReporte(reporteId, datosOpcionales)
-// Navega a la vista v-reporte-detalle y rellena sus campos
-// datosOpcionales: si ya tenemos el objeto del doc, lo usamos
-//                  para evitar una lectura extra de Firestore
 // ============================================================
 
 window.verDetalleReporte = async function(reporteId, datos) {
-  // Guardar ID en memoria para que las fases siguientes lo usen
   window._reporteActualId = reporteId;
 
-  // Si ya tenemos los datos, renderizar directo
   if (datos) {
     _renderDetalleReporte(reporteId, datos);
     if (typeof go === 'function') go('v-reporte-detalle', 'right');
     return;
   }
 
-  // Si no, leer de Firestore
   const listo = await _esperarFirebase();
   if (!listo) return;
 
@@ -372,32 +442,26 @@ function _renderDetalleReporte(id, r) {
   const cat = DC_CATEGORIAS[r.categoria] || DC_CATEGORIAS.otro;
   const uid = window._fbAuth?.currentUser?.uid || '';
 
-  // Ícono y categoría
-  const elIc  = document.getElementById('det-rep-ic');
-  const elCat = document.getElementById('det-rep-categoria');
-  const elFecha = document.getElementById('det-rep-fecha');
-  const elDesc  = document.getElementById('det-rep-descripcion');
-  const elRef   = document.getElementById('det-rep-zona');
-  const elEstado = document.getElementById('det-rep-estado');
-  const elPostulantes = document.getElementById('det-rep-postulantes');
+  const set = (elId, val) => {
+    const el = document.getElementById(elId);
+    if (el) el.innerHTML = val;
+  };
+
+  set('det-rep-ic',          cat.ic);
+  set('det-rep-categoria',   cat.label);
+  set('det-rep-fecha',       _formatFecha(r.fechaCreacion));
+  set('det-rep-descripcion', r.descripcion || '');
+  set('det-rep-zona',        r.referencia ? '📍 ' + r.referencia : '');
+  set('det-rep-estado',      _badgeEstado(r.estado));
+  set('det-rep-postulantes', _badgePostulantes(r.totalPostulantes || 0));
+
   const elAccion = document.getElementById('det-rep-accion');
-
-  if (elIc)          elIc.textContent  = cat.ic;
-  if (elCat)         elCat.textContent = cat.label;
-  if (elFecha)       elFecha.textContent = _formatFecha(r.fechaCreacion);
-  if (elDesc)        elDesc.textContent = r.descripcion || '';
-  if (elRef)         elRef.textContent  = r.referencia ? '📍 ' + r.referencia : '';
-  if (elEstado)      elEstado.innerHTML = _badgeEstado(r.estado);
-  if (elPostulantes) elPostulantes.innerHTML = _badgePostulantes(r.totalPostulantes || 0);
-
-  // Botón de acción: diferente para vecino vs proveedor
   if (elAccion) {
-    const esVecino = r.vecinoId === uid;
-    const lleno    = (r.totalPostulantes || 0) >= DC_MAX_POSTULANTES;
+    const esVecino    = r.vecinoId === uid;
+    const lleno       = (r.totalPostulantes || 0) >= DC_MAX_POSTULANTES;
     const yaPostulado = Array.isArray(r.postulantes) && r.postulantes.includes(uid);
 
     if (esVecino) {
-      // El vecino ve sus cotizaciones (Fase 2 implementará cargarCotizaciones)
       elAccion.innerHTML = `
         <div style="background:#E8F0F8;border-radius:12px;padding:10px 12px;font-size:11px;color:#1A7AB5;margin-top:8px;">
           💬 Los proveedores que se postulen aparecerán aquí en la siguiente actualización.
@@ -413,7 +477,6 @@ function _renderDetalleReporte(id, r) {
           🔒 Esta solicitud ya tiene ${DC_MAX_POSTULANTES} proveedores. No acepta más postulaciones.
         </div>`;
     } else {
-      // Proveedor puede postularse (Fase 2 implementará postularseAReporte)
       elAccion.innerHTML = `
         <div style="background:#E8F0F8;border-radius:12px;padding:10px 12px;font-size:11px;color:#1A7AB5;margin-top:8px;">
           ℹ️ La función de cotizar estará disponible en la próxima actualización.
@@ -422,9 +485,33 @@ function _renderDetalleReporte(id, r) {
   }
 }
 
-// ── Exponer constante para que otras fases la usen ───────────
-// Fases futuras (cotizaciones.js) deben importar este valor
-// para validar el límite antes de insertar en postulantes[]
+// ── Inicialización al cargar el formulario ───────────────────
+// Cuando el usuario entra a v-solicitud-nueva, precarga su zona del perfil
+// y bloquea la vista si es proveedor. Se llama desde data-onenter en el HTML.
+
+window.iniciarFormularioSolicitud = async function() {
+  const listo = await _esperarFirebase();
+  if (!listo || !window._fbAuth.currentUser) return;
+
+  const uid    = window._fbAuth.currentUser.uid;
+  const perfil = await _leerPerfil(uid);
+
+  // Redirigir a proveedor
+  if (perfil && _esProveedor(perfil.tipo)) {
+    if (typeof go === 'function') go('v-reportes-disponibles', 'right');
+    setTimeout(() => window.cargarReportesDisponibles && window.cargarReportesDisponibles(), 300);
+    return;
+  }
+
+  // Mostrar zona del perfil como referencia informativa (no editable)
+  const zonaEl = document.getElementById('sol-zona-perfil');
+  if (zonaEl && perfil) {
+    const z = perfil.fraccionamiento || perfil.zona || '';
+    zonaEl.textContent = z ? `📍 Fraccionamiento: ${z}` : '';
+  }
+};
+
+// ── Exponer constante para Fase 2 ───────────────────────────
 window.DC_MAX_POSTULANTES = DC_MAX_POSTULANTES;
 
-console.log('[reportes.js] Cargado — límite de postulantes:', DC_MAX_POSTULANTES);
+console.log('[reportes.js] v3 cargado — límite postulantes:', DC_MAX_POSTULANTES);

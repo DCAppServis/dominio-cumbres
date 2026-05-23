@@ -2713,7 +2713,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
   Acceso:   go('v-solicitud-nueva','right')
   Volver:   go('v-home','left')  o la vista desde donde vengas
   ══════════════════════════════════════════════════════════ -->
-<div class="view go-right" id="v-solicitud-nueva">
+<div class="view go-right" id="v-solicitud-nueva" data-onenter="iniciarFormularioSolicitud">
   <div style="background:linear-gradient(135deg,#0A4220,#1FC26A);padding:12px 18px 18px;flex-shrink:0;">
     <div class="sbar dk"><span>9:41</span><span>▲</span></div>
     <div class="si07">
@@ -2758,7 +2758,10 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         style="resize:none;"></textarea>
     </div>
 
-    <!-- Zona (opcional) -->
+    <!-- Zona automática del perfil (solo lectura) -->
+    <div id="sol-zona-perfil" style="font-size:11px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:#f5f6f0;border-radius:8px;min-height:22px;"></div>
+
+    <!-- Referencia opcional que escribe el usuario -->
     <div class="form-g">
       <label class="form-l" for="sol-referencia">Referencia o ubicación aproximada (opcional)</label>
       <input class="inp" id="sol-referencia" type="text"
