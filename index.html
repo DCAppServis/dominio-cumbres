@@ -2507,7 +2507,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         </div>
       </div>
       <div style="padding:8px 14px 4px;background:linear-gradient(135deg,#0A4220,#062a14);">
-        <button onclick="(function(){var t=localStorage.getItem('dcuserTipo')||'vecino';if(t==='proveedor'||t==='transporte'||t==='negocio'){go('v-reportes-disponibles','right');setTimeout(function(){window.cargarReportesDisponibles&&window.cargarReportesDisponibles();},300);}else{go('v-solicitud-nueva','right');}})()" id="btn-solicitud-rol" style="width:100%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:11px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;text-align:left;display:flex;align-items:center;gap:8px;">&#128203; <span id="btn-solicitud-label">Publicar solicitud de servicio</span><span style="margin-left:auto;opacity:.6;">&rarr;</span></button>
+        <button onclick="window.irASolicitudes&&window.irASolicitudes()" id="btn-solicitud-rol" style="width:100%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:11px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;text-align:left;display:flex;align-items:center;gap:8px;">&#128203; <span id="btn-solicitud-label">Publicar solicitud de servicio</span><span style="margin-left:auto;opacity:.6;">&rarr;</span></button>
       </div>
       <div class="cat-grid">
         <div class="cat-item" onclick="setCatS(this)"><div class="si25 cat-ic on">🔧</div><div class="cat-nm on">Todos</div></div>
@@ -2804,7 +2804,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       Podrás chatear con cada uno antes de contratar.
     </div>
     <button class="btn btn-green"
-      onclick="go('v-mis-reportes','right');setTimeout(()=>window.cargarMisReportes&&window.cargarMisReportes(),300);">
+      onclick="window.irASolicitudes&&window.irASolicitudes()">
       Ver mis solicitudes →
     </button>
     <button class="btn" style="background:var(--white-12);color:#fff;margin-top:8px;"
@@ -2854,7 +2854,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)">
       <div class="ni-ic">💬</div><div class="ni-lb">Chats</div>
     </div>
-    <div class="ni" onclick="go('v-mis-reportes','right');setTimeout(()=>window.cargarMisReportes&&window.cargarMisReportes(),300);">
+    <div class="ni" onclick="window.irASolicitudes&&window.irASolicitudes()">
       <div class="ni-ic">📋</div><div class="ni-lb" style="color:var(--green);">Solicitudes</div>
     </div>
     <div class="ni" onclick="go('v-mipanel','right')">
@@ -2897,7 +2897,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)">
       <div class="ni-ic">💬</div><div class="ni-lb">Chats</div>
     </div>
-    <div class="ni" onclick="go('v-reportes-disponibles','right');setTimeout(()=>window.cargarReportesDisponibles&&window.cargarReportesDisponibles(),300);">
+    <div class="ni" onclick="window.irASolicitudes&&window.irASolicitudes()">
       <div class="ni-ic">📋</div><div class="ni-lb" style="color:var(--green);">Solicitudes</div>
     </div>
     <div class="ni" onclick="go('v-mipanel','right')">
@@ -3960,13 +3960,7 @@ function _goCore(id,dir){
         else if(intentos<20){setTimeout(()=>intentarCargar(intentos+1),300);}
       };
       setTimeout(()=>intentarCargar(0),200);
-      var _tipo=localStorage.getItem('dcuserTipo')||'vecino';
-      var _lbl=document.getElementById('btn-solicitud-label');
-      if(_lbl){
-        _lbl.textContent=(_tipo==='proveedor'||_tipo==='transporte'||_tipo==='negocio')
-          ?'Ver solicitudes de clientes'
-          :'Publicar solicitud de servicio';
-      }
+      window.actualizarBtnSolicitudRol && window.actualizarBtnSolicitudRol();
     }
     if(id==='v-food')setTimeout(()=>window.cargarRestaurantes&&window.cargarRestaurantes(),200);
     if(id==='v-plaza')setTimeout(()=>window.cargarPlaza&&window.cargarPlaza(),200);

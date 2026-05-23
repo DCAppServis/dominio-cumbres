@@ -159,10 +159,8 @@ window.publicarReporte = async function() {
   if (errEl) errEl.style.display = 'none';
   if (btnEl) { btnEl.textContent = 'Publicando... ⏳'; btnEl.disabled = true; }
 
-  // Zona del perfil — automática, el usuario no la escribe
-  const zonaAutomatica = perfil
-    ? (perfil.fraccionamiento || perfil.zona || '')
-    : '';
+  // Zona del perfil — solo el campo zona, no fraccionamiento
+  const zonaAutomatica = perfil ? (perfil.zona || '') : '';
 
   const nombre     = perfil ? (perfil.nombre || perfil.usuario || '') : (localStorage.getItem('dcuser') || '');
   const reporteId  = _generarReporteId();
@@ -506,9 +504,35 @@ window.iniciarFormularioSolicitud = async function() {
   // Mostrar zona del perfil como referencia informativa (no editable)
   const zonaEl = document.getElementById('sol-zona-perfil');
   if (zonaEl && perfil) {
-    const z = perfil.fraccionamiento || perfil.zona || '';
-    zonaEl.textContent = z ? `📍 Fraccionamiento: ${z}` : '';
+    const z = perfil ? (perfil.zona || '') : '';
+    zonaEl.textContent = z ? `📍 Zona: ${z}` : '';
   }
+};
+
+// ── Función central de enrutamiento por rol ─────────────────
+// Todos los botones de navegación en el HTML deben llamar esta
+// función en lugar de go() directo. Lee dcuserTipo de localStorage
+// (seteado en login) como fuente rápida; el guard en cada vista
+// confirma contra Firestore como segunda línea.
+window.irASolicitudes = function() {
+  const t = localStorage.getItem('dcuserTipo') || 'vecino';
+  if (t === 'proveedor' || t === 'transporte' || t === 'negocio') {
+    if (typeof go === 'function') go('v-reportes-disponibles', 'right');
+    setTimeout(() => window.cargarReportesDisponibles && window.cargarReportesDisponibles(), 300);
+  } else {
+    if (typeof go === 'function') go('v-mis-reportes', 'right');
+    setTimeout(() => window.cargarMisReportes && window.cargarMisReportes(), 300);
+  }
+};
+
+// Actualiza el label del botón en v-servicios según el rol
+window.actualizarBtnSolicitudRol = function() {
+  const t   = localStorage.getItem('dcuserTipo') || 'vecino';
+  const lbl = document.getElementById('btn-solicitud-label');
+  if (!lbl) return;
+  lbl.textContent = (t === 'proveedor' || t === 'transporte' || t === 'negocio')
+    ? 'Ver solicitudes de clientes'
+    : 'Publicar solicitud de servicio';
 };
 
 // ── Exponer constante para Fase 2 ───────────────────────────
