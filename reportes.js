@@ -91,11 +91,15 @@ function _esProveedor(tipo) {
 // Soporta: categorias[] (nuevo) o categoria (legado)
 function _categoriasDeProveedor(perfil) {
   if (!perfil) return [];
+  // Preferir categorias[] si existe y tiene datos
   if (Array.isArray(perfil.categorias) && perfil.categorias.length > 0) {
-    return perfil.categorias.map(c => c.toLowerCase().trim());
+    return perfil.categorias
+      .map(c => String(c).toLowerCase().trim())
+      .filter(c => c.length > 0);
   }
-  if (perfil.categoria) {
-    return [perfil.categoria.toLowerCase().trim()];
+  // Fallback a campo categoria (string)
+  if (perfil.categoria && String(perfil.categoria).trim().length > 0) {
+    return [String(perfil.categoria).toLowerCase().trim()];
   }
   return [];
 }
@@ -321,6 +325,11 @@ window.cargarReportesDisponibles = async function() {
   // Categorías del proveedor — soporta legado y nuevo formato
   const categoriasProveedor = _categoriasDeProveedor(perfil);
 
+  // Log para diagnóstico — visible en consola del navegador
+  console.log('[reportes] perfil.categoria:', perfil && perfil.categoria);
+  console.log('[reportes] perfil.categorias:', perfil && perfil.categorias);
+  console.log('[reportes] categoriasProveedor resueltas:', categoriasProveedor);
+
   // Sin categoría configurada → error explícito, no mostrar todo
   if (categoriasProveedor.length === 0) {
     contenedor.innerHTML = `
@@ -512,12 +521,15 @@ window.iniciarFormularioSolicitud = async function() {
     return;
   }
 
-  // Mostrar zona del perfil — solo perfil.zona, sin fraccionamiento
+  // Mostrar zona del perfil — SOLO perfil.zona, sin fallback a fraccionamiento
   const zonaEl = document.getElementById('sol-zona-perfil');
   if (zonaEl) {
-    const z = perfil ? (perfil.zona || '') : '';
-    zonaEl.textContent = z ? `📍 Zona: ${z}` : '📍 Zona no definida en tu perfil';
-    zonaEl.style.color = z ? 'var(--text-muted)' : '#D63A2A';
+    const z = (perfil && perfil.zona) ? String(perfil.zona).trim() : '';
+    if (z) {
+      zonaEl.innerHTML = `<span style="font-size:13px;font-weight:700;color:var(--text-primary);">📍 Zona: ${z}</span>`;
+    } else {
+      zonaEl.innerHTML = '<span style="font-size:12px;color:#D63A2A;">📍 Zona no definida en tu perfil</span>';
+    }
   }
 };
 
@@ -532,8 +544,7 @@ window.irASolicitudes = function() {
     if (typeof go === 'function') go('v-reportes-disponibles', 'right');
     setTimeout(() => window.cargarReportesDisponibles && window.cargarReportesDisponibles(), 300);
   } else {
-    if (typeof go === 'function') go('v-mis-reportes', 'right');
-    setTimeout(() => window.cargarMisReportes && window.cargarMisReportes(), 300);
+    if (typeof go === 'function') go('v-solicitud-nueva', 'right');
   }
 };
 
