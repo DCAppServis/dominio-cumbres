@@ -524,14 +524,12 @@ window.iniciarFormularioSolicitud = async function() {
   // Mostrar zona del perfil — SOLO perfil.zona, sin fallback a fraccionamiento
   const zonaEl = document.getElementById('sol-zona-perfil');
   if (zonaEl) {
-    // Usar perfil.zona exacto — capitalizar solo para visualización, sin tocar Firestore
+    // Mostrar perfil.zona tal cual — sin transformaciones
     const z = (perfil && perfil.zona) ? String(perfil.zona).trim() : '';
-    const zDisplay = z ? z.replace(/\b\w/g, c => c.toUpperCase()) : '';
     if (z) {
-      zonaEl.innerHTML = '<span style="font-size:10px;font-weight:700;color:#2E7D32;text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:4px;">📍 Zona de servicio</span>'
-        + `<span style="font-size:15px;font-weight:700;color:#1a1a1a;">${zDisplay}</span>`;
+      zonaEl.innerHTML = `<span style="font-size:11px;color:#555;display:block;margin-bottom:2px;">Zona</span><span style="font-size:14px;font-weight:700;color:#1a1a1a;">📍 ${z}</span>`;
     } else {
-      zonaEl.innerHTML = '<span style="font-size:12px;color:#c0392b;font-weight:600;">📍 Zona no definida en tu perfil</span>';
+      zonaEl.innerHTML = '<span style="font-size:12px;color:#888;">📍 Zona no definida en tu perfil</span>';
     }
   }
 };
