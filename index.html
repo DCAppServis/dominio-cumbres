@@ -821,12 +821,18 @@
 
   // ─── REGISTRO PROVEEDOR ─────────────────────────────────
   // ── Modal de errores proveedor ──────────────────────────────
+  window._cerrarModalErrProv = function(){
+    var b=document.getElementById('btn-reg-prov');
+    if(b){b.textContent='Enviar solicitud →';b.disabled=false;}
+    var m=document.getElementById('modal-errores-p');
+    if(m)m.style.display='none';
+  };
   function mostrarErroresProv(errores) {
     const lista = errores.map(e => '<li style="padding:3px 0;">'+e+'</li>').join('');
     const html = '<div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:12px;">⚠️ Corrige lo siguiente</div>'
       + '<ul style="padding-left:18px;font-size:13px;color:#444;line-height:1.8;margin-bottom:16px;">'+lista+'</ul>'
-      + '<button onclick="(function(){var b=document.getElementById('btn-reg-prov');if(b){b.textContent='Enviar solicitud →';b.disabled=false;}document.getElementById('modal-errores-p').style.display='none';})()" '
-      + 'style="width:100%;background:#F5C518;color:#1a1a1a;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Entendido</button>';
+      + '<button onclick="window._cerrarModalErrProv()" '
+      + 'style="width:100%;background:#F5C518;color:#1a1a1a;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">Entendido</button>';
     const ya = document.getElementById('modal-errores-p');
     if (ya) { ya.querySelector('.modal-ep-body').innerHTML = html; ya.style.display='flex'; return; }
     const m = document.createElement('div');
@@ -839,8 +845,8 @@
 
   window.registrarProv = async function() {
     // ── Leer campos ──────────────────────────────────────────
-    const nombre      = (document.getElementById('p-nombre')?.value||'').trim()
-                          .toLowerCase().replace(/\w/g, c=>c.toUpperCase());
+    const _nomRawP    = (document.getElementById('p-nombre')?.value||'').trim();
+    const nombre      = _nomRawP.toLowerCase().replace(/\b\w/g, c=>c.toUpperCase());
     const usrEl       = document.getElementById('p-usr');
     if(usrEl) usrEl.value = usrEl.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
     const usuario     = (usrEl?.value||'').trim();
@@ -856,8 +862,7 @@
     const otroDesc    = (document.getElementById('p-otro-desc')?.value||'').trim();
     const oficiosExtra= (document.getElementById('p-oficios-extra')?.value||'').trim();
     const descripcion = (document.getElementById('p-descripcion')?.value||'').trim();
-    const precioRaw   = (document.getElementById('p-precio')?.value||'').trim();
-    const precio      = precioRaw ? Number(precioRaw) : null;
+    // precio eliminado del formulario
     const experiencia = document.getElementById('p-experiencia')?.value||'';
     const calle       = (document.getElementById('p-calle')?.value||'').trim();
     const numeroProv  = (document.getElementById('p-numero-prov')?.value||'').trim();
@@ -907,7 +912,7 @@
         oficio1, oficio2: oficio2||null, oficio3: oficio3||null,
         otroDesc: oficio1==='otro'||oficio2==='otro'||oficio3==='otro' ? otroDesc : '',
         oficiosExtra,
-        descripcion, precio,
+        descripcion,
         experiencia,
         calle, numero: numeroProv, colonia,
         calificacion: null, totalCalificaciones: 0,
@@ -2073,7 +2078,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <div class="back-row"><button class="btn-back" onclick="go('v-role','left')">&#x2039;</button><div><div class="hdr-title">Registro &middot; Proveedor</div><div class="hdr-sub">Revisi&oacute;n manual 24-48 hrs</div></div></div>
       </div>
       <div class="si27 scroll">
-        <div class="info-box" style="background:#FFF8E1;color:var(--amber-dark);">&#128269; Revisaremos tu perfil antes de activarlo. Te avisamos por WhatsApp.<br><span style="font-size:10px;color:var(--yellow-text);">&#128236; La solicitud llega al administrador de Dominio Cumbres AppServis para revisi&oacute;n manual.</span></div>
+        <div class="info-box" style="background:#FFF8E1;color:var(--amber-dark);">&#128269; Revisaremos tu perfil antes de activarlo. Te avisaremos dentro de la app o por los medios registrados.<br><span style="font-size:10px;color:var(--yellow-text);">&#128236; La solicitud llega al administrador de Dominio Cumbres AppServis para revisi&oacute;n manual.</span></div>
 
         <div class="sec-div">Datos personales</div>
         <div class="form-g"><label class="form-l">Nombre completo<span class="req-b">REQ</span></label><input class="inp" id="p-nombre" placeholder="Como aparece en tu INE" autocomplete="off" autocorrect="off" spellcheck="false" oninput="pNombreInput(this)"></div>
@@ -2150,11 +2155,6 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
           <label class="form-l">Descripci&oacute;n / especialidad<span class="req-b">REQ</span></label>
           <textarea class="inp" id="p-descripcion" rows="3" placeholder="Cu&eacute;ntanos tu experiencia, especialidad y en qu&eacute; destacas (m&iacute;nimo 20 caracteres)..." style="resize:none;" oninput="pDescInput(this)"></textarea>
           <div id="p-desc-st" class="form-h"></div>
-        </div>
-        <div class="form-g">
-          <label class="form-l">Precio desde<span class="opt-b">OPC</span></label>
-          <input class="inp" id="p-precio" type="number" min="0" placeholder="300" inputmode="numeric">
-          <div class="form-h">Solo el n&uacute;mero &mdash; en pesos MXN</div>
         </div>
         <div class="form-g">
           <label class="form-l">A&ntilde;os de experiencia<span class="req-b">REQ</span></label>
