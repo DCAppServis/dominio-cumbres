@@ -5913,17 +5913,25 @@ function showAdminTab(i,btn){
     }
 
     const nomSafe = (u.nombre||u.nombreNegocio||'').replace(/'/g,'');
+    const _esRechazado = u.estado === 'rechazado';
+    const _esPend      = u.estado === 'pendiente_revision';
+    // Botones de acción según estado
+    let acciones = '';
+    if (_esPend) {
+      acciones =
+        '<div style="display:flex;gap:8px;margin-top:16px;">'
+        +'<button onclick="aprobarUsuario(\''+uid+'\',\''+u.correo+'\',' +JSON.stringify(nomSafe)+',\''+u.tipo+'\');document.getElementById(\'modal-detalle-admin\').style.display=\'none\'" '
+        +'style="flex:1;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">✅ Aprobar</button>'
+        +'<button onclick="window._abrirModalRechazo(\''+uid+'\',\''+u.correo+'\',\''+nomSafe+'\')" '
+        +'style="flex:1;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">❌ Rechazar</button>'
+        +'</div>';
+    }
+    // Cerrar siempre visible
+    acciones += '<button onclick="document.getElementById(\'modal-detalle-admin\').style.display=\'none\'" '
+      +'style="width:100%;margin-top:8px;background:#f0f0f0;color:#555;border:none;border-radius:12px;padding:11px;font-size:13px;cursor:pointer;font-family:\'Inter\',sans-serif;">Cerrar</button>';
     const html =
       `<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">${u.nombre||u.nombreNegocio||'—'}</div>`
-      + campos
-      + `<div style="display:flex;gap:8px;margin-top:16px;">`
-      + `<button onclick="aprobarUsuario('${uid}','${u.correo||''}','${nomSafe}','${u.tipo||''}');document.getElementById('modal-detalle-admin').style.display='none';" `
-      + `style="flex:1;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✅ Aprobar</button>`
-      + `<button onclick="window._abrirModalRechazo('${uid}','${u.correo||''}','${nomSafe}')" `
-      + `style="flex:1;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">❌ Rechazar</button>`
-      + `</div>`
-      + `<button onclick="document.getElementById('modal-detalle-admin').style.display='none'" `
-      + `style="width:100%;margin-top:8px;background:#f0f0f0;color:#555;border:none;border-radius:12px;padding:11px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;">Cancelar</button>`;
+      + campos + acciones;
 
     const ya = document.getElementById('modal-detalle-admin');
     if (ya) { ya.querySelector('.mda-body').innerHTML = html; ya.style.display='flex'; return; }
