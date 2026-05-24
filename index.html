@@ -1176,22 +1176,25 @@
         const datos = snap.data();
         setNombre(datos.nombre || datos.nombreNegocio || correoLogin);
 
-        // Guardar tipo en memoria para que otros paneles lo usen
+        // Normalizar estado para evitar errores por espacios, mayúsculas o undefined
+        const estado = String(datos.estado || '').trim().toLowerCase();
+
+        // Guardar tipo y estado normalizados en localStorage
         localStorage.setItem('dcuserTipo', datos.tipo || 'vecino');
-        localStorage.setItem('dcuserEstado', datos.estado || '');
+        localStorage.setItem('dcuserEstado', estado);
 
         if (datos.tipo === 'vecino') {
           go('v-home','right');
         } else if (datos.tipo === 'proveedor' || datos.tipo === 'transporte' || datos.tipo === 'negocio') {
-          if (datos.estado === 'pendiente_revision') {
+          if (estado === 'pendiente_revision') {
             go('v-espera-revision','right');
-          } else if (datos.estado === 'aprobado_pendiente_pago') {
+          } else if (estado === 'aprobado_pendiente_pago') {
             go('v-espera-pago','right');
-          } else if (datos.estado === 'suspendido') {
+          } else if (estado === 'suspendido') {
             go('v-cuenta-suspendida','right');
-          } else if (datos.estado === 'rechazado') {
+          } else if (estado === 'rechazado') {
             go('v-espera-revision','right');
-          } else if (datos.estado === 'activo') {
+          } else if (estado === 'activo') {
             go('v-home','right');
             setTimeout(() => {
               if('Notification' in window) Notification.requestPermission();
@@ -5391,4 +5394,3 @@ function showAdminTab(i,btn){
 
 </body>
 </html>
-          
