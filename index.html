@@ -820,39 +820,107 @@
   };
 
   // ─── REGISTRO PROVEEDOR ─────────────────────────────────
+  // ── Modal de errores proveedor ──────────────────────────────
+  function mostrarErroresProv(errores) {
+    const lista = errores.map(e => '<li style="padding:3px 0;">'+e+'</li>').join('');
+    const html = '<div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:12px;">⚠️ Corrige lo siguiente</div>'
+      + '<ul style="padding-left:18px;font-size:13px;color:#444;line-height:1.8;margin-bottom:16px;">'+lista+'</ul>'
+      + '<button onclick="(function(){var b=document.getElementById('btn-reg-prov');if(b){b.textContent='Enviar solicitud →';b.disabled=false;}document.getElementById('modal-errores-p').style.display='none';})()" '
+      + 'style="width:100%;background:#F5C518;color:#1a1a1a;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Entendido</button>';
+    const ya = document.getElementById('modal-errores-p');
+    if (ya) { ya.querySelector('.modal-ep-body').innerHTML = html; ya.style.display='flex'; return; }
+    const m = document.createElement('div');
+    m.id = 'modal-errores-p';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:flex-end;justify-content:center;';
+    m.innerHTML = '<div class="modal-ep-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;max-height:70vh;overflow-y:auto;">'+html+'</div>';
+    m.addEventListener('click', e => { if(e.target===m) m.style.display='none'; });
+    document.body.appendChild(m);
+  }
+
   window.registrarProv = async function() {
-    const nombre    = document.getElementById('p-nombre').value.trim();
-    const usuario   = document.getElementById('p-usr').value.trim();
-    const correo    = document.getElementById('p-correo').value.trim();
-    const tel       = document.getElementById('p-tel').value.trim();
-    const categoria = (document.getElementById('p-categoria')||{}).value || '';
-    const pass1   = document.getElementById('pp1').value;
-    const pass2   = document.getElementById('pp2').value;
+    // ── Leer campos ──────────────────────────────────────────
+    const nombre      = (document.getElementById('p-nombre')?.value||'').trim()
+                          .toLowerCase().replace(/\w/g, c=>c.toUpperCase());
+    const usrEl       = document.getElementById('p-usr');
+    if(usrEl) usrEl.value = usrEl.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+    const usuario     = (usrEl?.value||'').trim();
+    const correo      = (document.getElementById('p-correo')?.value||'').trim();
+    const _pref       = (document.getElementById('p-tel-prefijo')?.value||'+52').replace('-CA','');
+    const _numP       = (document.getElementById('p-tel')?.value||'').replace(/[^0-9]/g,'');
+    const whatsapp    = _pref + _numP;
+    const pass1       = document.getElementById('pp1')?.value||'';
+    const pass2       = document.getElementById('pp2')?.value||'';
+    const oficio1     = document.getElementById('p-oficio1')?.value||'';
+    const oficio2     = document.getElementById('p-oficio2')?.value||'';
+    const oficio3     = document.getElementById('p-oficio3')?.value||'';
+    const otroDesc    = (document.getElementById('p-otro-desc')?.value||'').trim();
+    const oficiosExtra= (document.getElementById('p-oficios-extra')?.value||'').trim();
+    const descripcion = (document.getElementById('p-descripcion')?.value||'').trim();
+    const precioRaw   = (document.getElementById('p-precio')?.value||'').trim();
+    const precio      = precioRaw ? Number(precioRaw) : null;
+    const experiencia = document.getElementById('p-experiencia')?.value||'';
+    const calle       = (document.getElementById('p-calle')?.value||'').trim();
+    const numeroProv  = (document.getElementById('p-numero-prov')?.value||'').trim();
+    const colonia     = (document.getElementById('p-colonia')?.value||'').trim();
 
-    if (!nombre||!usuario||!correo||!tel||!pass1)
-      return showMsg('p-firebase-msg','⚠️ Llena todos los campos obligatorios','error');
-    if (pass1 !== pass2)
-      return showMsg('p-firebase-msg','❌ Las contraseñas no coinciden','error');
-    if (!todosChecks(['p-chk1','p-chk2','p-chk3']))
-      return showMsg('p-firebase-msg','☑️ Debes aceptar todos los acuerdos para continuar','warn');
+    // ── Recolectar errores ───────────────────────────────────
+    const errores = [];
+    if (!nombre)       errores.push('Escribe tu nombre completo');
+    if (!usuario)      errores.push('Escribe un nombre de usuario');
+    else if (!/^[a-z0-9_-]+$/.test(usuario)) errores.push('Usuario: solo minúsculas, números, _ y -');
+    const _cerrP = vValidarCorreo(correo);
+    if (_cerrP) errores.push(_cerrP.replace(/^[📧⚠️]\s*/,''));
+    // WhatsApp
+    const _waR = {'+52':10,'+1':10,'+34':9,'+57':10};
+    const _waM = {'+52':'WhatsApp México debe tener 10 dígitos','+1':'WhatsApp USA/Canadá debe tener 10 dígitos','+34':'WhatsApp España debe tener 9 dígitos','+57':'WhatsApp Colombia debe tener 10 dígitos'};
+    if (!_numP) errores.push('Escribe tu número de WhatsApp');
+    else if (_waR[_pref] ? _numP.length!==_waR[_pref] : !/^[0-9]{8,15}$/.test(_numP))
+      errores.push(_waM[_pref]||'WhatsApp debe tener entre 8 y 15 dígitos');
+    // Contraseña
+    if (!pass1||pass1.length<6) errores.push('Contraseña: mínimo 6 números');
+    else if (pass1!==pass2)     errores.push('Las contraseñas no coinciden');
+    // Oficio
+    if (!oficio1) errores.push('Selecciona tu oficio principal');
+    if (oficio1==='otro'&&!otroDesc) errores.push('Describe tu servicio (selección: Otro)');
+    // Descripción mínimo 20 chars
+    if (!descripcion||descripcion.length<20) errores.push('Descripción: mínimo 20 caracteres');
+    // Experiencia
+    if (!experiencia) errores.push('Selecciona tus años de experiencia');
+    // Dirección
+    if (!calle)      errores.push('Escribe tu calle');
+    if (!numeroProv) errores.push('Escribe tu número');
+    // Checks — ahora son 4
+    if (!todosChecks(['p-chk1','p-chk2','p-chk3','p-chk4']))
+      errores.push('Acepta todos los acuerdos para continuar');
 
-    // Fotos son opcionales al registro — se pueden agregar desde perfil
-    // (INE se solicita pero no bloquea si no está disponible al momento)
+    if (errores.length > 0) { mostrarErroresProv(errores); return; }
 
+    // ── Crear cuenta ─────────────────────────────────────────
     setBtn('btn-reg-prov','Enviando... ⏳',true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, correo, pass1);
       await setDoc(doc(db,'usuarios',cred.user.uid),{
-        nombre, usuario, correo, telefono:tel, tipo:'proveedor', categoria,
-        estado:'pendiente_revision', creadoEn: new Date().toISOString()
+        nombre, usuario, correo,
+        prefijoWhatsapp: _pref, telefono: _numP, whatsapp,
+        tipo: 'proveedor',
+        estado: 'pendiente_revision',
+        oficio1, oficio2: oficio2||null, oficio3: oficio3||null,
+        otroDesc: oficio1==='otro'||oficio2==='otro'||oficio3==='otro' ? otroDesc : '',
+        oficiosExtra,
+        descripcion, precio,
+        experiencia,
+        calle, numero: numeroProv, colonia,
+        calificacion: null, totalCalificaciones: 0,
+        creadoEn: new Date().toISOString()
       });
       notificarBienvenido(nombre, correo, 'proveedor');
-      notificarAdmin('Proveedor', nombre, correo, tel);
+      notificarAdmin('Proveedor', nombre, correo, whatsapp);
       setNombre(nombre);
       go('v-ok-rev','right');
     } catch(e) {
+      mostrarErroresProv([firebaseError(e.code)]);
+    } finally {
       setBtn('btn-reg-prov','Enviar solicitud →',false);
-      showMsg('p-firebase-msg', firebaseError(e.code), 'error');
     }
   };
 
@@ -970,6 +1038,7 @@
     ['v-nombre','v-usr','v-correo','v-tel','vp1','vp2','v-calle','v-numero',
      'p-nombre','p-usr','p-correo','p-tel','pp1','pp2',
      'r-nombre','r-usr','r-correo','r-tel','rp1','rp2',
+     'p-calle','p-numero-prov','p-colonia','p-descripcion','p-precio',
      'login-user','login-pass'
     ].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     // 7. Limpiar mensajes de error de formularios
@@ -1061,6 +1130,12 @@
           go('v-home','right');
         } else if (datos.tipo === 'proveedor' || datos.tipo === 'transporte' || datos.tipo === 'negocio') {
           if (datos.estado === 'pendiente_revision') {
+            go('v-espera-revision','right');
+          } else if (datos.estado === 'aprobado_pendiente_pago') {
+            go('v-espera-pago','right');
+          } else if (datos.estado === 'suspendido') {
+            go('v-cuenta-suspendida','right');
+          } else if (datos.estado === 'rechazado') {
             go('v-espera-revision','right');
           } else if (datos.estado === 'activo') {
             go('v-home','right');
@@ -1995,73 +2070,117 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 <div class="view go-right" id="v-reg-prov">
       <div class="hdr" style="background:linear-gradient(135deg,var(--amber-dark),#3a2200);">
         <div class="sbar dk"><span>9:41</span><span>▲</span></div>
-        <div class="back-row"><button class="btn-back" onclick="go('v-role','left')">‹</button><div><div class="hdr-title">Registro · Proveedor</div><div class="hdr-sub">Revisión manual 24-48 hrs</div></div></div>
+        <div class="back-row"><button class="btn-back" onclick="go('v-role','left')">&#x2039;</button><div><div class="hdr-title">Registro &middot; Proveedor</div><div class="hdr-sub">Revisi&oacute;n manual 24-48 hrs</div></div></div>
       </div>
       <div class="si27 scroll">
-        <div class="info-box" style="background:#FFF8E1;color:var(--amber-dark);">🔍 Revisaremos tu perfil antes de activarlo. Te avisamos por WhatsApp.<br><span style="font-size:10px;color:var(--yellow-text);">📬 La solicitud llega al administrador de Dominio Cumbres AppServis para revisión manual.</span></div>
+        <div class="info-box" style="background:#FFF8E1;color:var(--amber-dark);">&#128269; Revisaremos tu perfil antes de activarlo. Te avisamos por WhatsApp.<br><span style="font-size:10px;color:var(--yellow-text);">&#128236; La solicitud llega al administrador de Dominio Cumbres AppServis para revisi&oacute;n manual.</span></div>
+
         <div class="sec-div">Datos personales</div>
-        <div class="form-g"><label class="form-l">Nombre completo<span class="req-b">REQ</span></label><input class="inp" id="p-nombre" placeholder="Como aparece en tu INE"></div>
-        <div class="form-g"><label class="form-l">Usuario<span class="req-b">REQ</span></label><input class="inp" id="p-usr" placeholder="El que tú elijas"></div>
-        <div class="form-g"><label class="form-l">Correo<span class="req-b">REQ</span></label><input class="inp" id="p-correo" type="email" placeholder="tucorreo@ejemplo.com"></div>
-        <div class="form-g"><label class="form-l">WhatsApp<span class="req-b">REQ</span></label><input class="inp" id="p-tel" type="tel" placeholder="+52 81 1234 5678"></div>
+        <div class="form-g"><label class="form-l">Nombre completo<span class="req-b">REQ</span></label><input class="inp" id="p-nombre" placeholder="Como aparece en tu INE" autocomplete="off" autocorrect="off" spellcheck="false" oninput="pNombreInput(this)"></div>
+        <div class="form-g"><label class="form-l">Usuario<span class="req-b">REQ</span></label><input class="inp" id="p-usr" placeholder="El que t&uacute; elijas" autocomplete="off" oninput="pUsrInput(this)"><div id="p-usr-st" class="form-h"></div></div>
+        <div class="form-g"><label class="form-l">Correo<span class="req-b">REQ</span></label><input class="inp" type="email" id="p-correo" placeholder="tucorreo@ejemplo.com"></div>
+
         <div class="form-g">
-          <label class="form-l">Contraseña<span class="req-b">REQ</span></label>
-          <div class="pass-w"><input class="inp inp-pass" type="password" id="pp1" placeholder="Entre 4 y 8 caracteres"><button class="pass-eye" onclick="togglePass('pp1',this)">👁️</button></div>
+          <label class="form-l">WhatsApp<span class="req-b">REQ</span></label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="p-tel-prefijo" class="sel" style="width:90px;flex-shrink:0;padding:10px 8px;font-size:13px;" onchange="pTelInput(document.getElementById('p-tel'))">
+              <option value="+52">&#127474;&#127485; +52</option>
+              <option value="+1">&#127482;&#127480; +1</option>
+              <option value="+1-CA">&#127464;&#127462; +1</option>
+              <option value="+34">&#127466;&#127480; +34</option>
+              <option value="+57">&#127464;&#127476; +57</option>
+              <option value="+54">&#127462;&#127479; +54</option>
+              <option value="+55">&#127463;&#127479; +55</option>
+            </select>
+            <input class="inp" type="tel" id="p-tel" placeholder="8112345678" oninput="pTelInput(this)" style="flex:1;" autocomplete="off">
+          </div>
+          <div id="p-tel-st" class="form-h">Solo d&iacute;gitos, sin espacios ni guiones</div>
+        </div>
+
+        <div class="form-g">
+          <label class="form-l">Contrase&ntilde;a<span class="req-b">REQ</span></label>
+          <div class="pass-w"><input class="inp inp-pass" type="password" id="pp1" placeholder="M&iacute;nimo 6 n&uacute;meros" inputmode="numeric" oninput="checkPass('pp1','pp2','pp-m')"><button class="pass-eye" onclick="togglePass('pp1',this)">&#128065;&#65039;</button></div>
+          <div class="form-h">&#128272; Usa m&iacute;nimo 6 n&uacute;meros como contrase&ntilde;a</div>
         </div>
         <div class="form-g">
-          <label class="form-l">Confirmar contraseña<span class="req-b">REQ</span></label>
-          <div class="pass-w"><input class="inp inp-pass" type="password" id="pp2" placeholder="Repite" oninput="checkPass('pp1','pp2','pp-m')"><button class="pass-eye" onclick="togglePass('pp2',this)">👁️</button></div>
+          <label class="form-l">Confirmar contrase&ntilde;a<span class="req-b">REQ</span></label>
+          <div class="pass-w"><input class="inp inp-pass" type="password" id="pp2" placeholder="Repite" oninput="checkPass('pp1','pp2','pp-m')"><button class="pass-eye" onclick="togglePass('pp2',this)">&#128065;&#65039;</button></div>
           <div id="pp-m" class="form-h"></div>
         </div>
-        <div class="sec-div">Tu servicio</div>
+
+        <div class="sec-div">Tus oficios (m&aacute;x. 3)</div>
         <div class="form-g">
-          <label class="form-l">Categoría<span class="req-b">REQ</span></label>
-          <select class="sel" id="p-categoria">
-            <option value="">¿Qué servicio ofreces?</option>
-            <option value="plomero">🔧 Plomero</option>
-            <option value="electricista">⚡ Electricista</option>
-            <option value="jardinero">🌿 Jardinero</option>
-            <option value="limpieza">🧹 Limpieza del hogar</option>
-            <option value="albanileria">🏗️ Albañilería</option>
-            <option value="pintura">🎨 Pintura</option>
-            <option value="ac">❄️ Aire acondicionado</option>
-            <option value="cerrajero">🔒 Cerrajero</option>
-            <option value="mascotas">🐾 Cuidado de mascotas</option>
-            <option value="belleza">💆 Spa / Belleza a domicilio</option>
-            <option value="tecnologia">🖥️ Tecnología</option>
-            <option value="otro">Otro servicio</option>
+          <label class="form-l">Oficio principal<span class="req-b">REQ</span></label>
+          <select class="sel" id="p-oficio1" onchange="pOficioChange()">
+            <option value="">&iquest;Qu&eacute; servicio ofreces?</option>
+            <option value="plomero">&#128295; Plomero</option>
+            <option value="electricista">&#9889; Electricista</option>
+            <option value="jardinero">&#127807; Jardinero</option>
+            <option value="limpieza">&#129529; Limpieza del hogar</option>
+            <option value="albanileria">&#127959;&#65039; Alba&ntilde;iler&iacute;a</option>
+            <option value="pintura">&#127912; Pintura</option>
+            <option value="ac">&#10052;&#65039; Aire acondicionado</option>
+            <option value="cerrajero">&#128274; Cerrajero</option>
+            <option value="mascotas">&#128062; Cuidado de mascotas</option>
+            <option value="belleza">&#128134; Spa / Belleza a domicilio</option>
+            <option value="tecnologia">&#128421;&#65039; Tecnolog&iacute;a</option>
+            <option value="otro">&#128295; Otro servicio</option>
           </select>
         </div>
-        <div class="form-g"><label class="form-l">Descripción<span class="req-b">REQ</span></label><textarea class="inp" rows="3" placeholder="Tu experiencia y especialidad..." style="resize:none;"></textarea></div>
-        <div class="form-g"><label class="form-l">Precio desde<span class="opt-b">OPC</span></label><input class="inp" placeholder="Ej. Desde $300 la visita"></div>
-        <div class="sec-div">Verificación</div>
-        <div class="form-g">
-          <label class="form-l">INE frente y vuelta<span class="opt-b">OPC</span></label>
-          <div class="upload-box" onclick="document.getElementById('p-ine-input').click()">
-            <div class="si18">🪪</div>
-            <div class="si19" id="p-ine-label">Subir foto de INE (puedes hacerlo después)</div>
-          </div>
-          <input class="si35" type="file" id="p-ine-input" accept="image/*" onchange="document.getElementById('p-ine-label').textContent='✅ '+this.files[0].name">
-          <div class="si67">📌 Si no la tienes a la mano, podrás subirla desde tu perfil una vez dentro.</div>
+        <div class="form-g" id="p-oficio2-group" style="display:none;">
+          <label class="form-l">Segundo oficio<span class="opt-b">OPC</span></label>
+          <select class="sel" id="p-oficio2" onchange="pOficioChange()"><option value="">(ninguno)</option></select>
+        </div>
+        <div class="form-g" id="p-oficio3-group" style="display:none;">
+          <label class="form-l">Tercer oficio<span class="opt-b">OPC</span></label>
+          <select class="sel" id="p-oficio3" onchange="pOficioChange()"><option value="">(ninguno)</option></select>
+        </div>
+        <div class="form-g" id="p-otro-group" style="display:none;">
+          <label class="form-l">Describe tu servicio<span class="req-b">REQ</span></label>
+          <input class="inp" id="p-otro-desc" placeholder="Ej. Herrer&iacute;a, soldadura, cancel&eacute;r&iacute;a...">
+          <div class="form-h">Requerido cuando seleccionas &ldquo;Otro servicio&rdquo;</div>
         </div>
         <div class="form-g">
-          <label class="form-l">Fotos de trabajos previos<span class="opt-b">OPC</span></label>
-          <div class="upload-box" onclick="document.getElementById('p-fotos-input').click()">
-            <div class="si18">📸</div>
-            <div class="si19" id="p-fotos-label">Hasta 5 fotos — aumenta tu credibilidad</div>
-          </div>
-          <input class="si35" type="file" id="p-fotos-input" accept="image/*" multiple onchange="(function(f){var n=f.files.length;document.getElementById('p-fotos-label').textContent='✅ '+n+' foto'+(n>1?'s':'')+' seleccionada'+(n>1?'s':'');})(this)">
+          <label class="form-l">Oficios adicionales<span class="opt-b">OPC</span></label>
+          <textarea class="inp" id="p-oficios-extra" rows="2" placeholder="Ej. tambi&eacute;n hago impermeabilizaci&oacute;n, instalaci&oacute;n de tinacos..." style="resize:none;"></textarea>
+        </div>
+
+        <div class="sec-div">Tu experiencia</div>
+        <div class="form-g">
+          <label class="form-l">Descripci&oacute;n / especialidad<span class="req-b">REQ</span></label>
+          <textarea class="inp" id="p-descripcion" rows="3" placeholder="Cu&eacute;ntanos tu experiencia, especialidad y en qu&eacute; destacas (m&iacute;nimo 20 caracteres)..." style="resize:none;" oninput="pDescInput(this)"></textarea>
+          <div id="p-desc-st" class="form-h"></div>
         </div>
         <div class="form-g">
-          <label class="form-l">¿Has trabajado en zonas residenciales?<span class="req-b">REQ</span></label>
-          <select class="sel"><option>Sí, tengo experiencia</option><option>No pero quiero empezar</option></select>
+          <label class="form-l">Precio desde<span class="opt-b">OPC</span></label>
+          <input class="inp" id="p-precio" type="number" min="0" placeholder="300" inputmode="numeric">
+          <div class="form-h">Solo el n&uacute;mero &mdash; en pesos MXN</div>
         </div>
+        <div class="form-g">
+          <label class="form-l">A&ntilde;os de experiencia<span class="req-b">REQ</span></label>
+          <select class="sel" id="p-experiencia">
+            <option value="">Selecciona...</option>
+            <option value="0-1">Menos de 1 a&ntilde;o</option>
+            <option value="1-3">1 a 3 a&ntilde;os</option>
+            <option value="3-5">3 a 5 a&ntilde;os</option>
+            <option value="5+">M&aacute;s de 5 a&ntilde;os</option>
+          </select>
+        </div>
+
+        <div class="sec-div">Direcci&oacute;n de contacto</div>
+        <div class="info-box" style="background:#E8F5EE;color:#0A4220;margin-bottom:10px;">&#128274; Tu direcci&oacute;n es privada &mdash; solo la ver&aacute; el administrador de la app.</div>
+        <div class="form-g"><label class="form-l">Calle<span class="req-b">REQ</span></label><input class="inp" id="p-calle" placeholder="Ej. Calle Cedro" autocomplete="street-address"></div>
+        <div class="form-g"><label class="form-l">N&uacute;mero<span class="req-b">REQ</span></label><input class="inp" id="p-numero-prov" placeholder="Ej. 42" inputmode="numeric"></div>
+        <div class="form-g"><label class="form-l">Colonia / Fraccionamiento<span class="opt-b">OPC</span></label><input class="inp" id="p-colonia" placeholder="Ej. Cumbres Elite"></div>
+
         <div class="sec-div">Acuerdos importantes</div>
-        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="p-chk1"></div><div class="chk-txt">Toda negociación dentro del chat de la app. Negociar fuera = suspensión inmediata.</div></div>
-        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="p-chk2"></div><div class="chk-txt">Calificación menor a 3.0★ por 30 días = suspensión automática sin reembolso.</div></div>
-        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="p-chk3"></div><div class="chk-txt">Acepto los <strong class="si04">Términos y Condiciones</strong>.</div></div>
-        <button id="btn-reg-prov" class="btn btn-amber" style="margin-top:8px;" onclick="registrarProv()">Enviar solicitud →</button>
-        <div class="si66" id="p-firebase-msg"></div>
+        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="p-chk1"></div><div class="chk-txt">Toda negociaci&oacute;n dentro del chat de la app. Negociar fuera = suspensi&oacute;n inmediata.</div></div>
+        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="p-chk2"></div><div class="chk-txt">Acepto recibir notificaciones de nuevas solicitudes de clientes.</div></div>
+        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="p-chk3"></div><div class="chk-txt">Acepto los <strong class="si04">T&eacute;rminos y Condiciones</strong> de Dominio Cumbres AppServis.</div></div>
+        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="p-chk4"></div><div class="chk-txt">Toda la informaci&oacute;n que proporcion&eacute; es ver&iacute;dica. Informaci&oacute;n falsa = cancelaci&oacute;n inmediata.</div></div>
+
+        <button id="btn-reg-prov" class="btn btn-amber" style="margin-top:12px;" onclick="registrarProv()">Enviar solicitud &rarr;</button>
+        <div id="p-firebase-msg" style="margin-top:10px;font-size:12px;"></div>
         <div class="si34"></div>
       </div>
     </div>
@@ -2225,6 +2344,31 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
           <span style="font-size:11px;color:var(--white-30);">Mientras tanto no puedes acceder a la app.</span>
         </div>
         <button class="btn btn-yellow-ol" onclick="go('v-splash','left')">← Regresar al inicio</button>
+      </div>
+    </div>
+<div class="view go-right" id="v-espera-pago">
+      <div class="success-wrap">
+        <div class="success-ic" style="border-color:#F5C518;font-size:36px;">&#127881;</div>
+        <div class="si36">&iexcl;Tu perfil fue aprobado!</div>
+        <div style="font-size:12px;color:var(--white-50);text-align:center;line-height:1.8;margin-bottom:24px;">
+          Tu solicitud fue revisada y aprobada.<br>
+          Para aparecer en las b&uacute;squedas de residentes,<br>
+          <strong class="si04">completa tu pago de members&iacute;a.</strong><br><br>
+          <span style="font-size:11px;color:var(--white-30);">Te contactaremos por WhatsApp con los detalles.</span>
+        </div>
+        <button class="btn btn-yellow-ol" onclick="go('v-splash','left')">&#8592; Regresar al inicio</button>
+      </div>
+    </div>
+<div class="view go-right" id="v-cuenta-suspendida">
+      <div class="success-wrap">
+        <div class="success-ic" style="border-color:var(--red);font-size:36px;">&#128683;</div>
+        <div class="si36">Cuenta suspendida</div>
+        <div style="font-size:12px;color:var(--white-50);text-align:center;line-height:1.8;margin-bottom:24px;">
+          Tu cuenta ha sido suspendida temporalmente.<br>
+          Contacta al administrador para m&aacute;s informaci&oacute;n.<br><br>
+          <span style="font-size:11px;color:var(--white-30);">soporte@dominiocumbres.com</span>
+        </div>
+        <button class="btn" style="background:var(--white-12);color:#fff;" onclick="go('v-splash','left')">&#8592; Regresar al inicio</button>
       </div>
     </div>
 <div class="view go-right" id="v-ok-vecino">
@@ -4145,7 +4289,7 @@ function _goCore(id,dir){
     // Al entrar a cualquier vista de registro, limpiar checkboxes y formulario
     if(['v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz'].includes(id)){
       ['v-chk1','v-chk2',
-       'p-chk1','p-chk2','p-chk3',
+       'p-chk1','p-chk2','p-chk3','p-chk4',
        'r-chk1','r-chk2',
        'b-chk1','b-chk2','b-chk3'
       ].forEach(cid=>{
@@ -4255,6 +4399,93 @@ const usedUsr=['juanc','maria42','dominio1','vecino99'];
 function _toTitleCase(str){
   return str.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
 }
+// ── Helpers Registro Proveedor ──────────────────────────────
+const _P_OFICIOS = [
+  {v:'plomero',t:'Plomero'},{v:'electricista',t:'Electricista'},
+  {v:'jardinero',t:'Jardinero'},{v:'limpieza',t:'Limpieza del hogar'},
+  {v:'albanileria',t:'Albañilería'},{v:'pintura',t:'Pintura'},
+  {v:'ac',t:'Aire acondicionado'},{v:'cerrajero',t:'Cerrajero'},
+  {v:'mascotas',t:'Cuidado de mascotas'},{v:'belleza',t:'Spa / Belleza a domicilio'},
+  {v:'tecnologia',t:'Tecnología'},{v:'otro',t:'Otro servicio'}
+];
+
+function pNombreInput(el){
+  const pos=el.selectionStart;
+  el.value=el.value.toLowerCase().replace(/\w/g,c=>c.toUpperCase());
+  try{el.setSelectionRange(pos,pos);}catch(e){}
+}
+
+function pUsrInput(el){
+  el.value=el.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  const s=document.getElementById('p-usr-st');
+  if(!s)return;
+  if(!el.value){s.textContent='';return;}
+  s.innerHTML='<span style="color:#1FC26A;">✅ '+el.value+' disponible</span>';
+}
+
+function pTelInput(el){
+  if(!el)return;
+  el.value=el.value.replace(/[^0-9]/g,'');
+  const s=document.getElementById('p-tel-st');
+  if(!s)return;
+  const pref=(document.getElementById('p-tel-prefijo')?.value||'+52').replace('-CA','');
+  const reglas={'+52':10,'+1':10,'+34':9,'+57':10};
+  const msgs={'+52':'WhatsApp México debe tener 10 dígitos','+1':'WhatsApp USA/Canadá debe tener 10 dígitos','+34':'WhatsApp España debe tener 9 dígitos','+57':'WhatsApp Colombia debe tener 10 dígitos'};
+  const n=el.value.length;
+  if(!el.value){s.textContent='Solo dígitos, sin espacios ni guiones';s.style.color='#aaa';return;}
+  const req=reglas[pref];
+  if(req){
+    if(n!==req){s.innerHTML='<span style="color:#D63A2A;">⚠️ '+msgs[pref]+'</span>';}
+    else{s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';}
+  } else {
+    if(n<8||n>15){s.innerHTML='<span style="color:#D63A2A;">⚠️ Entre 8 y 15 dígitos</span>';}
+    else{s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';}
+  }
+}
+
+function pOficioChange(){
+  const v1=document.getElementById('p-oficio1')?.value||'';
+  const v2=document.getElementById('p-oficio2')?.value||'';
+  const v3=document.getElementById('p-oficio3')?.value||'';
+  const sel=[v1,v2,v3].filter(Boolean);
+
+  // Show/hide oficio2 when oficio1 is selected
+  const g2=document.getElementById('p-oficio2-group');
+  const g3=document.getElementById('p-oficio3-group');
+  if(g2) g2.style.display=v1?'block':'none';
+  if(g3) g3.style.display=(v1&&v2)?'block':'none';
+
+  // Rebuild oficio2 and oficio3 options excluding already-selected values
+  function _rebuild(selEl, excludeVals){
+    if(!selEl)return;
+    const cur=selEl.value;
+    selEl.innerHTML='<option value="">(ninguno)</option>';
+    _P_OFICIOS.forEach(o=>{
+      if(!excludeVals.includes(o.v)){
+        const opt=document.createElement('option');
+        opt.value=o.v;opt.textContent=o.t;
+        if(o.v===cur)opt.selected=true;
+        selEl.appendChild(opt);
+      }
+    });
+  }
+  _rebuild(document.getElementById('p-oficio2'),[v1]);
+  _rebuild(document.getElementById('p-oficio3'),[v1,v2]);
+
+  // Show/hide "otro" description field
+  const otroGroup=document.getElementById('p-otro-group');
+  if(otroGroup) otroGroup.style.display=(sel.includes('otro'))?'block':'none';
+}
+
+function pDescInput(el){
+  const s=document.getElementById('p-desc-st');
+  if(!s)return;
+  const n=el.value.trim().length;
+  if(!n){s.textContent='';return;}
+  if(n<20){s.innerHTML='<span style="color:#D63A2A;">⚠️ Mínimo 20 caracteres ('+n+'/20)</span>';}
+  else{s.innerHTML='<span style="color:#1FC26A;">✅ Descripción válida</span>';}
+}
+
 function vNombreInput(el){
   const pos=el.selectionStart;
   el.value=_toTitleCase(el.value);
