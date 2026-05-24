@@ -489,6 +489,12 @@
       const snap = await getDocs(collection(db, 'usuarios'));
       window._todosUsuarios = [];
       snap.forEach(d => { const u = d.data(); u._id = d.id; window._todosUsuarios.push(u); });
+      // Recalcular badge de pendientes en tiempo real
+      const _pend = window._todosUsuarios.filter(u => u.estado === 'pendiente_revision').length;
+      const _nb = document.getElementById('notif-solicitudes');
+      const _sc = document.getElementById('stat-pendientes-count');
+      if(_nb){ if(_pend>0){_nb.textContent=_pend;_nb.style.display='flex';}else{_nb.style.display='none';} }
+      if(_sc) _sc.textContent = _pend;
       if(window.aplicarFiltros) window.aplicarFiltros();
     } catch(e) {
       lista.innerHTML = '<div class="si60">Error: '+e.message+'</div>';
@@ -5084,6 +5090,8 @@ function showAdminTab(i,btn){
     err.style.display = 'none';
     window._adminRol = cuenta.rol;
     window._adminUsr = usr;
+    window._filtroMain = 'pendientes'; // iniciar siempre en pendientes
+    window._filtroSub = 'todos';
     cargarSolicitudes();
     // Show loading then go to panel
     showLoading();
@@ -5309,9 +5317,8 @@ function showAdminTab(i,btn){
             <span style="font-size:10px;font-weight:700;color:${color};">${u.estado==='aprobado_pendiente_pago'?'PENDIENTE PAGO':(u.estado||'').toUpperCase()}</span>
           </div>
         </div>
-        ${esPendiente ? `<div style="display:flex;gap:8px;margin-top:8px;">
-          <button onclick="aprobarUsuario('${u._id}','${u.correo||''}','${(u.nombre||u.nombreNegocio||'').replace(/'/g,'')}','${u.tipo||''}')" style="flex:1;background:#1FC26A20;border:1px solid #1FC26A60;color:#1FC26A;border-radius:10px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✅ Aprobar</button>
-          <button onclick="rechazarUsuario('${u._id}','${u.correo||''}','${(u.nombre||u.nombreNegocio||'').replace(/'/g,'')}')" style="flex:1;background:#D63A2A20;border:1px solid #D63A2A60;color:#D63A2A;border-radius:10px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">❌ Rechazar</button>
+        ${esPendiente ? `<div style="margin-top:8px;">
+          <button onclick="window.verDetalleAdmin('${u._id}')" style="width:100%;background:#F5C51820;border:1px solid #F5C51860;color:#F5C518;border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">🔍 Revisar solicitud</button>
         </div>` : ''}
       `;
       lista.appendChild(div);
@@ -5339,6 +5346,75 @@ function showAdminTab(i,btn){
     } catch(e) {
       lista.innerHTML = `<div class="si60">Error: ${e.message}</div>`;
     }
+  };
+
+  // ── Modal de detalle admin ──────────────────────────────────
+  window.verDetalleAdmin = function(uid) {
+    const u = (window._todosUsuarios||[]).find(x => x._id === uid);
+    if (!u) return;
+    const fmt = v => v || '—';
+    const fecha = u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const esProv = u.tipo === 'proveedor';
+
+    // Build fields
+    let campos = '';
+    const row = (label, val) => val && val !== '—'
+      ? `<div style="margin-bottom:10px;"><div style="font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">${label}</div><div style="font-size:13px;color:#1a1a1a;font-weight:500;">${val}</div></div>`
+      : '';
+
+    // Common fields
+    campos += row('Nombre', fmt(u.nombre||u.nombreNegocio));
+    campos += row('Usuario', fmt(u.usuario));
+    campos += row('Correo', fmt(u.correo));
+    campos += row('WhatsApp', fmt(u.whatsapp || (u.prefijoWhatsapp&&u.telefono ? u.prefijoWhatsapp+u.telefono : null)));
+    campos += row('Tipo', fmt((u.tipo||'').toUpperCase()));
+    campos += row('Estado', fmt((u.estado||'').toUpperCase()));
+
+    if (esProv) {
+      // Oficios
+      const oficios = [u.oficio1,u.oficio2,u.oficio3].filter(Boolean).join(' · ');
+      campos += row('Oficios', oficios);
+      if (u.otroDesc) campos += row('Descripción de Otro', fmt(u.otroDesc));
+      if (u.oficiosExtra) campos += row('Oficios adicionales', fmt(u.oficiosExtra));
+      campos += row('Descripción / Especialidad', fmt(u.descripcion));
+      campos += row('Experiencia', fmt(u.experiencia));
+      campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
+      campos += '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Dirección privada</div>';
+      campos += row('Calle', fmt(u.calle));
+      campos += row('Número', fmt(u.numero));
+      campos += row('Colonia', fmt(u.colonia));
+    } else {
+      // Vecino
+      campos += row('Zona', fmt(u.zona));
+      campos += row('Fraccionamiento', fmt(u.fraccionamiento));
+      campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
+      campos += row('Calle', fmt(u.calle));
+      campos += row('Número', fmt(u.numero));
+    }
+    campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
+    campos += row('Registro', fecha);
+
+    const nomSafe = (u.nombre||u.nombreNegocio||'').replace(/'/g,'');
+    const html =
+      `<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">${u.nombre||u.nombreNegocio||'—'}</div>`
+      + campos
+      + `<div style="display:flex;gap:8px;margin-top:16px;">`
+      + `<button onclick="aprobarUsuario('${uid}','${u.correo||''}','${nomSafe}','${u.tipo||''}');document.getElementById('modal-detalle-admin').style.display='none';" `
+      + `style="flex:1;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✅ Aprobar</button>`
+      + `<button onclick="rechazarUsuario('${uid}','${u.correo||''}','${nomSafe}');document.getElementById('modal-detalle-admin').style.display='none';" `
+      + `style="flex:1;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">❌ Rechazar</button>`
+      + `</div>`
+      + `<button onclick="document.getElementById('modal-detalle-admin').style.display='none'" `
+      + `style="width:100%;margin-top:8px;background:#f0f0f0;color:#555;border:none;border-radius:12px;padding:11px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;">Cancelar</button>`;
+
+    const ya = document.getElementById('modal-detalle-admin');
+    if (ya) { ya.querySelector('.mda-body').innerHTML = html; ya.style.display='flex'; return; }
+    const m = document.createElement('div');
+    m.id = 'modal-detalle-admin';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+    m.innerHTML = '<div class="mda-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;">' + html + '</div>';
+    m.addEventListener('click', e => { if(e.target===m) m.style.display='none'; });
+    document.body.appendChild(m);
   };
 
   window.aprobarUsuario = async function(uid, correo, nombre, tipo) {
