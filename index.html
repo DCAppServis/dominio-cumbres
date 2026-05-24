@@ -983,48 +983,89 @@
   };
 
   // ─── REGISTRO TRANSPORTE ────────────────────────────────
+  // Modal errores ride
+  function mostrarErroresRide(errores) {
+    const lista=errores.map(e=>'<li style="padding:3px 0;">'+e+'</li>').join('');
+    const html='<div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:12px;">⚠️ Corrige lo siguiente</div>'
+      +'<ul style="padding-left:18px;font-size:13px;color:#444;line-height:1.8;margin-bottom:16px;">'+lista+'</ul>'
+      +'<button onclick="(function(){var b=document.getElementById(\'btn-reg-ride\');if(b){b.textContent=\'Enviar solicitud →\';b.disabled=false;}document.getElementById(\'modal-errores-r\').style.display=\'none\';})()" '
+      +'style="width:100%;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">Entendido</button>';
+    const ya=document.getElementById('modal-errores-r');
+    if(ya){ya.querySelector('.modal-er-body').innerHTML=html;ya.style.display='flex';return;}
+    const m=document.createElement('div');
+    m.id='modal-errores-r';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:flex-end;justify-content:center;';
+    m.innerHTML='<div class="modal-er-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;max-height:70vh;overflow-y:auto;">'+html+'</div>';
+    m.addEventListener('click',e=>{if(e.target===m)m.style.display='none';});
+    document.body.appendChild(m);
+  }
+
   window.registrarRide = async function() {
-    const nombre  = document.getElementById('r-nombre').value.trim();
-    const usuario = document.getElementById('r-usr').value.trim();
-    const correo  = document.getElementById('r-correo').value.trim();
-    const tel     = document.getElementById('r-tel').value.trim();
-    const pass1   = document.getElementById('rp1').value;
-    const pass2   = document.getElementById('rp2').value;
+    const _nomRawR=(document.getElementById('r-nombre')?.value||'').trim();
+    const nombre=_nomRawR.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+    const usrEl=document.getElementById('r-usr');
+    if(usrEl)usrEl.value=usrEl.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+    const usuario=(usrEl?.value||'').trim();
+    const correo=(document.getElementById('r-correo')?.value||'').trim();
+    const _prefR=(document.getElementById('r-tel-prefijo')?.value||'+52').replace('-CA','');
+    const _numR=(document.getElementById('r-tel')?.value||'').replace(/[^0-9]/g,'');
+    const whatsapp=_prefR+_numR;
+    const pass1=document.getElementById('rp1')?.value||'';
+    const pass2=document.getElementById('rp2')?.value||'';
+    const tipoServ=document.getElementById('r-tipo-servicio')?.value||'';
+    const tipoVeh=document.getElementById('r-tipo-vehiculo')?.value||'';
+    const marca=(document.getElementById('r-marca')?.value||'').trim();
+    const modelo=(document.getElementById('r-modelo')?.value||'').trim();
+    const color=(document.getElementById('r-color')?.value||'').trim();
+    const placas=(document.getElementById('r-placas')?.value||'').trim().toUpperCase();
+    const cobertura=document.getElementById('r-cobertura')?.value||'';
+    const descripcion=(document.getElementById('r-descripcion')?.value||'').trim();
 
-    if (!nombre||!usuario||!correo||!tel||!pass1)
-      return showMsg('r-firebase-msg','⚠️ Llena todos los campos obligatorios','error');
-    if (pass1 !== pass2)
-      return showMsg('r-firebase-msg','❌ Las contraseñas no coinciden','error');
-    if (!todosChecks(['r-chk1','r-chk2']))
-      return showMsg('r-firebase-msg','☑️ Debes aceptar todos los acuerdos para continuar','warn');
+    const errores=[];
+    if(!tipoServ)   errores.push('Selecciona tu tipo de servicio');
+    if(!nombre)     errores.push('Escribe tu nombre completo');
+    if(!usuario)    errores.push('Escribe un nombre de usuario');
+    else if(!/^[a-z0-9_-]+$/.test(usuario)) errores.push('Usuario: solo minúsculas, números, _ y -');
+    const _cerrR=vValidarCorreo(correo);
+    if(_cerrR) errores.push(_cerrR.replace(/^[\u{1f4e7}⚠️]\s*/u,''));
+    const _waRR={'+52':10,'+1':10,'+34':9,'+57':10};
+    const _waMR={'+52':'WhatsApp México debe tener 10 dígitos','+1':'WhatsApp USA/Canadá debe tener 10 dígitos','+34':'WhatsApp España debe tener 9 dígitos','+57':'WhatsApp Colombia debe tener 10 dígitos'};
+    if(!_numR) errores.push('Escribe tu número de WhatsApp');
+    else if(_waRR[_prefR]?_numR.length!==_waRR[_prefR]:!/^[0-9]{8,15}$/.test(_numR))
+      errores.push(_waMR[_prefR]||'WhatsApp debe tener entre 8 y 15 dígitos');
+    if(!pass1||pass1.length<6) errores.push('Contraseña: mínimo 6 números');
+    else if(pass1!==pass2)     errores.push('Las contraseñas no coinciden');
+    if(!tipoVeh)    errores.push('Selecciona el tipo de vehículo');
+    if(!marca)      errores.push('Escribe la marca del vehículo');
+    if(!modelo)     errores.push('Escribe el modelo del vehículo');
+    if(!color)      errores.push('Escribe el color del vehículo');
+    if(!placas)     errores.push('Escribe las placas del vehículo');
+    if(!cobertura)  errores.push('Selecciona tu zona de cobertura');
+    if(!descripcion||descripcion.length<20) errores.push('Descripción: mínimo 20 caracteres');
+    if(!todosChecks(['r-chk1','r-chk2','r-chk3','r-chk4'])) errores.push('Acepta los 4 acuerdos para continuar');
 
-    // Fotos son opcionales al registro (INE, licencia, circulación)
-    // Se pueden completar desde el perfil una vez dentro
+    if(errores.length>0){mostrarErroresRide(errores);return;}
 
     setBtn('btn-reg-ride','Enviando... ⏳',true);
-    const placas = document.getElementById('r-placas').value.trim();
-    const modelo = document.getElementById('r-modelo').value.trim();
-    const clabe  = document.getElementById('r-clabe').value.trim();
-    if (!placas || !modelo)
-      return showMsg('r-firebase-msg','🏍️ Debes llenar los datos de tu vehículo','warn');
-    if (!clabe)
-      return showMsg('r-firebase-msg','💳 Debes ingresar tu CLABE o correo de Mercado Pago para recibir pagos','warn');
-
-    setBtn('btn-reg-ride','Enviando... ⏳',true);
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, correo, pass1);
+    try{
+      const cred=await createUserWithEmailAndPassword(auth,correo,pass1);
       await setDoc(doc(db,'usuarios',cred.user.uid),{
-        nombre, usuario, correo, telefono:tel, tipo:'transporte',
-        placas, modelo, cuentaPago:clabe,
-        estado:'pendiente_revision', creadoEn: new Date().toISOString()
+        nombre,usuario,correo,
+        prefijoWhatsapp:_prefR,telefono:_numR,whatsapp,
+        tipo:tipoServ,
+        tipoVehiculo:tipoVeh,marca,modelo,color,placas,
+        cobertura,descripcion,
+        estado:'pendiente_revision',
+        creadoEn:new Date().toISOString()
       });
-      notificarBienvenido(nombre, correo, 'transportista');
-      notificarAdmin('Transportista', nombre, correo, tel);
+      notificarBienvenido(nombre,correo,'transportista');
+      notificarAdmin('Transporte/Repartidor',nombre,correo,whatsapp);
       setNombre(nombre);
       go('v-ok-rev','right');
-    } catch(e) {
+    }catch(e){
+      mostrarErroresRide([firebaseError(e.code)]);
+    }finally{
       setBtn('btn-reg-ride','Enviar solicitud →',false);
-      showMsg('r-firebase-msg', firebaseError(e.code), 'error');
     }
   };
 
@@ -1098,6 +1139,7 @@
      'p-nombre','p-usr','p-correo','p-tel','pp1','pp2',
      'r-nombre','r-usr','r-correo','r-tel','rp1','rp2',
      'p-calle','p-numero-prov','p-colonia','p-descripcion',
+     'r-marca','r-modelo','r-color','r-placas','r-descripcion',
      'login-user','login-pass'
     ].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     // 7. Limpiar mensajes de error de formularios
@@ -1111,7 +1153,7 @@
     // Limpiar checkboxes de términos (quitar clase 'on' de todos los formularios)
     ['v-chk1','v-chk2',
      'p-chk1','p-chk2','p-chk3',
-     'r-chk1','r-chk2',
+     'r-chk1','r-chk2','r-chk3','r-chk4',
      'b-chk1','b-chk2','b-chk3'
     ].forEach(id=>{
       const el=document.getElementById(id);
@@ -1191,7 +1233,7 @@
 
         if (datos.tipo === 'vecino') {
           go('v-home','right');
-        } else if (datos.tipo === 'proveedor' || datos.tipo === 'transporte' || datos.tipo === 'negocio') {
+        } else if (['proveedor','transporte','repartidor','ambos','negocio','restaurante'].includes(datos.tipo)) {
           if (estado === 'pendiente_revision') {
             go('v-espera-revision','right');
           } else if (estado === 'aprobado_pendiente_pago') {
@@ -2255,70 +2297,100 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     </div>
 <div class="view go-right" id="v-reg-ride">
       <div class="hdr" style="background:linear-gradient(135deg,var(--red-dark),#4a0f08);">
-        <div class="sbar dk"><span>9:41</span><span>▲</span></div>
-        <div class="back-row"><button class="btn-back" onclick="go('v-role','left')">‹</button><div><div class="hdr-title">Registro · Transporte</div><div class="hdr-sub">Revisión manual 24-48 hrs</div></div></div>
+        <div class="sbar dk"><span>9:41</span><span>&#9650;</span></div>
+        <div class="back-row">
+          <button class="btn-back" onclick="(function(){var b=document.getElementById('btn-reg-ride');if(b){b.textContent='Enviar solicitud &rarr;';b.disabled=false;}go('v-role','left')})()">&#x2039;</button>
+          <div><div class="hdr-title">Registro &middot; Transporte</div><div class="hdr-sub">Revisi&oacute;n manual 24-48 hrs</div></div>
+        </div>
       </div>
       <div class="si27 scroll">
-        <div class="info-box" style="background:#FDECEA;color:var(--red-dark);">🏍️ Tu perfil será revisado antes de activarse. Te avisamos por WhatsApp.</div>
-        <div class="sec-div">Datos personales</div>
-        <div class="form-g"><label class="form-l">Nombre completo<span class="req-b">REQ</span></label><input class="inp" id="r-nombre" placeholder="Como aparece en tu INE"></div>
-        <div class="form-g"><label class="form-l">Usuario<span class="req-b">REQ</span></label><input class="inp" id="r-usr" placeholder="El que tú elijas"></div>
-        <div class="form-g"><label class="form-l">Correo<span class="req-b">REQ</span></label><input class="inp" id="r-correo" type="email" placeholder="tucorreo@ejemplo.com"></div>
-        <div class="form-g"><label class="form-l">WhatsApp<span class="req-b">REQ</span></label><input class="inp" id="r-tel" type="tel" placeholder="+52 81 1234 5678"></div>
+        <div class="info-box" style="background:#FDECEA;color:var(--red-dark);">&#128663; Revisaremos tu perfil antes de activarlo. Te avisaremos dentro de la app o por los medios registrados.</div>
+
+        <div class="sec-div">Tipo de servicio</div>
         <div class="form-g">
-          <label class="form-l">Contraseña<span class="req-b">REQ</span></label>
-          <div class="pass-w"><input class="inp inp-pass" type="password" id="rp1" placeholder="Entre 4 y 8 caracteres"><button class="pass-eye" onclick="togglePass('rp1',this)">👁️</button></div>
-        </div>
-        <div class="form-g">
-          <label class="form-l">Confirmar contraseña<span class="req-b">REQ</span></label>
-          <div class="pass-w"><input class="inp inp-pass" type="password" id="rp2" placeholder="Repite" oninput="checkPass('rp1','rp2','rp-m')"><button class="pass-eye" onclick="togglePass('rp2',this)">👁️</button></div>
-          <div id="rp-m" class="form-h"></div>
-        </div>
-        <div class="sec-div">Tu foto</div>
-        <div class="form-g">
-          <label class="form-l">Foto del rostro<span class="req-b">REQ</span></label>
-          <div class="upload-box" onclick="document.getElementById('r-rostro-input').click()">
-            <div class="si18">🤳</div>
-            <div class="si19" id="r-rostro-label">Tomar foto o subir desde galería</div>
-          </div>
-          <input class="si35" type="file" id="r-rostro-input" accept="image/*" capture="user" onchange="document.getElementById('r-rostro-label').textContent='✅ '+this.files[0].name">
-          <div class="si67">El vecino necesita saber quién le llega</div>
-        </div>
-        <div class="sec-div">Tu vehículo</div>
-        <div class="form-g">
-          <label class="form-l">Tipo<span class="req-b">REQ</span></label>
-          <select class="sel">
-            <option>🏍️ Motocicleta</option><option>🛵 Scooter / Motoneta</option>
-            <option>🚗 Automóvil</option><option>🚙 Camioneta</option>
-            <option>🚲 Bicicleta eléctrica</option><option>🛺 Triciclo de carga</option>
-            <option>Otro vehículo</option>
+          <label class="form-l">Quiero registrarme como<span class="req-b">REQ</span></label>
+          <select class="sel" id="r-tipo-servicio">
+            <option value="">Selecciona...</option>
+            <option value="transporte">&#128663; Transporte</option>
+            <option value="repartidor">&#128666; Repartidor</option>
+            <option value="ambos">&#128663; / &#128666; Ambos</option>
           </select>
         </div>
-        <div class="form-g"><label class="form-l">Placas<span class="req-b">REQ</span></label><input class="inp" id="r-placas" placeholder="Ej. ABC-123-D" style="text-transform:uppercase;"></div>
-        <div class="form-g"><label class="form-l">Color y modelo<span class="req-b">REQ</span></label><input class="inp" id="r-modelo" placeholder="Ej. Honda CB 2022 Roja"></div>
-        <div class="sec-div">Documentos</div>
-        <div class="form-g"><label class="form-l">INE y licencia<span class="opt-b">OPC</span></label>
-          <div class="upload-box" onclick="document.getElementById('r-ine-input').click()">
-            <div class="si18">🪪</div>
-            <div class="si19" id="r-ine-label">Subir INE y licencia (puedes hacerlo después)</div>
+
+        <div class="sec-div">Datos personales</div>
+        <div class="form-g"><label class="form-l">Nombre completo<span class="req-b">REQ</span></label><input class="inp" id="r-nombre" placeholder="Como aparece en tu INE" autocomplete="off" autocorrect="off" spellcheck="false" oninput="rNombreInput(this)" onchange="rNombreInput(this)" onblur="rNombreInput(this)"></div>
+        <div class="form-g"><label class="form-l">Usuario<span class="req-b">REQ</span></label><input class="inp" id="r-usr" placeholder="El que t&uacute; elijas" autocomplete="off" oninput="rUsrInput(this)"><div id="r-usr-st" class="form-h"></div></div>
+        <div class="form-g"><label class="form-l">Correo<span class="req-b">REQ</span></label><input class="inp" type="email" id="r-correo" placeholder="tucorreo@ejemplo.com" oninput="rCorreoInput(this)"><div id="r-correo-st" class="form-h"></div></div>
+
+        <div class="form-g">
+          <label class="form-l">WhatsApp<span class="req-b">REQ</span></label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="r-tel-prefijo" class="sel" style="width:90px;flex-shrink:0;padding:10px 8px;font-size:13px;" onchange="rTelInput(document.getElementById('r-tel'))">
+              <option value="+52">&#127474;&#127485; +52</option>
+              <option value="+1">&#127482;&#127480; +1</option>
+              <option value="+1-CA">&#127464;&#127462; +1</option>
+              <option value="+34">&#127466;&#127480; +34</option>
+              <option value="+57">&#127464;&#127476; +57</option>
+              <option value="+54">&#127462;&#127479; +54</option>
+              <option value="+55">&#127463;&#127479; +55</option>
+            </select>
+            <input class="inp" type="tel" id="r-tel" placeholder="8112345678" oninput="rTelInput(this)" style="flex:1;" autocomplete="off">
           </div>
-          <input class="si35" type="file" id="r-ine-input" accept="image/*" onchange="document.getElementById('r-ine-label').textContent='✅ '+this.files[0].name">
-          <div class="si67">📌 Si no los tienes a la mano, podrás subirlos desde tu perfil.</div>
+          <div id="r-tel-st" class="form-h">Solo d&iacute;gitos, sin espacios ni guiones</div>
         </div>
-        <div class="form-g"><label class="form-l">Tarjeta de circulación<span class="req-b">REQ</span></label>
-          <div class="upload-box" onclick="document.getElementById('r-circ-input').click()">
-            <div class="si18">📄</div>
-            <div class="si19" id="r-circ-label">Subir foto de tarjeta de circulación</div>
-          </div>
-          <input class="si35" type="file" id="r-circ-input" accept="image/*" onchange="document.getElementById('r-circ-label').textContent='✅ '+this.files[0].name">
+
+        <div class="form-g">
+          <label class="form-l">Contrase&ntilde;a<span class="req-b">REQ</span></label>
+          <div class="pass-w"><input class="inp inp-pass" type="password" id="rp1" placeholder="M&iacute;nimo 6 n&uacute;meros" inputmode="numeric" oninput="checkPass('rp1','rp2','rp-m')"><button class="pass-eye" onclick="togglePass('rp1',this)">&#128065;&#65039;</button></div>
+          <div class="form-h">&#128272; Usa m&iacute;nimo 6 n&uacute;meros como contrase&ntilde;a</div>
         </div>
-        <div class="sec-div">Para recibir tus pagos</div>
-        <div class="form-g"><label class="form-l">CLABE o Mercado Pago<span class="req-b">REQ</span></label><input class="inp" id="r-clabe" placeholder="CLABE 18 dígitos o correo MP"></div>
+        <div class="form-g">
+          <label class="form-l">Confirmar contrase&ntilde;a<span class="req-b">REQ</span></label>
+          <div class="pass-w"><input class="inp inp-pass" type="password" id="rp2" placeholder="Repite" oninput="checkPass('rp1','rp2','rp-m')"><button class="pass-eye" onclick="togglePass('rp2',this)">&#128065;&#65039;</button></div>
+          <div id="rp-m" class="form-h"></div>
+        </div>
+
+        <div class="sec-div">Tu veh&iacute;culo</div>
+        <div class="form-g"><label class="form-l">Tipo de veh&iacute;culo<span class="req-b">REQ</span></label>
+          <select class="sel" id="r-tipo-vehiculo">
+            <option value="">Selecciona...</option>
+            <option value="motocicleta">&#128663; Motocicleta</option>
+            <option value="scooter">&#128691; Scooter / Motoneta</option>
+            <option value="automovil">&#128665; Autom&oacute;vil</option>
+            <option value="camioneta">&#128665; Camioneta</option>
+            <option value="bicicleta_electrica">&#128690; Bicicleta el&eacute;ctrica</option>
+            <option value="triciclo_carga">&#128682; Triciclo de carga</option>
+            <option value="otro">Otro veh&iacute;culo</option>
+          </select>
+        </div>
+        <div class="form-g"><label class="form-l">Marca<span class="req-b">REQ</span></label><input class="inp" id="r-marca" placeholder="Ej. Honda, Yamaha, Nissan"></div>
+        <div class="form-g"><label class="form-l">Modelo y a&ntilde;o<span class="req-b">REQ</span></label><input class="inp" id="r-modelo" placeholder="Ej. CB 150 2022"></div>
+        <div class="form-g"><label class="form-l">Color<span class="req-b">REQ</span></label><input class="inp" id="r-color" placeholder="Ej. Rojo, Negro, Blanco"></div>
+        <div class="form-g"><label class="form-l">Placas<span class="req-b">REQ</span></label><input class="inp" id="r-placas" placeholder="Ej. ABC-123-D" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()"></div>
+
+        <div class="sec-div">Cobertura</div>
+        <div class="form-g"><label class="form-l">Zona de trabajo<span class="req-b">REQ</span></label>
+          <select class="sel" id="r-cobertura">
+            <option value="">Selecciona...</option>
+            <option value="dominio_cumbres">Solo Dominio Cumbres</option>
+            <option value="cumbres_garcia">Toda Cumbres Garc&iacute;a</option>
+          </select>
+        </div>
+
+        <div class="sec-div">Tu experiencia</div>
+        <div class="form-g"><label class="form-l">Descripci&oacute;n<span class="req-b">REQ</span></label>
+          <textarea class="inp" id="r-descripcion" rows="3" placeholder="Cu&eacute;ntanos tu experiencia como repartidor o transportista (m&iacute;nimo 20 caracteres)..." style="resize:none;" oninput="rDescInput(this)"></textarea>
+          <div id="r-desc-st" class="form-h"></div>
+        </div>
+
         <div class="sec-div">Acuerdos</div>
-        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="r-chk1"></div><div class="chk-txt">Calificación menor a 3.0★ = suspensión automática.</div></div>
-        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="r-chk2"></div><div class="chk-txt">Acepto los <strong class="si04">Términos y Condiciones</strong>.</div></div>
-        <button id="btn-reg-ride" class="btn btn-red" onclick="registrarRide()">Enviar solicitud →</button>
-        <div class="si66" id="r-firebase-msg"></div>
+        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="r-chk1"></div><div class="chk-txt">Declaro que mis datos y veh&iacute;culo son reales.</div></div>
+        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="r-chk2"></div><div class="chk-txt">Soy responsable de mi veh&iacute;culo, manejo, permisos, seguros, traslados, entregas y cualquier incidente.</div></div>
+        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="r-chk3"></div><div class="chk-txt">Acepto recibir notificaciones sobre solicitudes y estado de mi cuenta.</div></div>
+        <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="r-chk4"></div><div class="chk-txt">Acepto los <strong class="si04">T&eacute;rminos y Condiciones</strong> de Dominio Cumbres AppServis.</div></div>
+
+        <button id="btn-reg-ride" class="btn btn-red" style="margin-top:12px;" onclick="registrarRide()">Enviar solicitud &rarr;</button>
+        <div id="r-firebase-msg" style="margin-top:10px;font-size:12px;"></div>
         <div class="si34"></div>
       </div>
     </div>
@@ -4411,7 +4483,7 @@ function _goCore(id,dir){
     if(['v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz'].includes(id)){
       ['v-chk1','v-chk2',
        'p-chk1','p-chk2','p-chk3','p-chk4',
-       'r-chk1','r-chk2',
+       'r-chk1','r-chk2','r-chk3','r-chk4',
        'b-chk1','b-chk2','b-chk3'
       ].forEach(cid=>{
         const cel=document.getElementById(cid);
@@ -4608,6 +4680,58 @@ function pDescInput(el){
   if(!n){s.textContent='';return;}
   if(n<20){s.innerHTML='<span style="color:#D63A2A;">⚠️ Mínimo 20 caracteres ('+n+'/20)</span>';}
   else{s.innerHTML='<span style="color:#1FC26A;">✅ Descripción válida</span>';}
+}
+
+// ── Helpers Registro Transporte/Repartidor ───────────────
+function rNombreInput(el){
+  const pos=el.selectionStart;
+  el.value=el.value.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  try{el.setSelectionRange(pos,pos);}catch(e){}
+}
+function rUsrInput(el){
+  el.value=el.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  const s=document.getElementById('r-usr-st');
+  if(!s)return;
+  if(!el.value){s.textContent='';return;}
+  s.innerHTML='<span style="color:#1FC26A;">✅ '+el.value+' disponible</span>';
+}
+function rTelInput(el){
+  if(!el)return;
+  el.value=el.value.replace(/[^0-9]/g,'');
+  const s=document.getElementById('r-tel-st');
+  if(!s)return;
+  const pref=(document.getElementById('r-tel-prefijo')?.value||'+52').replace('-CA','');
+  const reglas={'+52':10,'+1':10,'+34':9,'+57':10};
+  const msgs={'+52':'WhatsApp México debe tener 10 dígitos','+1':'WhatsApp USA/Canadá 10 dígitos','+34':'WhatsApp España 9 dígitos','+57':'WhatsApp Colombia 10 dígitos'};
+  const n=el.value.length;
+  if(!el.value){s.textContent='Solo dígitos, sin espacios ni guiones';s.style.color='#aaa';return;}
+  const req=reglas[pref];
+  if(req){
+    if(n!==req)s.innerHTML='<span style="color:#D63A2A;">⚠️ '+msgs[pref]+'</span>';
+    else s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';
+  }else{
+    if(n<8||n>15)s.innerHTML='<span style="color:#D63A2A;">⚠️ Entre 8 y 15 dígitos</span>';
+    else s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';
+  }
+}
+function rCorreoInput(el){
+  const s=document.getElementById('r-correo-st');
+  if(!s)return;
+  const val=el.value.trim();
+  if(!val){s.textContent='';return;}
+  const err=vValidarCorreo(val);
+  if(err){s.innerHTML='<span style="color:#D63A2A;">'+err+'</span>';return;}
+  const dom=_detectarTypoCorreo(val);
+  if(dom)s.innerHTML='<span style="color:#D63A2A;">¿Quisiste escribir @'+dom+'?</span>';
+  else s.innerHTML='<span style="color:#1FC26A;">✅ Correo válido</span>';
+}
+function rDescInput(el){
+  const s=document.getElementById('r-desc-st');
+  if(!s)return;
+  const n=el.value.trim().length;
+  if(!n){s.textContent='';return;}
+  if(n<20)s.innerHTML='<span style="color:#D63A2A;">⚠️ Mínimo 20 caracteres ('+n+'/20)</span>';
+  else s.innerHTML='<span style="color:#1FC26A;">✅ Descripción válida</span>';
 }
 
 function vNombreInput(el){
@@ -5298,7 +5422,7 @@ function showAdminTab(i,btn){
       // subfiltro por tipo dentro de pendientes
       if(sub === 'vecino')      datos = datos.filter(u => u.tipo === 'vecino');
       else if(sub === 'proveedor')   datos = datos.filter(u => u.tipo === 'proveedor');
-      else if(sub === 'transporte')  datos = datos.filter(u => ['transporte','transportista','repartidor','rider'].includes(u.tipo));
+      else if(sub === 'transporte')  datos = datos.filter(u => ['transporte','repartidor','ambos','transportista','rider'].includes(u.tipo));
       else if(sub === 'restaurante') datos = datos.filter(u => ['restaurante','restaurant'].includes(u.tipo));
       else if(sub === 'negocio')     datos = datos.filter(u => ['negocio','tienda','comercio'].includes(u.tipo));
       // 'todos' no filtra más
@@ -5318,7 +5442,7 @@ function showAdminTab(i,btn){
         if(zona) datos = datos.filter(u => norm(u.zona) === norm(zona));
         if(frac) datos = datos.filter(u => norm(u.fraccionamiento) === norm(frac));
       } else if(sub === 'proveedor')   { datos = datos.filter(u => u.tipo === 'proveedor'); }
-      else if(sub === 'transporte')    { datos = datos.filter(u => ['transporte','transportista','repartidor','rider'].includes(u.tipo)); }
+      else if(sub === 'transporte')    { datos = datos.filter(u => ['transporte','repartidor','ambos','transportista','rider'].includes(u.tipo)); }
       else if(sub === 'restaurante')   { datos = datos.filter(u => ['restaurante','restaurant'].includes(u.tipo)); }
       else if(sub === 'negocio')       { datos = datos.filter(u => ['negocio','tienda','comercio'].includes(u.tipo)); }
       // sub==='todos' → ya filtrado por esAprobado arriba
@@ -5403,6 +5527,7 @@ function showAdminTab(i,btn){
     campos += row('Tipo', fmt((u.tipo||'').toUpperCase()));
     campos += row('Estado', fmt((u.estado||'').toUpperCase()));
 
+    const esRide = ['transporte','repartidor','ambos'].includes(u.tipo);
     if (esProv) {
       // Oficios
       const oficios = [u.oficio1,u.oficio2,u.oficio3].filter(Boolean).join(' · ');
@@ -5416,6 +5541,14 @@ function showAdminTab(i,btn){
       campos += row('Calle', fmt(u.calle));
       campos += row('Número', fmt(u.numero));
       campos += row('Colonia', fmt(u.colonia));
+    } else if (esRide) {
+      // Transporte / Repartidor
+      const tipoSvcLabel={'transporte':'Transporte','repartidor':'Repartidor','ambos':'Transporte y Repartidor'};
+      campos += row('Tipo de servicio', tipoSvcLabel[u.tipo]||fmt(u.tipo));
+      campos += row('Veh\u00edculo', [u.tipoVehiculo,u.marca,u.modelo,u.color].filter(Boolean).join(' \u00b7 '));
+      campos += row('Placas', fmt(u.placas));
+      campos += row('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres Garc\u00eda':'Solo Dominio Cumbres');
+      campos += row('Descripci\u00f3n', fmt(u.descripcion));
     } else {
       // Vecino
       campos += row('Zona', fmt(u.zona));
