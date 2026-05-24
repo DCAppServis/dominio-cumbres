@@ -5763,7 +5763,7 @@ function showAdminTab(i,btn){
   window.renderLista = function(datos) {
     const lista = document.getElementById('admin-lista');
     if(!datos.length) {
-      lista.innerHTML = '<div class="si24">✅ Sin resultados para este filtro</div>';
+      lista.innerHTML = '<div class="si24">&#10003; Sin resultados para este filtro</div>';
       return;
     }
     lista.innerHTML = '';
@@ -5772,12 +5772,14 @@ function showAdminTab(i,btn){
       const div = document.createElement('div');
       div.style.cssText = 'background:#162A1D;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid #1A3A25;';
       const esPendiente = u.estado === 'pendiente_revision' && u.tipo !== 'vecino';
+      const esAprobado  = u.estado === 'activo' || u.estado === 'aprobado_pendiente_pago';
+      const esRechazado = u.estado === 'rechazado';
       div.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:#fff;">${u.nombre||u.nombreNegocio||'—'}</div>
-            <div class="si10">${u.correo||'—'}</div>
-            <div style="font-size:10px;color:#555;margin-top:2px;">${u.fraccionamiento ? '📍 '+u.fraccionamiento : (u.zona ? '🗺 '+u.zona : '—')} ${u.zona && u.fraccionamiento ? '· '+u.zona : ''}</div>
+            <div style="font-size:14px;font-weight:700;color:#fff;">${u.nombre||u.nombreNegocio||'&#8212;'}</div>
+            <div class="si10">${u.correo||'&#8212;'}</div>
+            <div style="font-size:10px;color:#555;margin-top:2px;">${u.fraccionamiento ? '&#128205; '+u.fraccionamiento : (u.zona ? '&#128506; '+u.zona : '&#8212;')} ${u.zona && u.fraccionamiento ? '&middot; '+u.zona : ''}</div>
           </div>
           <div style="text-align:right;">
             <span style="background:#F5C51820;color:#F5C518;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;border:1px solid #F5C51840;display:block;margin-bottom:4px;">${(u.tipo||'').toUpperCase()}</span>
@@ -5785,152 +5787,126 @@ function showAdminTab(i,btn){
           </div>
         </div>
         ${esPendiente ? `<div style="margin-top:8px;">
-          <button onclick="window.verDetalleAdmin('${u._id}')" style="width:100%;background:#F5C51820;border:1px solid #F5C51860;color:#F5C518;border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">🔍 Revisar solicitud</button>
+          <button onclick="window.verDetalleAdmin('${u._id}')" style="width:100%;background:#F5C51820;border:1px solid #F5C51860;color:#F5C518;border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">&#128269; Revisar solicitud</button>
         </div>` : ''}
-        ${u.estado==='rechazado' ? '<div style="margin-top:8px;">'
+        ${esAprobado ? `<div style="margin-top:8px;">
+          <button onclick="window.verDetalleAdmin('${u._id}')" style="width:100%;background:#1FC26A20;border:1px solid #1FC26A60;color:#1FC26A;border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">&#128203; Ver detalle</button>
+        </div>` : ''}
+        ${esRechazado ? '<div style="margin-top:8px;">'
           +'<button onclick="window.verDetalleAdmin(\''+u._id+'\')" style="width:100%;background:#D63A2A20;border:1px solid #D63A2A60;color:#D63A2A;border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">&#128203; Ver detalle</button>'
-          +(u.motivoRechazo ? '<div style="margin-top:6px;font-size:11px;color:#D63A2A;padding:6px 8px;background:#D63A2A10;border-radius:8px;">&#128172; '+(u.motivoRechazo||'').slice(0,80)+((u.motivoRechazo||'').length>80?'…':'')+'</div>' : '')
+          +(u.motivoRechazo ? '<div style="margin-top:6px;font-size:11px;color:#D63A2A;padding:6px 8px;background:#D63A2A10;border-radius:8px;">&#128172; '+(u.motivoRechazo||'').slice(0,80)+((u.motivoRechazo||'').length>80?'\u2026':'')+'</div>' : '')
           +'</div>' : ''}
       `;
       lista.appendChild(div);
     });
   };
-
-  window.cargarSolicitudes = async function() {
-    const lista = document.getElementById('admin-lista');
-    if(!lista) return;
-    lista.innerHTML = '<div class="si61">Cargando... ⏳</div>';
-    // Esperar a que Firebase esté listo
-    let intentos = 0;
-    while(!window._fbDb && intentos < 20) { await new Promise(r=>setTimeout(r,200)); intentos++; }
-    if(!window._fbDb) { lista.innerHTML = '<div style="color:#D63A2A;padding:20px;text-align:center;">Error de conexión</div>'; return; }
-    try {
-      const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-      const snap = await getDocs(collection(window._fbDb, 'usuarios'));
-      window._todosUsuarios = [];
-      snap.forEach(d => {
-        const u = d.data();
-        u._id = d.id;
-        window._todosUsuarios.push(u);
-      });
-      aplicarFiltros();
-    } catch(e) {
-      lista.innerHTML = `<div class="si60">Error: ${e.message}</div>`;
-    }
-  };
-
   // ── Modal de detalle admin ──────────────────────────────────
   window.verDetalleAdmin = function(uid) {
     const u = (window._todosUsuarios||[]).find(x => x._id === uid);
     if (!u) return;
-    const fmt = v => v || '—';
-    const fecha = u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+
+    // R: always show, empty -> em dash
+    const R = (label, val) => {
+      const v = (val===null||val===undefined||val==='')?'&#8212;':String(val);
+      return '<div style="margin-bottom:10px;">'
+        +'<div style="font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">'+label+'</div>'
+        +'<div style="font-size:13px;color:#1a1a1a;font-weight:500;word-break:break-all;">'+v+'</div></div>';
+    };
+    const S = t => '<div style="font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;padding-top:10px;border-top:1.5px solid #f0f0f0;">'+t+'</div>';
+
+    const fecha  = u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '&#8212;';
+    const esRide = ['transporte','repartidor','ambos'].includes(u.tipo);
+    const esNeg  = ['negocio','restaurante'].includes(u.tipo);
     const esProv = u.tipo === 'proveedor';
 
-    // Build fields
     let campos = '';
-    const row = (label, val) => val && val !== '—'
-      ? `<div style="margin-bottom:10px;"><div style="font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">${label}</div><div style="font-size:13px;color:#1a1a1a;font-weight:500;">${val}</div></div>`
-      : '';
 
-    // Common fields
-    campos += row('Nombre', fmt(u.nombre||u.nombreNegocio));
-    campos += row('Usuario', fmt(u.usuario));
-    campos += row('Correo', fmt(u.correo));
-    campos += row('WhatsApp', fmt(u.whatsapp || (u.prefijoWhatsapp&&u.telefono ? u.prefijoWhatsapp+u.telefono : null)));
-    campos += row('Tipo', fmt((u.tipo||'').toUpperCase()));
-    campos += row('Estado', fmt((u.estado||'').toUpperCase()));
+    // DATOS PERSONALES
+    campos += S('Datos personales');
+    campos += R('Nombre', u.nombre||u.nombreNegocio);
+    campos += R('Usuario', u.usuario);
+    campos += R('Correo', u.correo);
+    campos += R('Prefijo WhatsApp', u.prefijoWhatsapp);
+    campos += R('Tel\u00e9fono', u.telefono);
+    campos += R('WhatsApp', u.whatsapp);
 
-    const esRide = ['transporte','repartidor','ambos'].includes(u.tipo);
+    // DATOS ESPECIFICOS
     if (esProv) {
-      // Oficios
-      const oficios = [u.oficio1,u.oficio2,u.oficio3].filter(Boolean).join(' · ');
-      campos += row('Oficios', oficios);
-      if (u.otroDesc) campos += row('Descripción de Otro', fmt(u.otroDesc));
-      if (u.oficiosExtra) campos += row('Oficios adicionales', fmt(u.oficiosExtra));
-      campos += row('Descripción / Especialidad', fmt(u.descripcion));
-      campos += row('Experiencia', fmt(u.experiencia));
-      campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
-      campos += '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Dirección privada</div>';
-      campos += row('Calle', fmt(u.calle));
-      campos += row('Número', fmt(u.numero));
-      campos += row('Colonia', fmt(u.colonia));
+      campos += S('Servicio');
+      campos += R('Oficio 1', u.oficio1);
+      campos += R('Oficio 2', u.oficio2);
+      campos += R('Oficio 3', u.oficio3);
+      campos += R('Descripci\u00f3n Otro', u.otroDesc);
+      campos += R('Oficios adicionales', u.oficiosExtra);
+      campos += R('Descripci\u00f3n / Especialidad', u.descripcion);
+      campos += R('Experiencia', u.experiencia);
+      campos += R('Calificaci\u00f3n', u.calificacion);
+      campos += R('Total calificaciones', u.totalCalificaciones);
+      campos += S('Direcci\u00f3n privada');
+      campos += R('Calle', u.calle);
+      campos += R('N\u00famero', u.numero);
+      campos += R('Colonia', u.colonia);
     } else if (esRide) {
-      // Transporte / Repartidor
-      const tipoSvcLabel={'transporte':'Transporte','repartidor':'Repartidor','ambos':'Transporte y Repartidor'};
-      campos += row('Tipo de servicio', tipoSvcLabel[u.tipo]||fmt(u.tipo));
-      campos += row('Veh\u00edculo', [u.tipoVehiculo,u.marca,u.modelo,u.color].filter(Boolean).join(' \u00b7 '));
-      campos += row('Placas', fmt(u.placas));
-      campos += row('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres Garc\u00eda':'Solo Dominio Cumbres');
-      campos += row('Descripci\u00f3n', fmt(u.descripcion));
-    } else if (['negocio','restaurante'].includes(u.tipo)) {
-      // Negocio / Restaurante — todos los campos (row siempre muestra)
-      const rowA = (label, val) => `<div style="margin-bottom:10px;"><div style="font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">${label}</div><div style="font-size:13px;color:#1a1a1a;font-weight:500;">${val||'—'}</div></div>`;
-      const sec2 = t => `<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;border-top:1px solid #f0f0f0;padding-top:10px;">${t}</div>`;
-      // Datos personales
-      campos += sec2('Datos personales');
-      campos += rowA('Nombre responsable', u.nombre||u.nombreNegocio);
-      campos += rowA('Usuario', u.usuario);
-      campos += rowA('Correo', u.correo);
-      campos += rowA('Prefijo WhatsApp', u.prefijoWhatsapp);
-      campos += rowA('Teléfono', u.telefono);
-      campos += rowA('WhatsApp completo', u.whatsapp);
-      // Datos negocio
-      campos += sec2('Datos del negocio');
-      campos += rowA('Tipo', u.tipo==='restaurante'?'Restaurante':'Negocio');
-      campos += rowA('Nombre comercial', u.nombreNegocio);
-      campos += rowA('Categoría', u.categoria);
-      if(u.categoriaOtro) campos += rowA('Categoría (otro)', u.categoriaOtro);
-      campos += rowA('Operación', u.operacion);
-      campos += rowA('Entrega', u.entrega);
-      campos += rowA('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres García':u.cobertura==='dominio_cumbres'?'Solo Dominio Cumbres':u.cobertura);
-      campos += rowA('Descripción', u.descripcion);
-      campos += rowA('Años operando', u.aniosOperando);
-      // Dirección privada
-      campos += sec2('Dirección privada');
-      campos += rowA('Calle', u.calle);
-      campos += rowA('Número', u.numero);
-      campos += rowA('Colonia', u.colonia);
-      // Sistema
-      campos += sec2('Sistema');
-      campos += rowA('UID', uid);
-      campos += rowA('Estado', u.estado);
-      campos += rowA('Registro', fecha);
-      if(u.motivoRechazo) campos += rowA('Motivo rechazo', u.motivoRechazo);
-      if(u.rechazadoEn) campos += rowA('Rechazado el', new Date(u.rechazadoEn).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}));
+      const tl={'transporte':'Transporte','repartidor':'Repartidor','ambos':'Transporte y Repartidor'};
+      campos += S('Servicio de transporte');
+      campos += R('Tipo de servicio', tl[u.tipo]||u.tipo);
+      campos += R('Tipo de veh\u00edculo', u.tipoVehiculo);
+      campos += R('Marca', u.marca);
+      campos += R('Modelo', u.modelo);
+      campos += R('Color', u.color);
+      campos += R('Placas', u.placas);
+      campos += R('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres Garc\u00eda':u.cobertura==='dominio_cumbres'?'Solo Dominio Cumbres':u.cobertura);
+      campos += R('Descripci\u00f3n', u.descripcion);
+    } else if (esNeg) {
+      campos += S('Datos del negocio');
+      campos += R('Nombre comercial', u.nombreNegocio);
+      campos += R('Tipo', u.tipo==='restaurante'?'Restaurante':'Negocio');
+      campos += R('Categor\u00eda', u.categoria);
+      campos += R('Categor\u00eda (otro)', u.categoriaOtro);
+      campos += R('Operaci\u00f3n', u.operacion);
+      campos += R('Entrega', u.entrega);
+      campos += R('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres Garc\u00eda':u.cobertura==='dominio_cumbres'?'Solo Dominio Cumbres':u.cobertura);
+      campos += R('Descripci\u00f3n', u.descripcion);
+      campos += R('A\u00f1os operando', u.aniosOperando);
+      campos += S('Direcci\u00f3n privada');
+      campos += R('Calle', u.calle);
+      campos += R('N\u00famero', u.numero);
+      campos += R('Colonia', u.colonia);
     } else {
       // Vecino
-      campos += row('Zona', fmt(u.zona));
-      campos += row('Fraccionamiento', fmt(u.fraccionamiento));
-      campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
-      campos += row('Calle', fmt(u.calle));
-      campos += row('Número', fmt(u.numero));
-    }
-    // Show generic Registro only for types that don't already show it in their branch
-    if (!['negocio','restaurante'].includes(u.tipo)) {
-      campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
-      campos += row('Registro', fecha);
+      campos += S('Ubicaci\u00f3n');
+      campos += R('Zona', u.zona);
+      campos += R('Fraccionamiento', u.fraccionamiento);
+      campos += R('Calle', u.calle);
+      campos += R('N\u00famero', u.numero);
+      campos += R('Direcci\u00f3n', u.direccion);
     }
 
+    // SISTEMA
+    campos += S('Sistema');
+    campos += R('UID', uid);
+    campos += R('Tipo', u.tipo);
+    campos += R('Estado', u.estado);
+    campos += R('Registro', fecha);
+    if (u.motivoRechazo) campos += R('Motivo rechazo', u.motivoRechazo);
+    if (u.rechazadoEn)   campos += R('Rechazado el', new Date(u.rechazadoEn).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}));
+
+    // BOTONES
     const nomSafe = (u.nombre||u.nombreNegocio||'').replace(/'/g,'');
-    const _esRechazado = u.estado === 'rechazado';
-    const _esPend      = u.estado === 'pendiente_revision';
-    // Botones de acción según estado
     let acciones = '';
-    if (_esPend) {
+    if (u.estado === 'pendiente_revision') {
       acciones =
         '<div style="display:flex;gap:8px;margin-top:16px;">'
-        +'<button onclick="aprobarUsuario(\''+uid+'\',\''+u.correo+'\',' +JSON.stringify(nomSafe)+',\''+u.tipo+'\');document.getElementById(\'modal-detalle-admin\').style.display=\'none\'" '
-        +'style="flex:1;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">✅ Aprobar</button>'
+        +'<button onclick="aprobarUsuario(\''+uid+'\',\''+u.correo+'\',\''+nomSafe+'\',\''+u.tipo+'\');document.getElementById(\'modal-detalle-admin\').style.display=\'none\'" '
+        +'style="flex:1;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">&#10003; Aprobar</button>'
         +'<button onclick="window._abrirModalRechazo(\''+uid+'\',\''+u.correo+'\',\''+nomSafe+'\')" '
-        +'style="flex:1;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">❌ Rechazar</button>'
+        +'style="flex:1;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">&#10007; Rechazar</button>'
         +'</div>';
     }
-    // Cerrar siempre visible
     acciones += '<button onclick="document.getElementById(\'modal-detalle-admin\').style.display=\'none\'" '
       +'style="width:100%;margin-top:8px;background:#f0f0f0;color:#555;border:none;border-radius:12px;padding:11px;font-size:13px;cursor:pointer;font-family:\'Inter\',sans-serif;">Cerrar</button>';
-    const html =
-      `<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">${u.nombre||u.nombreNegocio||'—'}</div>`
+
+    const html = '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:4px;">'+(u.nombre||u.nombreNegocio||'&#8212;')+'</div>'
       + campos + acciones;
 
     const ya = document.getElementById('modal-detalle-admin');
@@ -5938,7 +5914,7 @@ function showAdminTab(i,btn){
     const m = document.createElement('div');
     m.id = 'modal-detalle-admin';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
-    m.innerHTML = '<div class="mda-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;">' + html + '</div>';
+    m.innerHTML = '<div class="mda-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;">'+html+'</div>';
     m.addEventListener('click', e => { if(e.target===m) m.style.display='none'; });
     document.body.appendChild(m);
   };
