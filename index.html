@@ -1199,7 +1199,18 @@
           } else if (estado === 'suspendido') {
             go('v-cuenta-suspendida','right');
           } else if (estado === 'rechazado') {
-            go('v-espera-revision','right');
+            go('v-solicitud-rechazada','right');
+            // Mostrar motivoRechazo si existe
+            setTimeout(async () => {
+              try {
+                const { getDoc: _gd, doc: _d } = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+                const _snap = await _gd(_d(db,'usuarios',cred.user.uid));
+                const _motivo = _snap.exists() ? (_snap.data().motivoRechazo||'') : '';
+                const _box = document.getElementById('v-rechazo-motivo-box');
+                const _txt = document.getElementById('v-rechazo-motivo-txt');
+                if (_motivo && _box && _txt) { _txt.textContent=_motivo; _box.style.display='block'; }
+              } catch(_e) {}
+            }, 300);
           } else if (estado === 'activo') {
             go('v-home','right');
             setTimeout(() => {
@@ -2388,6 +2399,22 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <button id="btn-reg-biz" class="btn btn-blue" onclick="registrarBiz()">Enviar solicitud →</button>
         <div class="si66" id="b-firebase-msg"></div>
         <div class="si34"></div>
+      </div>
+    </div>
+<div class="view go-right" id="v-solicitud-rechazada">
+      <div class="success-wrap">
+        <div class="success-ic" style="border-color:var(--red);font-size:36px;">&#10060;</div>
+        <div class="si36" style="color:#fff;">Solicitud no aprobada</div>
+        <div style="font-size:12px;color:var(--white-50);text-align:center;line-height:1.8;margin-bottom:16px;">
+          Despu&eacute;s de revisar tu informaci&oacute;n,<br>
+          por el momento no pudimos aprobar tu solicitud.
+        </div>
+        <div id="v-rechazo-motivo-box" style="display:none;background:var(--card-dark);border-radius:14px;padding:14px 16px;width:100%;margin-bottom:16px;border:.5px solid var(--card-border);text-align:left;">
+          <div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Motivo</div>
+          <div id="v-rechazo-motivo-txt" style="font-size:13px;color:var(--white-70);line-height:1.6;"></div>
+        </div>
+        <button class="btn btn-amber" onclick="go('v-reg-prov','right')" style="margin-bottom:10px;">Actualizar informaci&oacute;n</button>
+        <button onclick="cerrarSesion()" style="background:none;border:none;color:var(--white-30);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;padding:4px;">Cerrar sesi&oacute;n</button>
       </div>
     </div>
 <div class="view go-right" id="v-espera-revision">
@@ -5090,14 +5117,20 @@ function showAdminTab(i,btn){
     err.style.display = 'none';
     window._adminRol = cuenta.rol;
     window._adminUsr = usr;
-    window._filtroMain = 'pendientes'; // iniciar siempre en pendientes
-    window._filtroSub = 'todos';
-    cargarSolicitudes();
     // Show loading then go to panel
     showLoading();
     setTimeout(() => {
       hideLoading();
       go('v-admin-panel', 'right');
+      // Sync visual tab + data using same path as manual click
+      const _fbtnP = document.getElementById('fbtn-pendientes');
+      if (_fbtnP && window.setFiltroMain) {
+        window.setFiltroMain(_fbtnP, 'pendientes');
+      } else {
+        window._filtroMain = 'pendientes';
+        window._filtroSub = 'todos';
+        cargarSolicitudes();
+      }
       // Update role display
       const rolEl = document.getElementById('admin-rol-display');
       if(rolEl) rolEl.textContent = 'Admin ' + (cuenta.rol === 'maestro' ? 'Master' : cuenta.rol.charAt(0).toUpperCase() + cuenta.rol.slice(1));
@@ -5401,7 +5434,7 @@ function showAdminTab(i,btn){
       + `<div style="display:flex;gap:8px;margin-top:16px;">`
       + `<button onclick="aprobarUsuario('${uid}','${u.correo||''}','${nomSafe}','${u.tipo||''}');document.getElementById('modal-detalle-admin').style.display='none';" `
       + `style="flex:1;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✅ Aprobar</button>`
-      + `<button onclick="rechazarUsuario('${uid}','${u.correo||''}','${nomSafe}');document.getElementById('modal-detalle-admin').style.display='none';" `
+      + `<button onclick="window._abrirModalRechazo('${uid}','${u.correo||''}','${nomSafe}')" `
       + `style="flex:1;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">❌ Rechazar</button>`
       + `</div>`
       + `<button onclick="document.getElementById('modal-detalle-admin').style.display='none'" `
@@ -5438,10 +5471,58 @@ function showAdminTab(i,btn){
     }
   };
 
-  window.rechazarUsuario = async function(uid, correo, nombre) {
+  // Modal de motivo de rechazo
+  window._abrirModalRechazo = function(uid, correo, nombre) {
+    const ya = document.getElementById('modal-rechazo-motivo');
+    const html =
+      '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:12px;">'+'\u274C Motivo de rechazo</div>'
+      +'<div style="font-size:12px;color:#666;margin-bottom:8px;">Este mensaje ser\u00e1 visible para el solicitante al iniciar sesi\u00f3n.</div>'
+      +'<textarea id="rechazo-motivo-inp" rows="4" maxlength="500" placeholder="Describe el motivo (m\u00ednimo 20 caracteres)..." '
+      +'style="width:100%;box-sizing:border-box;border:1.5px solid #ddd;border-radius:10px;padding:10px;font-size:13px;font-family:\'Inter\',sans-serif;resize:none;margin-bottom:4px;"></textarea>'
+      +'<div id="rechazo-motivo-st" style="font-size:11px;color:#aaa;margin-bottom:12px;">0 / 500 caracteres</div>'
+      +'<button onclick="window._confirmarRechazo(\''+uid+'\',\''+correo+'\',\''+nombre+'\')" '
+      +'style="width:100%;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;margin-bottom:8px;">Confirmar rechazo</button>'
+      +'<button onclick="document.getElementById(\'modal-rechazo-motivo\').style.display=\'none\'" '
+      +'style="width:100%;background:#f0f0f0;color:#555;border:none;border-radius:12px;padding:11px;font-size:13px;cursor:pointer;font-family:\'Inter\',sans-serif;">Cancelar</button>';
+    if (ya) { ya.querySelector('.mrm-body').innerHTML = html; ya.style.display='flex'; }
+    else {
+      const m = document.createElement('div');
+      m.id = 'modal-rechazo-motivo';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:flex-end;justify-content:center;';
+      m.innerHTML = '<div class="mrm-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;">'+html+'</div>';
+      document.body.appendChild(m);
+    }
+    // live counter
+    setTimeout(() => {
+      const ta = document.getElementById('rechazo-motivo-inp');
+      const st = document.getElementById('rechazo-motivo-st');
+      if (ta && st) ta.addEventListener('input', () => { st.textContent = ta.value.length + ' / 500 caracteres'; });
+    }, 100);
+  };
+
+  window._confirmarRechazo = async function(uid, correo, nombre) {
+    const ta = document.getElementById('rechazo-motivo-inp');
+    const motivo = (ta ? ta.value.trim() : '');
+    if (!motivo || motivo.length < 20) {
+      const st = document.getElementById('rechazo-motivo-st');
+      if (st) { st.textContent = '\u26a0\ufe0f M\u00ednimo 20 caracteres'; st.style.color='#D63A2A'; }
+      return;
+    }
+    const m = document.getElementById('modal-rechazo-motivo');
+    if (m) m.style.display = 'none';
+    const mda = document.getElementById('modal-detalle-admin');
+    if (mda) mda.style.display = 'none';
+    await window.rechazarUsuario(uid, correo, nombre, motivo);
+  };
+
+  window.rechazarUsuario = async function(uid, correo, nombre, motivo) {
     try {
       const { updateDoc, doc: fsDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-      await updateDoc(fsDoc(window._fbDb, 'usuarios', uid), { estado: 'rechazado' });
+      await updateDoc(fsDoc(window._fbDb, 'usuarios', uid), {
+        estado: 'rechazado',
+        motivoRechazo: motivo || '',
+        rechazadoEn: new Date().toISOString()
+      });
       document.getElementById('admin-toast').textContent = `🚫 ${nombre||'Solicitud'} rechazada`;
       document.getElementById('admin-toast').style.display = 'block';
       setTimeout(()=>document.getElementById('admin-toast').style.display='none', 3000);
