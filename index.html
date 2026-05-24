@@ -5720,7 +5720,7 @@ function showAdminTab(i,btn){
       else if(sub === 'proveedor')   datos = datos.filter(u => u.tipo === 'proveedor');
       else if(sub === 'transporte')  datos = datos.filter(u => ['transporte','repartidor','ambos','transportista','rider'].includes(u.tipo));
       else if(sub === 'restaurante') datos = datos.filter(u => ['restaurante','restaurant'].includes(u.tipo));
-      else if(sub === 'negocio')     datos = datos.filter(u => ['negocio','restaurante','tienda','comercio'].includes(u.tipo));
+      else if(sub === 'negocio')     datos = datos.filter(u => ['negocio','tienda','comercio'].includes(u.tipo));
       // 'todos' no filtra más
     } else {
       // APROBADOS
@@ -5740,7 +5740,7 @@ function showAdminTab(i,btn){
       } else if(sub === 'proveedor')   { datos = datos.filter(u => u.tipo === 'proveedor'); }
       else if(sub === 'transporte')    { datos = datos.filter(u => ['transporte','repartidor','ambos','transportista','rider'].includes(u.tipo)); }
       else if(sub === 'restaurante')   { datos = datos.filter(u => ['restaurante','restaurant'].includes(u.tipo)); }
-      else if(sub === 'negocio')       { datos = datos.filter(u => ['negocio','restaurante','tienda','comercio'].includes(u.tipo)); }
+      else if(sub === 'negocio')       { datos = datos.filter(u => ['negocio','tienda','comercio'].includes(u.tipo)); }
       // sub==='todos' → ya filtrado por esAprobado arriba
     }
     renderLista(datos);
@@ -5888,8 +5888,11 @@ function showAdminTab(i,btn){
       campos += row('Calle', fmt(u.calle));
       campos += row('Número', fmt(u.numero));
     }
-    campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
-    campos += row('Registro', fecha);
+    // Show generic Registro only for types that don't already show it in their branch
+    if (!['negocio','restaurante'].includes(u.tipo)) {
+      campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
+      campos += row('Registro', fecha);
+    }
 
     const nomSafe = (u.nombre||u.nombreNegocio||'').replace(/'/g,'');
     const html =
@@ -5920,7 +5923,7 @@ function showAdminTab(i,btn){
       // Leer tipo directamente de Firestore — no depender del param que puede llegar vacío
       const snap = await getDoc(fsDoc(window._fbDb, 'usuarios', uid));
       const tipoReal = snap.exists() ? (snap.data().tipo || '') : (tipo || '');
-      const nuevoEstado = (tipoReal === 'proveedor') ? 'aprobado_pendiente_pago' : 'activo';
+      const nuevoEstado = ['proveedor','negocio','restaurante'].includes(tipoReal) ? 'aprobado_pendiente_pago' : 'activo';
       await updateDoc(fsDoc(window._fbDb, 'usuarios', uid), { estado: nuevoEstado });
       notificarAprobado(nombre, correo);
       const msg = tipo === 'proveedor'
