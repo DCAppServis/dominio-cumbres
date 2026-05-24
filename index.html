@@ -1130,6 +1130,10 @@
     const tipoNeg  = document.getElementById('b-tipo-negocio')?.value||'';
     const catEl    = tipoNeg==='restaurante' ? document.getElementById('b-cat-restaurante') : document.getElementById('b-cat-negocio');
     const categoria= catEl?.value||'';
+    const _isOtroB = categoria==='otro_rest'||categoria==='otro_neg';
+    const _otroId  = categoria==='otro_rest'?'b-cat-otro-rest':'b-cat-otro-neg';
+    const categoriaOtro = _isOtroB ? (document.getElementById(_otroId)?.value||'').trim() : '';
+
     const nombreCom= (document.getElementById('b-nombre-comercial')?.value||'').trim();
     const _nomBRaw = (document.getElementById('b-nombre')?.value||'').trim();
     const nombre   = _nomBRaw.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
@@ -1155,6 +1159,7 @@
     const errores=[];
     if(!tipoNeg)      errores.push('Selecciona el tipo: Restaurante o Negocio');
     if(!categoria)    errores.push('Selecciona una categoría');
+    if(_isOtroB&&!categoriaOtro) errores.push('Escribe la categoría');
     if(!nombreCom)    errores.push('Escribe el nombre comercial');
     if(!nombre)       errores.push('Escribe tu nombre completo');
     if(!usuario)      errores.push('Escribe un nombre de usuario');
@@ -1177,6 +1182,7 @@
     if(!cobertura)    errores.push('Selecciona la cobertura');
     if(!calle)        errores.push('Escribe tu calle');
     if(!numero)       errores.push('Escribe tu número');
+    if(!colonia)      errores.push('Escribe tu colonia o fraccionamiento');
     if(!descripcion||descripcion.length<20) errores.push('Descripción: mínimo 20 caracteres');
     if(!aniosOperando)errores.push('Selecciona los años operando');
     if(!todosChecks(['b-chk1','b-chk2','b-chk3','b-chk4'])) errores.push('Acepta los 4 acuerdos para continuar');
@@ -1192,7 +1198,7 @@
         prefijoWhatsapp:_prefB, telefono:_numB, whatsapp,
         tipo: tipoNeg,
         nombreNegocio: nombreCom,
-        categoria,
+        categoria, categoriaOtro: categoriaOtro||null,
         operacion, entrega, cobertura,
         calle, numero, colonia,
         descripcion, aniosOperando,
@@ -1240,6 +1246,7 @@
      'r-marca','r-modelo','r-color','r-placas','r-descripcion',
      'b-nombre-comercial','b-nombre','b-usr','b-correo','b-tel','bp1','bp2',
      'b-calle','b-numero','b-colonia','b-descripcion',
+     'b-cat-otro-rest','b-cat-otro-neg',
      'login-user','login-pass'
     ].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     // 7. Limpiar mensajes de error de formularios
@@ -2523,7 +2530,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         </div>
         <div class="form-g" id="b-cat-restaurante-group" style="display:none;">
           <label class="form-l">Categor&iacute;a<span class="req-b">REQ</span></label>
-          <select class="sel" id="b-cat-restaurante">
+          <select class="sel" id="b-cat-restaurante" onchange="bCatChange('rest')">
             <option value="">Selecciona...</option>
             <option value="mexicana">&#127790; Mexicana</option>
             <option value="hamburguesas">&#127828; Hamburguesas</option>
@@ -2539,9 +2546,13 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
             <option value="otro_rest">&#127374; Otro</option>
           </select>
         </div>
+        <div class="form-g" id="b-cat-otro-rest-group" style="display:none;">
+          <label class="form-l">Describe la categor&iacute;a<span class="req-b">REQ</span></label>
+          <input class="inp" id="b-cat-otro-rest" placeholder="Ej. Sopa azteca, Comida thai..." autocomplete="off">
+        </div>
         <div class="form-g" id="b-cat-negocio-group" style="display:none;">
           <label class="form-l">Categor&iacute;a<span class="req-b">REQ</span></label>
-          <select class="sel" id="b-cat-negocio">
+          <select class="sel" id="b-cat-negocio" onchange="bCatChange('neg')">
             <option value="">Selecciona...</option>
             <option value="tienda">&#128722; Tienda</option>
             <option value="farmacia">&#128138; Farmacia</option>
@@ -2555,6 +2566,10 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
             <option value="moda">&#128084; Moda</option>
             <option value="otro_neg">&#128218; Otro</option>
           </select>
+        </div>
+        <div class="form-g" id="b-cat-otro-neg-group" style="display:none;">
+          <label class="form-l">Describe la categor&iacute;a<span class="req-b">REQ</span></label>
+          <input class="inp" id="b-cat-otro-neg" placeholder="Ej. Renta de equipo, Estudio fotogr&aacute;fico..." autocomplete="off">
         </div>
 
         <div class="sec-div">Nombre comercial</div>
@@ -2614,7 +2629,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
             <option value="recolecta">&#128196; Recolecta local</option>
             <option value="propia">&#128666; Entrega propia</option>
             <option value="ride">&#128663; Dominio Ride</option>
-            <option value="ambas">&#128666;&#128663; Ambas</option>
+            <option value="todas">&#128666;&#128663; Todas las anteriores</option>
           </select>
         </div>
         <div class="form-g"><label class="form-l">Cobertura<span class="req-b">REQ</span></label>
@@ -2629,7 +2644,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <div class="info-box" style="background:#E8F0F8;color:var(--navy-text);margin-bottom:10px;">&#128274; Solo visible para el administrador de la app.</div>
         <div class="form-g"><label class="form-l">Calle<span class="req-b">REQ</span></label><input class="inp" id="b-calle" placeholder="Ej. Calle Cedro" autocomplete="street-address"></div>
         <div class="form-g"><label class="form-l">N&uacute;mero<span class="req-b">REQ</span></label><input class="inp" id="b-numero" placeholder="Ej. 42" inputmode="numeric"></div>
-        <div class="form-g"><label class="form-l">Colonia / Fraccionamiento<span class="opt-b">OPC</span></label><input class="inp" id="b-colonia" placeholder="Ej. Cumbres Elite"></div>
+        <div class="form-g"><label class="form-l">Colonia / Fraccionamiento<span class="req-b">REQ</span></label><input class="inp" id="b-colonia" placeholder="Ej. Cumbres Elite"></div>
 
         <div class="sec-div">Presentaci&oacute;n</div>
         <div class="form-g"><label class="form-l">Descripci&oacute;n del negocio<span class="req-b">REQ</span></label>
@@ -4888,10 +4903,30 @@ function bTipoChange(){
   if(gr)gr.style.display=t==='restaurante'?'block':'none';
   if(gn)gn.style.display=t==='negocio'?'block':'none';
   // Limpiar la categoría del tipo contrario al cambiar
-  if(t==='restaurante'){var cn=document.getElementById('b-cat-negocio');if(cn)cn.selectedIndex=0;}
-  if(t==='negocio'){var cr=document.getElementById('b-cat-restaurante');if(cr)cr.selectedIndex=0;}
+  if(t==='restaurante'){var cn=document.getElementById('b-cat-negocio');if(cn)cn.selectedIndex=0;
+    var go2=document.getElementById('b-cat-otro-neg-group');if(go2)go2.style.display='none';
+    var oi2=document.getElementById('b-cat-otro-neg');if(oi2)oi2.value='';}
+  if(t==='negocio'){var cr=document.getElementById('b-cat-restaurante');if(cr)cr.selectedIndex=0;
+    var go3=document.getElementById('b-cat-otro-rest-group');if(go3)go3.style.display='none';
+    var oi3=document.getElementById('b-cat-otro-rest');if(oi3)oi3.value='';}
   if(!t){var cn2=document.getElementById('b-cat-negocio');if(cn2)cn2.selectedIndex=0;
-         var cr2=document.getElementById('b-cat-restaurante');if(cr2)cr2.selectedIndex=0;}
+         var cr2=document.getElementById('b-cat-restaurante');if(cr2)cr2.selectedIndex=0;
+         var g1=document.getElementById('b-cat-otro-rest-group');if(g1)g1.style.display='none';
+         var g2=document.getElementById('b-cat-otro-neg-group');if(g2)g2.style.display='none';}
+}
+function bCatChange(t){
+  const suffix=t==='rest'?'rest':'neg';
+  const sel=document.getElementById('b-cat-'+suffix==='rest'?'restaurante':'negocio');
+  // simpler:
+  const selId=t==='rest'?'b-cat-restaurante':'b-cat-negocio';
+  const grpId='b-cat-otro-'+suffix+'-group';
+  const inpId='b-cat-otro-'+suffix;
+  const selEl=document.getElementById(selId);
+  const grp=document.getElementById(grpId);
+  const inp=document.getElementById(inpId);
+  const isOtro=selEl&&(selEl.value==='otro_rest'||selEl.value==='otro_neg');
+  if(grp)grp.style.display=isOtro?'block':'none';
+  if(!isOtro&&inp)inp.value='';
 }
 function bNombreInput(el){
   const pos=el.selectionStart;
@@ -5811,21 +5846,40 @@ function showAdminTab(i,btn){
       campos += row('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres Garc\u00eda':'Solo Dominio Cumbres');
       campos += row('Descripci\u00f3n', fmt(u.descripcion));
     } else if (['negocio','restaurante'].includes(u.tipo)) {
-      // Negocio / Restaurante
-      campos += row('Nombre comercial', fmt(u.nombreNegocio));
-      campos += row('Tipo', u.tipo==='restaurante'?'Restaurante':'Negocio');
-      campos += row('Categoría', fmt(u.categoria));
-      campos += row('Operación', fmt(u.operacion));
-      campos += row('Entrega', fmt(u.entrega));
-      campos += row('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres García':'Solo Dominio Cumbres');
-      campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
-      campos += '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Dirección privada</div>';
-      campos += row('Calle', fmt(u.calle));
-      campos += row('Número', fmt(u.numero));
-      campos += row('Colonia', fmt(u.colonia));
-      campos += '<div style="height:1px;background:#f0f0f0;margin:12px 0;"></div>';
-      campos += row('Descripción', fmt(u.descripcion));
-      campos += row('Años operando', fmt(u.aniosOperando));
+      // Negocio / Restaurante — todos los campos (row siempre muestra)
+      const rowA = (label, val) => `<div style="margin-bottom:10px;"><div style="font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">${label}</div><div style="font-size:13px;color:#1a1a1a;font-weight:500;">${val||'—'}</div></div>`;
+      const sec2 = t => `<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;border-top:1px solid #f0f0f0;padding-top:10px;">${t}</div>`;
+      // Datos personales
+      campos += sec2('Datos personales');
+      campos += rowA('Nombre responsable', u.nombre||u.nombreNegocio);
+      campos += rowA('Usuario', u.usuario);
+      campos += rowA('Correo', u.correo);
+      campos += rowA('Prefijo WhatsApp', u.prefijoWhatsapp);
+      campos += rowA('Teléfono', u.telefono);
+      campos += rowA('WhatsApp completo', u.whatsapp);
+      // Datos negocio
+      campos += sec2('Datos del negocio');
+      campos += rowA('Tipo', u.tipo==='restaurante'?'Restaurante':'Negocio');
+      campos += rowA('Nombre comercial', u.nombreNegocio);
+      campos += rowA('Categoría', u.categoria);
+      if(u.categoriaOtro) campos += rowA('Categoría (otro)', u.categoriaOtro);
+      campos += rowA('Operación', u.operacion);
+      campos += rowA('Entrega', u.entrega);
+      campos += rowA('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres García':u.cobertura==='dominio_cumbres'?'Solo Dominio Cumbres':u.cobertura);
+      campos += rowA('Descripción', u.descripcion);
+      campos += rowA('Años operando', u.aniosOperando);
+      // Dirección privada
+      campos += sec2('Dirección privada');
+      campos += rowA('Calle', u.calle);
+      campos += rowA('Número', u.numero);
+      campos += rowA('Colonia', u.colonia);
+      // Sistema
+      campos += sec2('Sistema');
+      campos += rowA('UID', uid);
+      campos += rowA('Estado', u.estado);
+      campos += rowA('Registro', fecha);
+      if(u.motivoRechazo) campos += rowA('Motivo rechazo', u.motivoRechazo);
+      if(u.rechazadoEn) campos += rowA('Rechazado el', new Date(u.rechazadoEn).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}));
     } else {
       // Vecino
       campos += row('Zona', fmt(u.zona));
