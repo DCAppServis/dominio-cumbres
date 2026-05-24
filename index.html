@@ -5772,7 +5772,8 @@ function showAdminTab(i,btn){
       const div = document.createElement('div');
       div.style.cssText = 'background:#162A1D;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid #1A3A25;';
       const esPendiente = u.estado === 'pendiente_revision' && u.tipo !== 'vecino';
-      const esAprobado  = u.estado === 'activo' || u.estado === 'aprobado_pendiente_pago';
+      const esAprobado  = u.estado === 'activo' || u.estado === 'aprobado_pendiente_pago'
+                         || (u.tipo === 'vecino' && (u.estado === undefined || u.estado === null || u.estado === ''));
       const esRechazado = u.estado === 'rechazado';
       div.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
@@ -5844,7 +5845,7 @@ function showAdminTab(i,btn){
       campos += R('Total calificaciones', u.totalCalificaciones);
       campos += S('Direcci\u00f3n privada');
       campos += R('Calle', u.calle);
-      campos += R('N\u00famero', u.numero);
+      campos += R('N\u00famero', u.numero||u.numeroProv);
       campos += R('Colonia', u.colonia);
     } else if (esRide) {
       const tl={'transporte':'Transporte','repartidor':'Repartidor','ambos':'Transporte y Repartidor'};
