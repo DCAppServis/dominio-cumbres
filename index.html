@@ -821,6 +821,44 @@
 
   // ─── REGISTRO PROVEEDOR ─────────────────────────────────
   // ── Modal de errores proveedor ──────────────────────────────
+  // Correo typo — proveedor (reutiliza _detectarTypoCorreo y lógica de vecino)
+  window._omitirTypoCorreoProv = false;
+  window._mostrarSugerenciaCorreoProv = function(correoOrig, domCorr){
+    const partes = correoOrig.split('@');
+    const correoSug = partes[0] + '@' + domCorr;
+    const ya = document.getElementById('modal-correo-typo-p');
+    const html =
+      '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:10px;">⚠️ Revisa tu correo</div>'
+      +'<div style="font-size:13px;color:#555;margin-bottom:6px;">Escribiste:</div>'
+      +'<div style="font-size:13px;font-weight:700;color:#D63A2A;margin-bottom:12px;">'+correoOrig+'</div>'
+      +'<div style="font-size:13px;color:#555;margin-bottom:6px;">¿Quisiste decir?</div>'
+      +'<div style="font-size:13px;font-weight:700;color:#1FC26A;margin-bottom:20px;">'+correoSug+'</div>'
+      +'<button onclick="window._corregirCorreoProv(\''+correoSug+'\')" '
+      +'style="width:100%;background:#F5C518;color:#1a1a1a;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:8px;">Corregir</button>'
+      +'<button onclick="window._continuarConCorreoProv()" '
+      +'style="width:100%;background:#f0f0f0;color:#333;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:10px;">Continuar con mi correo</button>'
+      +'<div style="font-size:11px;color:#aaa;text-align:center;">Solo es una sugerencia. Algunos dominios personalizados pueden ser válidos.</div>';
+    if(ya){ya.querySelector('.modal-ct-p-body').innerHTML=html;ya.style.display='flex';return;}
+    const m=document.createElement('div');
+    m.id='modal-correo-typo-p';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+    m.innerHTML='<div class="modal-ct-p-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;">'+html+'</div>';
+    document.body.appendChild(m);
+  };
+  window._corregirCorreoProv = function(c){
+    const el=document.getElementById('p-correo');
+    if(el)el.value=c;
+    const m=document.getElementById('modal-correo-typo-p');
+    if(m)m.style.display='none';
+  };
+  window._continuarConCorreoProv = function(){
+    const m=document.getElementById('modal-correo-typo-p');
+    if(m)m.style.display='none';
+    window._omitirTypoCorreoProv=true;
+    window.registrarProv && window.registrarProv();
+    window._omitirTypoCorreoProv=false;
+  };
+
   window._cerrarModalErrProv = function(){
     var b=document.getElementById('btn-reg-prov');
     if(b){b.textContent='Enviar solicitud →';b.disabled=false;}
@@ -875,6 +913,14 @@
     else if (!/^[a-z0-9_-]+$/.test(usuario)) errores.push('Usuario: solo minúsculas, números, _ y -');
     const _cerrP = vValidarCorreo(correo);
     if (_cerrP) errores.push(_cerrP.replace(/^[📧⚠️]\s*/,''));
+    // Correo: typo conocido → modal de sugerencia (reutiliza misma lógica que vecino)
+    if (!_cerrP && !window._omitirTypoCorreoProv) {
+      const _typoP = _detectarTypoCorreo(correo);
+      if (_typoP) {
+        window._mostrarSugerenciaCorreoProv(correo, _typoP);
+        return;
+      }
+    }
     // WhatsApp
     const _waR = {'+52':10,'+1':10,'+34':9,'+57':10};
     const _waM = {'+52':'WhatsApp México debe tener 10 dígitos','+1':'WhatsApp USA/Canadá debe tener 10 dígitos','+34':'WhatsApp España debe tener 9 dígitos','+57':'WhatsApp Colombia debe tener 10 dígitos'};
@@ -894,6 +940,7 @@
     // Dirección
     if (!calle)      errores.push('Escribe tu calle');
     if (!numeroProv) errores.push('Escribe tu número');
+    if (!colonia)    errores.push('Escribe tu colonia o fraccionamiento');
     // Checks — ahora son 4
     if (!todosChecks(['p-chk1','p-chk2','p-chk3','p-chk4']))
       errores.push('Acepta todos los acuerdos para continuar');
@@ -1043,7 +1090,7 @@
     ['v-nombre','v-usr','v-correo','v-tel','vp1','vp2','v-calle','v-numero',
      'p-nombre','p-usr','p-correo','p-tel','pp1','pp2',
      'r-nombre','r-usr','r-correo','r-tel','rp1','rp2',
-     'p-calle','p-numero-prov','p-colonia','p-descripcion','p-precio',
+     'p-calle','p-numero-prov','p-colonia','p-descripcion',
      'login-user','login-pass'
     ].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     // 7. Limpiar mensajes de error de formularios
@@ -2081,7 +2128,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <div class="info-box" style="background:#FFF8E1;color:var(--amber-dark);">&#128269; Revisaremos tu perfil antes de activarlo. Te avisaremos dentro de la app o por los medios registrados.<br><span style="font-size:10px;color:var(--yellow-text);">&#128236; La solicitud llega al administrador de Dominio Cumbres AppServis para revisi&oacute;n manual.</span></div>
 
         <div class="sec-div">Datos personales</div>
-        <div class="form-g"><label class="form-l">Nombre completo<span class="req-b">REQ</span></label><input class="inp" id="p-nombre" placeholder="Como aparece en tu INE" autocomplete="off" autocorrect="off" spellcheck="false" oninput="pNombreInput(this)"></div>
+        <div class="form-g"><label class="form-l">Nombre completo<span class="req-b">REQ</span></label><input class="inp" id="p-nombre" placeholder="Como aparece en tu INE" autocomplete="off" autocorrect="off" spellcheck="false" oninput="pNombreInput(this)" onchange="pNombreInput(this)" onblur="pNombreInput(this)"></div>
         <div class="form-g"><label class="form-l">Usuario<span class="req-b">REQ</span></label><input class="inp" id="p-usr" placeholder="El que t&uacute; elijas" autocomplete="off" oninput="pUsrInput(this)"><div id="p-usr-st" class="form-h"></div></div>
         <div class="form-g"><label class="form-l">Correo<span class="req-b">REQ</span></label><input class="inp" type="email" id="p-correo" placeholder="tucorreo@ejemplo.com"></div>
 
@@ -2171,7 +2218,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <div class="info-box" style="background:#E8F5EE;color:#0A4220;margin-bottom:10px;">&#128274; Tu direcci&oacute;n es privada &mdash; solo la ver&aacute; el administrador de la app.</div>
         <div class="form-g"><label class="form-l">Calle<span class="req-b">REQ</span></label><input class="inp" id="p-calle" placeholder="Ej. Calle Cedro" autocomplete="street-address"></div>
         <div class="form-g"><label class="form-l">N&uacute;mero<span class="req-b">REQ</span></label><input class="inp" id="p-numero-prov" placeholder="Ej. 42" inputmode="numeric"></div>
-        <div class="form-g"><label class="form-l">Colonia / Fraccionamiento<span class="opt-b">OPC</span></label><input class="inp" id="p-colonia" placeholder="Ej. Cumbres Elite"></div>
+        <div class="form-g"><label class="form-l">Colonia / Fraccionamiento<span class="req-b">REQ</span></label><input class="inp" id="p-colonia" placeholder="Ej. Cumbres Elite"></div>
 
         <div class="sec-div">Acuerdos importantes</div>
         <div class="check-row" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk" id="p-chk1"></div><div class="chk-txt">Toda negociaci&oacute;n dentro del chat de la app. Negociar fuera = suspensi&oacute;n inmediata.</div></div>
@@ -2346,6 +2393,23 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <button class="btn btn-yellow-ol" onclick="go('v-splash','left')">← Regresar al inicio</button>
       </div>
     </div>
+<div class="view go-right" id="v-activo-prov">
+      <div class="success-wrap">
+        <div class="success-ic" style="border-color:var(--green);font-size:36px;">&#127881;</div>
+        <div class="si36">¡Tu perfil ya está activo!</div>
+        <div style="font-size:12px;color:var(--white-50);text-align:center;line-height:1.8;margin-bottom:20px;">
+          Ya puedes recibir solicitudes de clientes.<br><br>
+          Para aumentar la confianza de los vecinos<br>y mejorar tu visibilidad, puedes completar tu perfil:
+        </div>
+        <div style="background:var(--card-dark);border-radius:14px;padding:14px 16px;width:100%;margin-bottom:16px;border:.5px solid var(--card-border);text-align:left;">
+          <div style="font-size:12px;color:var(--white-60);margin-bottom:8px;font-weight:600;">Completar después (opcional):</div>
+          <div style="font-size:13px;color:var(--white-50);margin-bottom:6px;">&#9744; Foto de INE — aumenta tu credibilidad</div>
+          <div style="font-size:13px;color:var(--white-50);margin-bottom:10px;">&#9744; Fotos de trabajos anteriores</div>
+          <div style="font-size:11px;color:var(--white-30);line-height:1.5;">Los perfiles más completos generan mayor confianza<br>y pueden obtener mejores calificaciones.<br>No tienes que hacerlo hoy.</div>
+        </div>
+        <button class="btn btn-green" onclick="go('v-home','right')">Entrar a la app →</button>
+      </div>
+    </div>
 <div class="view go-right" id="v-espera-pago">
       <div class="success-wrap">
         <div class="success-ic" style="border-color:#F5C518;font-size:36px;">&#127881;</div>
@@ -2383,7 +2447,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       <div class="success-wrap">
         <div class="success-ic" style="border-color:var(--yellow);">⏳</div>
         <div class="si36">¡Solicitud enviada!</div>
-        <div style="font-size:12px;color:var(--white-50);text-align:center;line-height:1.7;margin-bottom:16px;">Revisaremos tu información en las próximas<br><strong class="si04">24 a 48 horas.</strong><br><br>Te avisamos por correo cuando tu perfil esté activo.</div>
+        <div style="font-size:12px;color:var(--white-50);text-align:center;line-height:1.7;margin-bottom:16px;">Revisaremos tu información en las próximas <strong class="si04">24 a 48 horas.</strong><br><br>Te avisaremos dentro de la app o por los medios registrados.</div>
         <div style="background:var(--card-dark);border-radius:14px;padding:12px 14px;width:100%;margin-bottom:16px;border:.5px solid var(--card-border);">
           <div style="font-size:11px;color:var(--white-40);text-align:center;margin-bottom:10px;">¿No recibes correo en 48 hrs? Contáctanos:</div>
           <a href="https://wa.me/5218113840455?text=Hola,%20me%20registré%20en%20Dominio%20Cumbres%20AppServis%20y%20no%20he%20recibido%20confirmación" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#25D366;border-radius:12px;padding:12px;text-decoration:none;margin-bottom:8px;">
@@ -4411,7 +4475,7 @@ const _P_OFICIOS = [
 
 function pNombreInput(el){
   const pos=el.selectionStart;
-  el.value=el.value.toLowerCase().replace(/\w/g,c=>c.toUpperCase());
+  el.value=el.value.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
   try{el.setSelectionRange(pos,pos);}catch(e){}
 }
 
