@@ -1388,7 +1388,7 @@
     const elSal = document.getElementById('home-saludo-grande');
     if (elSal) {
       const nom = nombre || (tipo==='restaurante'||tipo==='negocio' ? 'Bienvenido' : 'Usuario');
-      elSal.innerHTML = '\ud83d\udc4b \u00a1'+sBase+', <span style="color:'+cfg.color+';">'+nom+'!</span>';
+      elSal.innerHTML = '&#128075; \u00a1'+sBase+', <span style="color:'+cfg.color+';">'+nom+'!</span>';
     }
     const elIcon = document.getElementById('home-tipo-icon');
     if (elIcon) elIcon.innerHTML = cfg.icon;
