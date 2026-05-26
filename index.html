@@ -3062,6 +3062,469 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <button class="btn btn-green" onclick="go('v-home','right')">Entrar a la app →</button>
       </div>
     </div>
+<!-- ====== HOME MULTIROL MOCK — solo visual, sin conexión ====== -->
+<div class="view go-right" id="v-home-multirol-mock" style="background:#F5F6F2;overflow-y:auto;">
+
+<style>
+/* ── HMM: Home Multirol Mock ── */
+.hmm-screen{font-family:'Inter',sans-serif;background:#F5F6F2;display:flex;flex-direction:column;min-height:100%;}
+.hmm-sb{background:#fff;display:flex;justify-content:space-between;align-items:center;padding:10px 18px 0;font-size:11px;font-weight:600;color:#111;flex-shrink:0;}
+.hmm-hdr{background:#fff;padding:10px 18px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;}
+.hmm-logo-row{display:flex;align-items:center;gap:9px;}
+.hmm-logo{width:38px;height:38px;border-radius:50%;background:#0f2b14;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.hmm-brand-top{font-size:11px;font-weight:700;color:#0f2b14;letter-spacing:.3px;line-height:1.2;}
+.hmm-brand-sub{font-size:9px;color:#5a7a5a;font-weight:500;}
+.hmm-sal-wrap{background:#fff;padding:8px 18px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;}
+.hmm-sal-left{display:flex;flex-direction:column;gap:4px;}
+.hmm-badge{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:3px 10px 3px 7px;font-size:11px;font-weight:700;}
+.hmm-badge-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.hmm-saludo{font-size:22px;font-weight:400;color:#111;line-height:1.2;}
+.hmm-saludo b{font-weight:700;}
+.hmm-salir{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;background:#F3F4F6;border:1.5px solid #D1D5DB;border-radius:12px;padding:0 16px;height:44px;font-size:13px;font-weight:700;color:#111827;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;-webkit-appearance:none;appearance:none;outline:none;}
+.hmm-loc{font-size:11px;color:#999;padding:2px 18px 10px;background:#fff;flex-shrink:0;}
+.hmm-hero{margin:0 14px 14px;border-radius:20px;overflow:hidden;position:relative;height:130px;flex-shrink:0;}
+.hmm-hero-txt{position:absolute;bottom:13px;left:15px;right:15px;color:#fff;font-size:15px;font-weight:700;line-height:1.3;text-shadow:0 1px 8px rgba(0,0,0,.5);}
+.hmm-sec{font-size:12px;font-weight:700;color:#1a1a1a;padding:0 18px;margin-bottom:10px;flex-shrink:0;}
+.hmm-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:0 14px;margin-bottom:16px;}
+.hmm-ac{background:#fff;border-radius:14px;padding:12px 12px 11px;display:flex;flex-direction:column;gap:7px;border:.5px solid #ececec;}
+.hmm-ac-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.hmm-ac-lbl{font-size:12px;font-weight:700;color:#1a1a1a;line-height:1.25;}
+.hmm-ac-sub{font-size:10px;color:#999;line-height:1.2;margin-top:-3px;}
+.hmm-row-hdr{display:flex;justify-content:space-between;align-items:center;padding:0 18px;margin-bottom:9px;}
+.hmm-row-t{font-size:12px;font-weight:700;color:#1a1a1a;}
+.hmm-row-v{font-size:11px;font-weight:600;color:#2a8c1a;}
+/* Favoritos */
+.hmm-favrow{display:flex;gap:13px;padding:0 18px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none;}
+.hmm-favrow::-webkit-scrollbar{display:none;}
+.hmm-fav{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+.hmm-favc{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1.5px solid #e4e4e4;}
+.hmm-favl{font-size:9px;font-weight:600;color:#555;text-align:center;max-width:50px;line-height:1.25;}
+/* Stats card (proveedor/transporte/negocio) */
+.hmm-stat-card{margin:0 14px 14px;border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.hmm-stat-row{display:flex;gap:8px;}
+.hmm-stat-item{flex:1;text-align:center;}
+.hmm-stat-num{font-size:24px;font-weight:700;color:#fff;line-height:1;}
+.hmm-stat-lbl{font-size:10px;color:rgba(255,255,255,.65);margin-top:2px;}
+.hmm-stat-hdr{display:flex;justify-content:space-between;align-items:center;}
+.hmm-stat-title{font-size:13px;font-weight:700;color:#fff;}
+.hmm-stat-ver{font-size:11px;font-weight:600;color:rgba(255,255,255,.7);}
+/* Actividad */
+.hmm-act-item{background:#fff;border-radius:14px;margin:0 14px 8px;padding:11px 13px;display:flex;align-items:center;gap:10px;border:.5px solid #ececec;}
+.hmm-act-ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.hmm-act-body{flex:1;}
+.hmm-act-title{font-size:12px;font-weight:700;color:#1a1a1a;}
+.hmm-act-sub{font-size:10px;color:#999;margin-top:1px;}
+.hmm-act-badge{font-size:11px;font-weight:700;border-radius:8px;padding:2px 8px;white-space:nowrap;}
+/* Comunidad */
+.hmm-com-card{margin:0 14px 16px;border-radius:14px;overflow:hidden;background:#fff;border:.5px solid #ececec;display:flex;align-items:stretch;min-height:68px;}
+.hmm-com-img{width:78px;flex-shrink:0;}
+.hmm-com-body{padding:10px 12px;display:flex;flex-direction:column;justify-content:center;}
+.hmm-com-ttl{font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:3px;}
+.hmm-com-desc{font-size:10px;color:#777;line-height:1.45;}
+/* Nav */
+.hmm-nav{background:#fff;border-top:.5px solid #e8e8e8;display:flex;justify-content:space-around;padding:10px 0 14px;flex-shrink:0;margin-top:auto;}
+.hmm-ni{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;}
+.hmm-ni-ic{font-size:20px;color:#c0c0c0;}
+.hmm-ni-lb{font-size:9px;font-weight:700;color:#c0c0c0;}
+/* Separador de roles */
+.hmm-role-sep{background:#0f2b14;color:rgba(255,255,255,.7);font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:8px 18px;display:flex;align-items:center;gap:8px;}
+.hmm-role-sep-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+/* Grafica mini */
+.hmm-chart-row{display:flex;align-items:flex-end;gap:5px;height:30px;padding:0 2px;}
+.hmm-bar{border-radius:3px 3px 0 0;flex:1;}
+</style>
+
+<!-- ══ LOGO SVG reutilizable ══ -->
+<svg style="display:none">
+  <symbol id="hmm-logo-sym" viewBox="0 0 32 32">
+    <circle cx="16" cy="16" r="14" stroke="#3da820" stroke-width="1" fill="none"/>
+    <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#3da820"/>
+    <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#F5C518" transform="rotate(120 16 16)"/>
+    <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#D63A2A" transform="rotate(180 16 16)"/>
+    <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#3da820" transform="rotate(240 16 16)"/>
+    <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#F5C518" transform="rotate(300 16 16)"/>
+    <circle cx="16" cy="16" r="4" fill="none" stroke="#3da820" stroke-width="1"/>
+    <circle cx="16" cy="16" r="2.5" fill="#3da820"/>
+  </symbol>
+</svg>
+
+<!-- SVG Hero residencial reutilizable -->
+<svg style="display:none">
+  <symbol id="hmm-hero-sym" viewBox="0 0 292 130" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="hsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b8cfe8"/><stop offset="60%" stop-color="#d8eaf5"/><stop offset="100%" stop-color="#e8f2f8"/></linearGradient>
+      <linearGradient id="hgnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6b8f55"/><stop offset="100%" stop-color="#4a6e38"/></linearGradient>
+      <linearGradient id="hwl1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f0ede6"/><stop offset="100%" stop-color="#dedad0"/></linearGradient>
+      <linearGradient id="hwl2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#e8e4dc"/><stop offset="100%" stop-color="#d0ccc4"/></linearGradient>
+      <linearGradient id="hrof" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3d4a30"/><stop offset="100%" stop-color="#2c3622"/></linearGradient>
+      <linearGradient id="hvis" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0a1a06" stop-opacity=".15"/><stop offset="45%" stop-color="#0a1a06" stop-opacity="0"/><stop offset="70%" stop-color="#0a1a06" stop-opacity=".35"/><stop offset="100%" stop-color="#0a1a06" stop-opacity=".72"/></linearGradient>
+      <linearGradient id="htsh" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a4020"/><stop offset="100%" stop-color="#1a2e14"/></linearGradient>
+      <filter id="hblur"><feGaussianBlur stdDeviation=".6"/></filter>
+      <radialGradient id="hsun" cx="85%" cy="8%" r="35%"><stop offset="0%" stop-color="#fff9e0" stop-opacity=".2"/><stop offset="100%" stop-color="#fff9e0" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect width="292" height="130" fill="url(#hsky)"/>
+    <ellipse cx="60" cy="20" rx="30" ry="9" fill="#fff" opacity=".55" filter="url(#hblur)"/>
+    <ellipse cx="200" cy="24" rx="35" ry="10" fill="#fff" opacity=".4" filter="url(#hblur)"/>
+    <polygon points="0,85 40,48 80,85" fill="#8aaa78" opacity=".4"/>
+    <polygon points="50,85 100,40 150,85" fill="#7a9e68" opacity=".35"/>
+    <polygon points="140,85 200,36 260,85" fill="#8aaa78" opacity=".3"/>
+    <rect x="0" y="93" width="292" height="37" fill="url(#hgnd)"/>
+    <rect x="68" y="42" width="156" height="57" fill="url(#hwl1)"/>
+    <rect x="200" y="42" width="24" height="57" fill="url(#hwl2)"/>
+    <polygon points="58,42 146,17 234,42" fill="url(#hrof)"/>
+    <line x1="58" y1="42" x2="234" y2="42" stroke="#1e2818" stroke-width="1.2"/>
+    <rect x="82" y="56" width="26" height="19" rx="2" fill="#a8c8e0" opacity=".85"/>
+    <line x1="95" y1="57" x2="95" y2="74" stroke="#8ab0cc" stroke-width=".8"/>
+    <line x1="83" y1="65" x2="107" y2="65" stroke="#8ab0cc" stroke-width=".8"/>
+    <rect x="120" y="56" width="26" height="19" rx="2" fill="#a8c8e0" opacity=".85"/>
+    <line x1="133" y1="57" x2="133" y2="74" stroke="#8ab0cc" stroke-width=".8"/>
+    <line x1="121" y1="65" x2="145" y2="65" stroke="#8ab0cc" stroke-width=".8"/>
+    <rect x="158" y="56" width="26" height="19" rx="2" fill="#a8c8e0" opacity=".85"/>
+    <line x1="171" y1="57" x2="171" y2="74" stroke="#8ab0cc" stroke-width=".8"/>
+    <line x1="159" y1="65" x2="183" y2="65" stroke="#8ab0cc" stroke-width=".8"/>
+    <rect x="124" y="75" width="20" height="25" rx="2" fill="#8a7a60"/>
+    <path d="M124,77 Q134,69 144,77" fill="none" stroke="#6a5a40" stroke-width="1"/>
+    <rect x="28" y="58" width="50" height="42" fill="#e8e4da"/>
+    <polygon points="22,58 53,44 78,58" fill="#2c3622" opacity=".9"/>
+    <rect x="214" y="58" width="52" height="42" fill="#dedad0"/>
+    <polygon points="210,58 240,45 268,58" fill="#2c3622" opacity=".85"/>
+    <rect x="14" y="70" width="6" height="26" fill="#5a4030"/>
+    <ellipse cx="17" cy="66" rx="13" ry="16" fill="url(#htsh)"/>
+    <ellipse cx="17" cy="62" rx="10" ry="12" fill="#3a5a28"/>
+    <rect x="262" y="72" width="6" height="24" fill="#5a4030"/>
+    <ellipse cx="265" cy="68" rx="13" ry="16" fill="url(#htsh)"/>
+    <ellipse cx="265" cy="64" rx="10" ry="12" fill="#3a5a28"/>
+    <ellipse cx="90" cy="93" rx="16" ry="7" fill="#4a7838"/>
+    <ellipse cx="200" cy="93" rx="14" ry="6" fill="#4a7838"/>
+    <path d="M118,130 L124,100 L168,100 L174,130Z" fill="#c8c0a8" opacity=".7"/>
+    <rect width="292" height="130" fill="url(#hvis)"/>
+    <rect width="292" height="130" fill="url(#hsun)"/>
+  </symbol>
+</svg>
+
+<!-- ══════════════════════════════════════════
+     ROL 1 — VECINO (verde)
+════════════════════════════════════════════ -->
+<div class="hmm-role-sep">
+  <div class="hmm-role-sep-dot" style="background:#1FC26A;"></div>
+  1 · VECINO
+</div>
+<div class="hmm-screen">
+  <div class="hmm-sb"><span>9:41</span><span style="font-size:10px;">▲ ■ ■</span></div>
+  <div class="hmm-hdr">
+    <div class="hmm-logo-row">
+      <div class="hmm-logo"><svg width="24" height="24"><use href="#hmm-logo-sym"/></svg></div>
+      <div><div class="hmm-brand-top">DOMINIO CUMBRES</div><div class="hmm-brand-sub">AppServis</div></div>
+    </div>
+  </div>
+  <div class="hmm-sal-wrap">
+    <div class="hmm-sal-left">
+      <div class="hmm-badge" style="background:#e8f5e1;color:#1f5c10;"><div class="hmm-badge-dot" style="background:#3da820;"></div>Vecino</div>
+      <div class="hmm-saludo">Hola, <b>Borja</b> 👋</div>
+    </div>
+    <button class="hmm-salir">🚪 Salir</button>
+  </div>
+  <div class="hmm-loc">📍 Sector Santoral, Dominio Cumbres</div>
+  <div class="hmm-hero">
+    <svg width="100%" height="100%" viewBox="0 0 292 130" preserveAspectRatio="xMidYMid slice"><use href="#hmm-hero-sym"/></svg>
+    <div class="hmm-hero-txt">Tu comunidad,<br>todo en un solo lugar.</div>
+  </div>
+  <div class="hmm-sec">¿Qué necesitas hoy?</div>
+  <div class="hmm-grid">
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#e6f4e0;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1f6b10" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><div class="hmm-ac-lbl">Buscar Servicios</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#fff0e0;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#c44f00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></div><div class="hmm-ac-lbl">Pedir Comida</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#e4eef8;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#14509a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="hmm-ac-lbl">Transporte</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#f2e8f8;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5c1490" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><div class="hmm-ac-lbl">Plaza Digital</div></div>
+  </div>
+  <div class="hmm-row-hdr"><div class="hmm-row-t">Tus favoritos</div><div class="hmm-row-v">Ver todos</div></div>
+  <div class="hmm-favrow">
+    <div class="hmm-fav"><div class="hmm-favc" style="background:#e6f4e0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f6b10" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><div class="hmm-favl">Plomero Rápido</div></div>
+    <div class="hmm-fav"><div class="hmm-favc" style="background:#fff0e0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c44f00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></div><div class="hmm-favl">La Postrería</div></div>
+    <div class="hmm-fav"><div class="hmm-favc" style="background:#e4eef8;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14509a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="hmm-favl">Juan R. Transporte</div></div>
+    <div class="hmm-fav"><div class="hmm-favc" style="background:#f0f0f0;color:#aaa;font-size:22px;font-weight:300;">+</div><div class="hmm-favl">Agregar</div></div>
+  </div>
+  <div class="hmm-row-hdr"><div class="hmm-row-t">Comunidad</div><div class="hmm-row-v">Ver más</div></div>
+  <div class="hmm-com-card">
+    <div class="hmm-com-img"><svg width="78" height="68" viewBox="0 0 78 68" preserveAspectRatio="xMidYMid slice"><rect width="78" height="68" fill="#e8edd8"/><rect x="0" y="38" width="78" height="30" fill="#5a8840"/><rect x="14" y="16" width="22" height="28" rx="2" fill="#dedad0"/><polygon points="8,16 25,6 42,16" fill="#3a4a28"/><rect x="18" y="22" width="6" height="6" rx="1" fill="#a8c4d8" opacity=".8"/><rect x="28" y="22" width="6" height="6" rx="1" fill="#a8c4d8" opacity=".8"/><ellipse cx="10" cy="38" rx="8" ry="10" fill="#2a4020"/><ellipse cx="68" cy="36" rx="7" ry="9" fill="#2a4020"/></svg></div>
+    <div class="hmm-com-body"><div class="hmm-com-ttl">Diseño del mes</div><div class="hmm-com-desc">Feria de emprendedores<br>este fin de semana.</div></div>
+  </div>
+  <div class="hmm-nav">
+    <div class="hmm-ni"><div class="hmm-ni-ic" style="color:#1FC26A;">🏠</div><div class="hmm-ni-lb" style="color:#1FC26A;">Inicio</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">💬</div><div class="hmm-ni-lb">Mensajes</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">❤️</div><div class="hmm-ni-lb">Favoritos</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">👤</div><div class="hmm-ni-lb">Cuenta</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ROL 2 — PROVEEDOR (dorado)
+════════════════════════════════════════════ -->
+<div class="hmm-role-sep">
+  <div class="hmm-role-sep-dot" style="background:#F5C518;"></div>
+  2 · PROVEEDOR
+</div>
+<div class="hmm-screen" style="background:#FFFDF5;">
+  <div class="hmm-sb" style="background:#fff;"><span>9:41</span><span style="font-size:10px;">▲ ■ ■</span></div>
+  <div class="hmm-hdr" style="background:#fff;">
+    <div class="hmm-logo-row">
+      <div class="hmm-logo"><svg width="24" height="24"><use href="#hmm-logo-sym"/></svg></div>
+      <div><div class="hmm-brand-top">DOMINIO CUMBRES</div><div class="hmm-brand-sub">AppServis</div></div>
+    </div>
+  </div>
+  <div class="hmm-sal-wrap" style="background:#fff;">
+    <div class="hmm-sal-left">
+      <div class="hmm-badge" style="background:#FFF8DC;color:#7a5000;border:1px solid #F5C518;"><div class="hmm-badge-dot" style="background:#F5C518;"></div>Proveedor</div>
+      <div class="hmm-saludo">Hola, <b>Alejandro</b> 👋</div>
+    </div>
+    <button class="hmm-salir">🚪 Salir</button>
+  </div>
+  <div class="hmm-loc" style="background:#fff;">Tu negocio, tu comunidad</div>
+  <!-- Stats card dorado -->
+  <div class="hmm-stat-card" style="background:linear-gradient(135deg,#c8860a,#a06800);margin:0 14px 14px;">
+    <div class="hmm-stat-hdr"><div class="hmm-stat-title">Resumen de hoy</div><div class="hmm-stat-ver">Ver más</div></div>
+    <div class="hmm-stat-row">
+      <div class="hmm-stat-item"><div class="hmm-stat-num">3</div><div class="hmm-stat-lbl">Mensajes<br>nuevos</div></div>
+      <div class="hmm-stat-item"><div class="hmm-stat-num">2</div><div class="hmm-stat-lbl">Solicitudes<br>pendientes</div></div>
+      <div class="hmm-stat-item"><div class="hmm-stat-num">95%</div><div class="hmm-stat-lbl">Perfil<br>completo</div></div>
+    </div>
+  </div>
+  <div class="hmm-sec">Acciones rápidas</div>
+  <div class="hmm-grid">
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#FFF8DC;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#a06800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="hmm-ac-lbl">Ver clientes</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#FFF8DC;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#a06800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div><div class="hmm-ac-lbl">Editar servicio</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#FFF8DC;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#a06800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="hmm-ac-lbl">Membresía</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#e6f4e0;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1f6b10" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="hmm-ac-lbl">Mis Chats</div></div>
+  </div>
+  <!-- Estadísticas -->
+  <div class="hmm-row-hdr"><div class="hmm-row-t">Estadísticas (7 días)</div><span></span></div>
+  <div style="background:#fff;border-radius:14px;margin:0 14px 14px;padding:12px 14px;border:.5px solid #ececec;">
+    <div style="display:flex;gap:16px;margin-bottom:12px;">
+      <div><div style="font-size:20px;font-weight:700;color:#a06800;">28</div><div style="font-size:10px;color:#999;">Vistas</div></div>
+      <div><div style="font-size:20px;font-weight:700;color:#a06800;">7</div><div style="font-size:10px;color:#999;">Contactos</div></div>
+      <div><div style="font-size:20px;font-weight:700;color:#a06800;">4.9</div><div style="font-size:10px;color:#999;">Calificación</div></div>
+    </div>
+    <div class="hmm-chart-row">
+      <div class="hmm-bar" style="background:#F5C518;height:40%;"></div>
+      <div class="hmm-bar" style="background:#F5C518;height:60%;"></div>
+      <div class="hmm-bar" style="background:#F5C518;height:45%;"></div>
+      <div class="hmm-bar" style="background:#F5C518;height:80%;"></div>
+      <div class="hmm-bar" style="background:#F5C518;height:55%;"></div>
+      <div class="hmm-bar" style="background:#F5C518;height:90%;"></div>
+      <div class="hmm-bar" style="background:#e0e0e0;height:30%;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:#bbb;margin-top:4px;padding:0 2px;">
+      <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+    </div>
+  </div>
+  <div class="hmm-row-hdr"><div class="hmm-row-t">Actividad reciente</div><div class="hmm-row-v">Ver todas</div></div>
+  <div class="hmm-act-item"><div class="hmm-act-ic" style="background:#FFF8DC;">💬</div><div class="hmm-act-body"><div class="hmm-act-title">Nuevo mensaje de María G.</div><div class="hmm-act-sub">Hace 30 min</div></div><span style="font-size:12px;color:#bbb;">&rsaquo;&rsaquo;</span></div>
+  <div class="hmm-act-item" style="margin-bottom:16px;"><div class="hmm-act-ic" style="background:#FFF8DC;">📋</div><div class="hmm-act-body"><div class="hmm-act-title">Nueva solicitud de servicio</div><div class="hmm-act-sub">Hace 1 hora</div></div><span style="font-size:12px;color:#bbb;">&rsaquo;&rsaquo;</span></div>
+  <div class="hmm-nav" style="background:#fff;">
+    <div class="hmm-ni"><div class="hmm-ni-ic" style="color:#F5C518;">🏠</div><div class="hmm-ni-lb" style="color:#F5C518;">Inicio</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">💬</div><div class="hmm-ni-lb">Mensajes</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">🔧</div><div class="hmm-ni-lb">Servicios</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">👤</div><div class="hmm-ni-lb">Cuenta</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ROL 3 — TRANSPORTE / REPARTIDOR (azul)
+════════════════════════════════════════════ -->
+<div class="hmm-role-sep">
+  <div class="hmm-role-sep-dot" style="background:#1A7AB5;"></div>
+  3 · TRANSPORTE / REPARTIDOR
+</div>
+<div class="hmm-screen" style="background:#F5F8FC;">
+  <div class="hmm-sb" style="background:#fff;"><span>9:41</span><span style="font-size:10px;">▲ ■ ■</span></div>
+  <div class="hmm-hdr" style="background:#fff;">
+    <div class="hmm-logo-row">
+      <div class="hmm-logo"><svg width="24" height="24"><use href="#hmm-logo-sym"/></svg></div>
+      <div><div class="hmm-brand-top">DOMINIO CUMBRES</div><div class="hmm-brand-sub">AppServis</div></div>
+    </div>
+  </div>
+  <div class="hmm-sal-wrap" style="background:#fff;">
+    <div class="hmm-sal-left">
+      <div class="hmm-badge" style="background:#E8F0F8;color:#0A3055;border:1px solid #1A7AB5;"><div class="hmm-badge-dot" style="background:#1A7AB5;"></div>Transporte / Repartidor</div>
+      <div class="hmm-saludo">Hola, <b>Carlos</b> 👋</div>
+    </div>
+    <button class="hmm-salir">🚪 Salir</button>
+  </div>
+  <div class="hmm-loc" style="background:#fff;">Conecta tu camino</div>
+  <!-- Estado actual card azul -->
+  <div class="hmm-stat-card" style="background:linear-gradient(135deg,#0A3055,#1A7AB5);margin:0 14px 14px;">
+    <div class="hmm-stat-hdr">
+      <div class="hmm-stat-title">Estado actual</div>
+      <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border-radius:20px;padding:3px 10px;"><div style="width:6px;height:6px;border-radius:50%;background:#1FC26A;"></div><span style="font-size:10px;color:#fff;font-weight:700;">En línea</span></div>
+    </div>
+    <div style="font-size:28px;font-weight:700;color:#fff;text-align:center;padding:4px 0;">$0.00</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.6);text-align:center;">Ganancias de hoy</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:6px;background:rgba(255,255,255,.1);border-radius:10px;padding:8px 10px;">
+      <span style="font-size:12px;">📍</span>
+      <div><div style="font-size:11px;font-weight:700;color:#fff;">Dominio Cumbres</div><div style="font-size:10px;color:rgba(255,255,255,.6);">Cobertura activa</div></div>
+    </div>
+  </div>
+  <div class="hmm-sec">Acciones rápidas</div>
+  <div class="hmm-grid">
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#E8F0F8;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14509a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></div><div class="hmm-ac-lbl">Disponible</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#E8F0F8;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14509a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="hmm-ac-lbl">Mis viajes</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#E8F0F8;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14509a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="hmm-ac-lbl">Historial</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#E8F0F8;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14509a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></div><div class="hmm-ac-lbl">Cobertura</div></div>
+  </div>
+  <div class="hmm-row-hdr"><div class="hmm-row-t">Actividad</div><div class="hmm-row-v">Ver más</div></div>
+  <div class="hmm-act-item"><div class="hmm-act-ic" style="background:#E8F0F8;">🚗</div><div class="hmm-act-body"><div class="hmm-act-title">Viaje completado</div><div class="hmm-act-sub">Hace 30 min</div></div><span class="hmm-act-badge" style="background:#e6f4e0;color:#1f6b10;">+$120</span></div>
+  <div class="hmm-act-item" style="margin-bottom:16px;"><div class="hmm-act-ic" style="background:#E8F0F8;">📋</div><div class="hmm-act-body"><div class="hmm-act-title">Nueva solicitud</div><div class="hmm-act-sub">Hace 45 min</div></div><span class="hmm-act-badge" style="background:#e6f4e0;color:#1f6b10;">+$90</span></div>
+  <div class="hmm-nav" style="background:#fff;">
+    <div class="hmm-ni"><div class="hmm-ni-ic" style="color:#1A7AB5;">🏠</div><div class="hmm-ni-lb" style="color:#1A7AB5;">Inicio</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">📋</div><div class="hmm-ni-lb">Solicitudes</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">💬</div><div class="hmm-ni-lb">Mensajes</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">👤</div><div class="hmm-ni-lb">Cuenta</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ROL 4 — RESTAURANTE (rojo)
+════════════════════════════════════════════ -->
+<div class="hmm-role-sep">
+  <div class="hmm-role-sep-dot" style="background:#D63A2A;"></div>
+  4 · RESTAURANTE
+</div>
+<div class="hmm-screen" style="background:#FDF5F5;">
+  <div class="hmm-sb" style="background:#fff;"><span>9:41</span><span style="font-size:10px;">▲ ■ ■</span></div>
+  <div class="hmm-hdr" style="background:#fff;">
+    <div class="hmm-logo-row">
+      <div class="hmm-logo"><svg width="24" height="24"><use href="#hmm-logo-sym"/></svg></div>
+      <div><div class="hmm-brand-top">DOMINIO CUMBRES</div><div class="hmm-brand-sub">AppServis</div></div>
+    </div>
+  </div>
+  <div class="hmm-sal-wrap" style="background:#fff;">
+    <div class="hmm-sal-left">
+      <div class="hmm-badge" style="background:#FDECEA;color:#7A1810;border:1px solid #D63A2A;"><div class="hmm-badge-dot" style="background:#D63A2A;"></div>Restaurante</div>
+      <div class="hmm-saludo">Hola, <b>Luis</b> 👋</div>
+    </div>
+    <button class="hmm-salir">🚪 Salir</button>
+  </div>
+  <div class="hmm-loc" style="background:#fff;">Que tengas un gran día</div>
+  <!-- Hero restaurante — foto del local -->
+  <div class="hmm-hero">
+    <svg width="100%" height="100%" viewBox="0 0 292 130" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="rvig" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a0808" stop-opacity=".2"/><stop offset="100%" stop-color="#2a0808" stop-opacity=".75"/></linearGradient>
+      </defs>
+      <rect width="292" height="130" fill="#c8907a"/>
+      <rect x="0" y="60" width="292" height="70" fill="#a06050"/>
+      <rect x="40" y="15" width="210" height="85" rx="6" fill="#d4a090"/>
+      <rect x="50" y="25" width="190" height="65" rx="4" fill="#c89080"/>
+      <rect x="60" y="35" width="50" height="40" rx="3" fill="#e8c0a8" opacity=".8"/>
+      <rect x="120" y="35" width="50" height="40" rx="3" fill="#e8c0a8" opacity=".8"/>
+      <rect x="180" y="35" width="50" height="40" rx="3" fill="#e8c0a8" opacity=".8"/>
+      <rect x="70" y="80" width="150" height="25" rx="4" fill="#b87060"/>
+      <rect x="90" y="85" width="30" height="15" rx="2" fill="#d4a090"/>
+      <rect x="130" y="85" width="30" height="15" rx="2" fill="#d4a090"/>
+      <rect x="170" y="85" width="30" height="15" rx="2" fill="#d4a090"/>
+      <rect x="0" y="105" width="292" height="25" fill="#8a5040"/>
+      <rect width="292" height="130" fill="url(#rvig)"/>
+      <text x="146" y="55" text-anchor="middle" font-size="22" font-weight="700" fill="white" font-family="Inter,sans-serif">La Postrería</text>
+      <rect x="106" y="62" width="60" height="18" rx="9" fill="#1FC26A"/>
+      <text x="136" y="75" text-anchor="middle" font-size="10" font-weight="700" fill="white" font-family="Inter,sans-serif">● Abierto</text>
+      <rect x="172" y="62" width="44" height="18" rx="9" fill="#F5C518"/>
+      <text x="194" y="75" text-anchor="middle" font-size="10" font-weight="700" fill="#7a5000" font-family="Inter,sans-serif">★ Nuevo</text>
+    </svg>
+  </div>
+  <!-- Stats resumen -->
+  <div class="hmm-row-hdr" style="margin-top:4px;"><div class="hmm-row-t">Resumen de hoy</div><div class="hmm-row-v">Ver más</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 14px;margin-bottom:14px;">
+    <div style="background:#fff;border-radius:12px;padding:10px 8px;text-align:center;border:.5px solid #ececec;"><div style="font-size:20px;font-weight:700;color:#D63A2A;">12</div><div style="font-size:10px;color:#999;">Pedidos</div></div>
+    <div style="background:#fff;border-radius:12px;padding:10px 8px;text-align:center;border:.5px solid #ececec;"><div style="font-size:18px;font-weight:700;color:#D63A2A;">$2,450</div><div style="font-size:10px;color:#999;">Ventas</div></div>
+    <div style="background:#fff;border-radius:12px;padding:10px 8px;text-align:center;border:.5px solid #ececec;"><div style="font-size:20px;font-weight:700;color:#D63A2A;">58</div><div style="font-size:10px;color:#999;">Visitas</div></div>
+  </div>
+  <div class="hmm-sec">Acciones rápidas</div>
+  <div class="hmm-grid">
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#FDECEA;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#D63A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></div><div class="hmm-ac-lbl">Menú</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#FDECEA;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#D63A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div><div class="hmm-ac-lbl">Pedidos</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#FDECEA;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#D63A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div><div class="hmm-ac-lbl">Promociones</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#FDECEA;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#D63A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="hmm-ac-lbl">Mensajes</div></div>
+  </div>
+  <div class="hmm-row-hdr"><div class="hmm-row-t">Actividad reciente</div><div class="hmm-row-v">Ver todas</div></div>
+  <div class="hmm-act-item"><div class="hmm-act-ic" style="background:#FDECEA;">📋</div><div class="hmm-act-body"><div class="hmm-act-title">Nuevo pedido #1258</div><div class="hmm-act-sub">Hace 10 min</div></div><span class="hmm-act-badge" style="background:#FFF8DC;color:#a06800;">En preparación</span></div>
+  <div class="hmm-act-item" style="margin-bottom:16px;"><div class="hmm-act-ic" style="background:#FDECEA;">✅</div><div class="hmm-act-body"><div class="hmm-act-title">Pedido #1257 completado</div><div class="hmm-act-sub">Hace 30 min</div></div><span class="hmm-act-badge" style="background:#e6f4e0;color:#1f6b10;">Entregado</span></div>
+  <div class="hmm-nav" style="background:#fff;">
+    <div class="hmm-ni"><div class="hmm-ni-ic" style="color:#D63A2A;">🏠</div><div class="hmm-ni-lb" style="color:#D63A2A;">Inicio</div></div>
+    <div class="hmm-ni"><div style="position:relative;display:inline-block;"><div class="hmm-ni-ic">📋</div><div style="position:absolute;top:-2px;right:-4px;background:#D63A2A;color:#fff;font-size:8px;font-weight:700;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;">12</div></div><div class="hmm-ni-lb">Pedidos</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">🍽️</div><div class="hmm-ni-lb">Menú</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">👤</div><div class="hmm-ni-lb">Cuenta</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ROL 5 — NEGOCIO / PLAZA DIGITAL (morado)
+════════════════════════════════════════════ -->
+<div class="hmm-role-sep">
+  <div class="hmm-role-sep-dot" style="background:#7B3FA0;"></div>
+  5 · NEGOCIO / PLAZA DIGITAL
+</div>
+<div class="hmm-screen" style="background:#F8F5FC;">
+  <div class="hmm-sb" style="background:#fff;"><span>9:41</span><span style="font-size:10px;">▲ ■ ■</span></div>
+  <div class="hmm-hdr" style="background:#fff;">
+    <div class="hmm-logo-row">
+      <div class="hmm-logo"><svg width="24" height="24"><use href="#hmm-logo-sym"/></svg></div>
+      <div><div class="hmm-brand-top">DOMINIO CUMBRES</div><div class="hmm-brand-sub">AppServis</div></div>
+    </div>
+  </div>
+  <div class="hmm-sal-wrap" style="background:#fff;">
+    <div class="hmm-sal-left">
+      <div class="hmm-badge" style="background:#F0EBF8;color:#4A1A70;border:1px solid #7B3FA0;"><div class="hmm-badge-dot" style="background:#7B3FA0;"></div>Negocio / Plaza Digital</div>
+      <div class="hmm-saludo">Hola, <b>Fernanda</b> 👋</div>
+    </div>
+    <button class="hmm-salir">🚪 Salir</button>
+  </div>
+  <div class="hmm-loc" style="background:#fff;">Tu negocio en crecimiento</div>
+  <!-- Mi tienda card morado -->
+  <div class="hmm-stat-card" style="background:linear-gradient(135deg,#4A1A70,#7B3FA0);margin:0 14px 14px;">
+    <div class="hmm-stat-hdr">
+      <div class="hmm-stat-title">Mi tienda</div>
+      <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border-radius:20px;padding:3px 10px;"><div style="width:6px;height:6px;border-radius:50%;background:#1FC26A;"></div><span style="font-size:10px;color:#fff;font-weight:700;">Activa</span></div>
+    </div>
+    <div class="hmm-stat-row">
+      <div class="hmm-stat-item"><div class="hmm-stat-num">128</div><div class="hmm-stat-lbl">Visitas</div></div>
+      <div class="hmm-stat-item"><div class="hmm-stat-num">24</div><div class="hmm-stat-lbl">Productos</div></div>
+      <div class="hmm-stat-item"><div class="hmm-stat-num">4.8</div><div class="hmm-stat-lbl">Calificación</div></div>
+    </div>
+    <!-- mini gráfica semanal -->
+    <div style="margin-top:6px;">
+      <div class="hmm-chart-row" style="height:24px;">
+        <div class="hmm-bar" style="background:rgba(255,255,255,.35);height:50%;"></div>
+        <div class="hmm-bar" style="background:rgba(255,255,255,.35);height:70%;"></div>
+        <div class="hmm-bar" style="background:rgba(255,255,255,.35);height:40%;"></div>
+        <div class="hmm-bar" style="background:rgba(255,255,255,.35);height:85%;"></div>
+        <div class="hmm-bar" style="background:rgba(255,255,255,.35);height:60%;"></div>
+        <div class="hmm-bar" style="background:rgba(255,255,255,.6);height:100%;"></div>
+        <div class="hmm-bar" style="background:rgba(255,255,255,.2);height:25%;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:8px;color:rgba(255,255,255,.5);margin-top:3px;padding:0 2px;"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div>
+    </div>
+  </div>
+  <div class="hmm-sec">Acciones rápidas</div>
+  <div class="hmm-grid">
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#F0EBF8;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#7B3FA0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="hmm-ac-lbl">Productos</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#F0EBF8;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#7B3FA0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div><div class="hmm-ac-lbl">Promociones</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#F0EBF8;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#7B3FA0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="hmm-ac-lbl">Estadísticas</div></div>
+    <div class="hmm-ac"><div class="hmm-ac-ic" style="background:#F0EBF8;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#7B3FA0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="hmm-ac-lbl">Mensajes</div></div>
+  </div>
+  <div class="hmm-row-hdr"><div class="hmm-row-t">Actividad reciente</div><div class="hmm-row-v">Ver todas</div></div>
+  <div class="hmm-act-item"><div class="hmm-act-ic" style="background:#F0EBF8;">🛍️</div><div class="hmm-act-body"><div class="hmm-act-title">Nueva venta realizada</div><div class="hmm-act-sub">Hace 15 min</div></div><span class="hmm-act-badge" style="background:#e6f4e0;color:#1f6b10;">+$350</span></div>
+  <div class="hmm-act-item"><div class="hmm-act-ic" style="background:#F0EBF8;">💬</div><div class="hmm-act-body"><div class="hmm-act-title">Nuevo mensaje de Ana L.</div><div class="hmm-act-sub">Hace 1 hora</div></div><span style="font-size:12px;color:#bbb;">&rsaquo;&rsaquo;</span></div>
+  <div class="hmm-act-item" style="margin-bottom:16px;"><div class="hmm-act-ic" style="background:#F0EBF8;">❤️</div><div class="hmm-act-body"><div class="hmm-act-title">Producto favorito agregado</div><div class="hmm-act-sub">Hace 2 horas</div></div><span style="font-size:12px;color:#bbb;">&rsaquo;&rsaquo;</span></div>
+  <div class="hmm-nav" style="background:#fff;">
+    <div class="hmm-ni"><div class="hmm-ni-ic" style="color:#7B3FA0;">🏠</div><div class="hmm-ni-lb" style="color:#7B3FA0;">Inicio</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">🏪</div><div class="hmm-ni-lb">Tienda</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">💬</div><div class="hmm-ni-lb">Mensajes</div></div>
+    <div class="hmm-ni"><div class="hmm-ni-ic">👤</div><div class="hmm-ni-lb">Cuenta</div></div>
+  </div>
+</div>
+
+</div>
+<!-- ====== FIN HOME MULTIROL MOCK ====== -->
+
 <div class="view go-right" id="v-home">
       <div class="home-hdr">
         <svg style="position:absolute;right:-14px;top:-14px;opacity:.07;pointer-events:none;" width="110" height="110" viewBox="0 0 106 106" fill="none">
