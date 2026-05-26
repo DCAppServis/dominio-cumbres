@@ -3061,15 +3061,16 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     </div>
 <div class="view go-right" id="v-home">
 
-  <!-- ══ HEADER MI ESPACIO ══════════════════════════════════ -->
+  <!-- ══ HEADER ════════════════════════════════════════════ -->
   <div class="me-hdr">
-    <div class="sbar dk" style="padding:8px 18px 0;"><span>9:41</span><span>▲</span></div>
 
-    <!-- Topbar: logo · notif · salir -->
-    <div class="me-topbar">
-      <div class="me-logo-strip">
-        <!-- Logo SVG existente en miniatura -->
-        <svg width="22" height="22" viewBox="0 0 106 106" fill="none">
+    <!-- Fila 1: status bar -->
+    <div class="sbar dk" style="padding:10px 20px 0;"><span>9:41</span><span>▲</span></div>
+
+    <!-- Fila 2: logo centrado -->
+    <div class="me-logo-row">
+      <div class="me-logo-svg-wrap">
+        <svg width="28" height="28" viewBox="0 0 106 106" fill="none">
           <defs><radialGradient id="bgg-me" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#1E3A28"/><stop offset="100%" stop-color="#0C1A10"/></radialGradient></defs>
           <circle cx="53" cy="53" r="52" fill="url(#bgg-me)"/>
           <polygon points="53,14 57,32 53,28 49,32" fill="#1FC26A"/>
@@ -3080,7 +3081,15 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
           <polygon points="53,14 57,32 53,28 49,32" fill="#F5C518" transform="rotate(300 53 53)"/>
           <circle cx="53" cy="53" r="4" fill="#1FC26A"/>
         </svg>
-        <div class="me-logo-wordmark">Dominio<br><span>Cumbres</span></div>
+      </div>
+      <div class="me-logo-wordmark">Dominio <b>Cumbres</b> · AppServis</div>
+    </div>
+
+    <!-- Fila 3: saludo + nombre + acciones (notif / salir) -->
+    <div class="me-hdr-mid">
+      <div class="me-saludo-blk">
+        <span class="me-saludo-txt" id="home-saludo">Buenos días,</span>
+        <div class="me-nombre-txt"><span class="user-name-display">Usuario</span></div>
       </div>
       <div class="me-top-actions">
         <div class="me-notif-btn">
@@ -3091,49 +3100,33 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       </div>
     </div>
 
-    <!-- Bienvenida + nombre + chip tipo -->
-    <div class="me-bienvenida">
-      <div class="me-saludo-wrap">
-        <div class="me-saludo-txt" id="home-saludo">Buenos días,</div>
-        <div class="me-nombre-txt"><span class="user-name-display">Usuario</span></div>
-        <!-- Chip de tipo — coloreado por renderHomePersonalizado -->
-        <div id="home-tipo-label" class="me-tipo-chip vecino">🏡 Residente · Dominio Cumbres</div>
-      </div>
-      <!-- Avatar → Mi Panel (misma función que antes) -->
-      <div class="me-avatar-btn" onclick="go('v-mipanel','right')">
-        <svg width="32" height="32" viewBox="0 0 106 106" fill="none">
-          <defs><radialGradient id="bgg3" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#1E3A28"/><stop offset="100%" stop-color="#0C1A10"/></radialGradient></defs>
-          <circle cx="53" cy="53" r="50" fill="url(#bgg3)"/>
-          <polygon points="53,14 57,32 53,28 49,32" fill="#1FC26A"/>
-          <polygon points="53,14 57,32 53,28 49,32" fill="#F5C518" transform="rotate(120 53 53)"/>
-          <polygon points="53,14 57,32 53,28 49,32" fill="#D63A2A" transform="rotate(180 53 53)"/>
-          <circle cx="53" cy="53" r="4" fill="#1FC26A"/>
-        </svg>
-      </div>
+    <!-- Fila 4: chip de tipo — línea propia, no se monta -->
+    <div class="me-chip-row">
+      <div id="home-tipo-label" class="me-tipo-chip vecino">🏡 Residente · Dominio Cumbres</div>
     </div>
 
     <div class="me-hdr-divider"></div>
   </div>
-  <!-- ══ FIN HEADER ══════════════════════════════════════════ -->
+  <!-- ══ FIN HEADER ════════════════════════════════════════ -->
 
-  <!-- ══ SCROLL CUERPO ══════════════════════════════════════ -->
+  <!-- ══ SCROLL ════════════════════════════════════════════ -->
   <div class="me-scroll">
 
-    <!-- 1 · HERO — tarjeta destacada por tipo (renderHomePersonalizado) -->
-    <div id="home-tarjeta-destacada" style="margin-bottom:18px;"></div>
+    <!-- 1 · HERO -->
+    <div id="home-tarjeta-destacada" style="margin-bottom:20px;"></div>
 
-    <!-- 2 · ACCIONES RÁPIDAS -->
-    <div class="me-sec-label">Acciones rápidas</div>
-    <div class="me-acciones-grid" style="margin-bottom:18px;">
+    <!-- 2 · ACCIONES RÁPIDAS — 2 columnas -->
+    <span class="me-sec-label">Acciones rápidas</span>
+    <div class="me-acciones-grid">
       <div class="me-accion" onclick="go('v-food','right')">
         <span class="me-accion-ic">🍽️</span>
-        <div class="me-accion-lbl">Food</div>
-        <div class="me-accion-sub">Pedir</div>
+        <div class="me-accion-lbl">Dominio Food</div>
+        <div class="me-accion-sub">Pedir comida</div>
       </div>
       <div class="me-accion" onclick="go('v-ride','right')">
         <span class="me-accion-ic">🏍️</span>
-        <div class="me-accion-lbl">Ride</div>
-        <div class="me-accion-sub">Solicitar</div>
+        <div class="me-accion-lbl">Dominio Ride</div>
+        <div class="me-accion-sub">Solicitar ride</div>
       </div>
       <div class="me-accion" onclick="go('v-servicios','right')">
         <span class="me-accion-ic">🔧</span>
@@ -3158,21 +3151,21 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     </div>
 
     <!-- 3 · ACTIVIDAD RECIENTE -->
-    <div class="me-sec-label">Actividad reciente</div>
-    <div id="home-actividad" style="margin-bottom:18px;">
+    <span class="me-sec-label">Actividad reciente</span>
+    <div id="home-actividad">
       <div class="me-actividad-empty">
-        <div class="me-actividad-empty-ic">📋</div>
+        <span class="me-actividad-empty-ic">📋</span>
         <div class="me-actividad-empty-txt">Sin actividad aún</div>
         <div class="me-actividad-empty-sub">Tus pedidos y servicios aparecerán aquí</div>
       </div>
     </div>
 
     <!-- 4 · FAVORITOS -->
-    <div class="me-sec-label">Accesos guardados</div>
-    <div class="me-favoritos-row" style="margin-bottom:18px;">
+    <span class="me-sec-label" style="margin-top:20px;">Accesos guardados</span>
+    <div class="me-favoritos-row">
       <div class="me-fav-chip" onclick="go('v-favoritos','right');setTimeout(cargarFavoritos,400);">
         <span class="me-fav-chip-ic">❤️</span>
-        <span class="me-fav-chip-lbl">Mis favoritos</span>
+        <span class="me-fav-chip-lbl">Favoritos</span>
       </div>
       <div class="me-fav-chip" onclick="go('v-informa','right')">
         <span class="me-fav-chip-ic">📰</span>
@@ -3180,9 +3173,9 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       </div>
     </div>
 
-    <!-- 5 · COMUNIDAD / MÓDULOS -->
-    <div class="me-sec-label">Comunidad</div>
-    <div class="me-comunidad-grid" style="margin-bottom:18px;">
+    <!-- 5 · COMUNIDAD -->
+    <span class="me-sec-label">Comunidad</span>
+    <div class="me-comunidad-grid">
       <div class="me-com-card" onclick="go('v-plaza','right')">
         <div class="me-com-ic" style="background:#E8F0F8;">🏪</div>
         <div class="me-com-nombre">Dominio Plaza</div>
@@ -3196,7 +3189,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     </div>
 
     <!-- 6 · PERFIL -->
-    <div class="me-sec-label">Mi espacio</div>
+    <span class="me-sec-label">Mi espacio</span>
     <div class="me-perfil-card" onclick="go('v-mipanel','right')">
       <div class="me-perfil-av">👤</div>
       <div class="me-perfil-info">
@@ -3206,11 +3199,11 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       <div class="me-perfil-arrow">›</div>
     </div>
 
-    <div style="height:14px;"></div>
+    <div style="height:16px;"></div>
   </div>
-  <!-- ══ FIN SCROLL ═════════════════════════════════════════ -->
+  <!-- ══ FIN SCROLL ════════════════════════════════════════ -->
 
-  <!-- ══ NAVEGACIÓN INFERIOR — idéntica a la original ══════ -->
+  <!-- ══ NAVEGACIÓN INFERIOR — idéntica ════════════════════ -->
   <div class="nav">
     <div class="ni"><div class="ni-ic">🏠</div><div class="si04 ni-lb">Inicio</div></div>
     <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
