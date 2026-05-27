@@ -362,7 +362,76 @@
     document.getElementById('det-desc').textContent    = p.descripcion || 'Proveedor verificado de Dominio Cumbres.';
     document.getElementById('det-correo').textContent  = p.correo ? '✉️ '+p.correo : '';
     document.getElementById('det-tel2').textContent    = p.telefono ? '📞 '+p.telefono : '';
+    // M2-H: registrar como reciente y actualizar botón favorito
+    window.addReciente && window.addReciente(p);
+    var btn = document.getElementById('det-fav-btn');
+    if (btn) {
+      var pid = p._id || p.id || p.uid || p.nombre;
+      btn.textContent = window.isFav && window.isFav(pid) ? '❤️' : '🤍';
+    }
+    // M2-J: cargar agenda del proveedor (clave por su uid)
+    window._cargarAgendaProveedor(p);
     go('v-serv-det','right');
+  };
+
+  // M2-J: leer agenda del proveedor y mostrar disponibilidad en v-serv-det
+  window._cargarAgendaProveedor = function(p) {
+    var block   = document.getElementById('det-agenda-block');
+    var elEst   = document.getElementById('det-agenda-estado');
+    var elDias  = document.getElementById('det-agenda-dias');
+    var elHors  = document.getElementById('det-agenda-horarios');
+    if (!block) return;
+
+    var pid = p._id || p.id || p.uid || p.nombre || '';
+    var key = pid ? 'dcAgenda_' + pid : null;
+    var ag = null;
+    if (key) {
+      try { ag = JSON.parse(localStorage.getItem(key) || 'null'); } catch(e) {}
+    }
+    // Fallback: buscar cualquier dcAgenda_t_ del tipo proveedor
+    if (!ag && pid) {
+      try { ag = JSON.parse(localStorage.getItem('dcAgenda_t_proveedor') || 'null'); } catch(e) {}
+    }
+
+    // No mostrar bloque si no hay agenda o no hay horarios
+    if (!ag || !ag.horarios || !ag.horarios.length) {
+      block.style.display = 'none';
+      return;
+    }
+
+    block.style.display = 'block';
+    var pausado = ag.estado === 'pausado';
+
+    if (elEst) {
+      elEst.textContent = pausado ? '⏸ Temporalmente no disponible' : '✅ Disponible para reservas';
+      elEst.style.color = pausado ? '#D63A2A' : '#1FC26A';
+    }
+
+    var DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    if (elDias) {
+      if (ag.dias && ag.dias.length) {
+        elDias.innerHTML = '<div style="display:flex;gap:5px;flex-wrap:wrap;">'
+          + ag.dias.map(function(i){ return '<span style="background:#e8f5e1;color:#1FC26A;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;">' + (DIAS[i]||i) + '</span>'; }).join('')
+          + '</div>';
+      } else { elDias.innerHTML = ''; }
+    }
+
+    if (elHors) {
+      elHors.innerHTML = ag.horarios.map(function(h) {
+        return '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:.5px solid #e8f0e8;">'
+          + '<span style="font-size:12px;color:#1FC26A;">🕐</span>'
+          + '<span style="font-size:12px;font-weight:600;color:#111;">' + h.inicio + ' – ' + h.fin + '</span>'
+          + (h.nota ? '<span style="font-size:10px;color:#888;">· ' + h.nota + '</span>' : '')
+          + '</div>';
+      }).join('');
+    }
+
+    // Ocultar botón Reservar si pausado
+    var btnReservar = block.querySelector('button');
+    if (btnReservar) btnReservar.style.display = pausado ? 'none' : 'block';
+
+    // Guardar referencia a agenda para v-reservar
+    window._agendaProveedorActual = ag;
   };
 
   // Observer: carga proveedores automáticamente cuando v-servicios se hace visible
@@ -505,23 +574,295 @@
   window.cargarSolicitudes = window.cargarSolicitudesReal;
 
   // ===== CARGAR MI PERFIL REAL =====
+  // ── M2-B: cargarMiPerfil — panel unificado por rol ──────────
+  // Escribe en #mp2-scroll. Absorbe Mi Perfil. Sin duplicidad.
   window.cargarMiPerfil = async function() {
-    const user = auth.currentUser;
-    if(!user) return;
-    try {
-      const { getDoc, doc: fsDoc3 } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-      const snap = await getDoc(fsDoc3(db, 'usuarios', user.uid));
-      if(snap.exists()) {
-        const u = snap.data();
-        const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v||'—'; };
-        set('panel-nombre', u.nombre||u.nombreNegocio);
-        set('panel-correo', u.correo||user.email);
-        set('panel-usuario', u.usuario);
-        set('panel-tel', u.telefono);
-        set('panel-frac', u.fraccionamiento||(u.zona?u.zona:'—'));
+    var scroll = document.getElementById('mp2-scroll');
+    var subtitle = document.getElementById('mp2-subtitle');
+    var estadoBadge = document.getElementById('mp2-estado-badge');
+    if (!scroll) return;
+
+    var tipo   = (localStorage.getItem('dcuserTipo')   || 'vecino').toLowerCase();
+    var nombre = localStorage.getItem('dcuser') || 'Usuario';
+
+    // Mostrar estado operativo en badge del header inmediatamente (no esperar Firebase)
+    if (tipo !== 'vecino' && estadoBadge) {
+      var _estNow = window.getEstadoOperativo();
+      var _cfgNow = DC_ESTADOS[_estNow] || DC_ESTADOS.activo;
+      estadoBadge.textContent = _cfgNow.ic + ' ' + _cfgNow.lbl;
+      estadoBadge.style.background = _cfgNow.bg;
+      estadoBadge.style.color = _cfgNow.col;
+      estadoBadge.style.display = 'inline-flex';
+    }
+
+    var LABELS = { vecino:'Vecino', proveedor:'Proveedor', transporte:'Transporte',
+                   repartidor:'Repartidor', ambos:'Transporte / Repartidor',
+                   restaurante:'Restaurante', negocio:'Negocio' };
+    var COLORES = { vecino:'#1FC26A', proveedor:'#F5C518', transporte:'#1A7AB5',
+                    repartidor:'#1A7AB5', ambos:'#1A7AB5', restaurante:'#D63A2A', negocio:'#7B3FA0' };
+    var color = COLORES[tipo] || '#1FC26A';
+
+    if (subtitle) subtitle.textContent = LABELS[tipo] || tipo;
+
+    // Helpers de layout
+    var SEC = function(t) {
+      return '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:16px 18px 8px;">'+t+'</div>';
+    };
+    var CARD = function(inner) {
+      return '<div style="background:#fff;border-radius:16px;padding:14px 16px;border:.5px solid #e8e8e8;margin:0 14px 12px;">'+inner+'</div>';
+    };
+    var ROW = function(lbl, val, id) {
+      var v = (val === null || val === undefined || val === '') ? '—' : String(val);
+      var idAttr = id ? ' id="'+id+'"' : '';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid #f5f5f5;">'
+        + '<span style="font-size:12px;color:#888;font-weight:600;flex-shrink:0;margin-right:12px;">'+lbl+'</span>'
+        + '<span'+idAttr+' style="font-size:13px;color:#111;font-weight:500;text-align:right;word-break:break-word;">'+v+'</span>'
+        + '</div>';
+    };
+    var ROWLAST = function(lbl, val, id) {
+      // Same as ROW but no bottom border
+      return ROW(lbl, val, id).replace('border-bottom:.5px solid #f5f5f5;','');
+    };
+    var METRIC = function(num, lbl, id) {
+      return '<div style="flex:1;text-align:center;padding:10px 4px;">'
+        + '<div style="font-size:22px;font-weight:700;color:'+color+';" '+(id?'id="'+id+'"':'')+'>'+num+'</div>'
+        + '<div style="font-size:10px;color:#888;margin-top:2px;">'+lbl+'</div>'
+        + '</div>';
+    };
+    var ACCION = function(ic, lbl, onclick) {
+      return '<div onclick="'+onclick+'" style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;" ontouchstart="this.style.background=\'#f8f8f8\'" ontouchend="this.style.background=\'#fff\'">'
+        + '<span style="font-size:13px;font-weight:600;color:#111;">'+ic+' '+lbl+'</span>'
+        + '<span style="font-size:16px;color:#ccc;">›</span>'
+        + '</div>';
+    };
+    var ACCION_LAST = function(ic, lbl, onclick, col) {
+      col = col || '#111';
+      return '<div onclick="'+onclick+'" style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;" ontouchstart="this.style.background=\'#f8f8f8\'" ontouchend="this.style.background=\'#fff\'">'
+        + '<span style="font-size:13px;font-weight:600;color:'+col+';">'+ic+' '+lbl+'</span>'
+        + '<span style="font-size:16px;color:#ccc;">›</span>'
+        + '</div>';
+    };
+
+    // Mostrar estructura inmediata con placeholders
+    var html = '';
+
+    // ── 1. RESUMEN (métricas placeholder, Firebase las rellena) ──
+    html += SEC('Resumen');
+    if (tipo === 'vecino') {
+      html += CARD(
+        '<div style="display:flex;">'
+        + METRIC('0', 'Pedidos', 'panel-pedidos')
+        + METRIC('$0', 'Gastado este mes', 'panel-gastado')
+        + METRIC('0', 'Favoritos', 'panel-favs')
+        + '</div>'
+      );
+    } else {
+      html += CARD(
+        '<div style="display:flex;">'
+        + METRIC('0', 'Solicitudes', 'panel-pedidos')
+        + METRIC('0', 'Chats activos', 'panel-chats')
+        + METRIC('—', 'Reputación', 'panel-rep')
+        + '</div>'
+      );
+    }
+
+    // ── 2. MI INFORMACIÓN ──────────────────────────────────────
+    html += SEC('Mi información');
+    html += '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 12px;overflow:hidden;">'
+      + ROW('Nombre', nombre, 'panel-nombre')
+      + ROW('Correo', '—', 'panel-correo')
+      + ROW('Usuario', '—', 'panel-usuario')
+      + ROW('Teléfono', '—', 'panel-tel')
+      + ROWLAST('Zona', '—', 'panel-frac')
+      + '</div>';
+
+    // ── 3. MI SERVICIO / NEGOCIO (solo no-vecino) ──────────────
+    if (tipo !== 'vecino') {
+      var secTit = tipo === 'restaurante' ? 'Mi restaurante'
+                 : tipo === 'negocio'     ? 'Mi negocio'
+                 : ['transporte','repartidor','ambos'].includes(tipo) ? 'Mi vehículo'
+                 : 'Mi servicio';
+      html += SEC(secTit);
+      html += '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 12px;overflow:hidden;" id="mp2-servicio">'
+        + ROW('Descripción','—','mp2-srv-desc')
+        + ROWLAST('Estado de cuenta','—','mp2-srv-estado')
+        + '</div>';
+    }
+
+    // ── 4. ACTIVIDAD ───────────────────────────────────────────
+    html += SEC('Actividad reciente');
+    html += '<div id="panel-actividad" style="margin:0 14px 12px;background:#F5F6F0;border-radius:14px;padding:14px;text-align:center;border:.5px solid #e0e0e0;">'
+      + '<div style="font-size:20px;margin-bottom:6px;">📋</div>'
+      + '<div style="font-size:12px;font-weight:600;color:#444;margin-bottom:4px;" id="mp2-notif-resumen">Cargando actividad…</div>'
+      + '<div style="font-size:11px;color:#999;" id="mp2-notif-sub"></div>'
+      + '</div>';
+
+    // ── 5. REPUTACIÓN (placeholder, M2-C conectará) ────────────
+    if (tipo !== 'vecino') {
+      html += SEC('Reputación');
+      html += CARD(
+        '<div style="display:flex;align-items:center;gap:14px;">'
+        + '<div style="width:52px;height:52px;border-radius:50%;background:'+color+'18;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:'+color+';flex-shrink:0;" id="mp2-rep-score">—</div>'
+        + '<div style="flex:1;">'
+        + '<div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;">Puntuación de confianza</div>'
+        + '<div style="font-size:11px;color:#888;" id="mp2-rep-frase">Escala 1–10 · Últimos 3 meses pesan 70%</div>'
+        + '</div>'
+        + '</div>'
+      );
+    }
+
+    // ── 6. MÉTRICAS (placeholder, M2-C conectará) ──────────────
+    if (tipo !== 'vecino') {
+      html += SEC('Métricas (últimos 7 días)');
+      html += CARD(
+        '<div style="display:flex;gap:8px;margin-bottom:10px;">'
+        + '<div style="flex:1;background:#f8f8f8;border-radius:10px;padding:10px 8px;text-align:center;"><div style="font-size:18px;font-weight:700;color:'+color+';" id="mp2-met-vis">—</div><div style="font-size:9px;color:#888;margin-top:2px;">Vistas</div></div>'
+        + '<div style="flex:1;background:#f8f8f8;border-radius:10px;padding:10px 8px;text-align:center;"><div style="font-size:18px;font-weight:700;color:'+color+';" id="mp2-met-cont">—</div><div style="font-size:9px;color:#888;margin-top:2px;">Contactos</div></div>'
+        + '<div style="flex:1;background:#f8f8f8;border-radius:10px;padding:10px 8px;text-align:center;"><div style="font-size:18px;font-weight:700;color:'+color+';" id="mp2-met-conv">—</div><div style="font-size:9px;color:#888;margin-top:2px;">Conversiones</div></div>'
+        + '</div>'
+        + '<div style="font-size:11px;color:#888;line-height:1.45;" id="mp2-met-insight">Conectando con datos reales en M2-C.</div>'
+      );
+    }
+
+    // ── M2-D: ESTADO OPERATIVO en Mi Panel (solo no-vecino) ───
+    if (tipo !== 'vecino') {
+      var estActual = window.getEstadoOperativo();
+      var estCfgAct = DC_ESTADOS[estActual] || DC_ESTADOS.activo;
+      html += SEC('Estado de operación');
+      html += '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 12px;padding:14px 16px;">';
+      // Label del estado actual
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
+        + '<div>'
+        + '<div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;" id="mp2-estado-lbl-title">'
+        + estCfgAct.ic + ' ' + estCfgAct.lbl + '</div>'
+        + '<div style="font-size:11px;color:'+estCfgAct.col+';" id="mp2-estado-lbl">' + estCfgAct.desc + '</div>'
+        + '</div>'
+        + '<div style="width:10px;height:10px;border-radius:50%;background:'+estCfgAct.col+';flex-shrink:0;" id="mp2-estado-dot"></div>'
+        + '</div>';
+      // Selector de estado
+      html += '<select id="mp2-estado-sel" onchange="window.setEstadoOperativo(this.value)" '
+        + 'style="width:100%;border:1px solid #e0e0e0;border-radius:10px;padding:9px 12px;font-size:13px;font-family:\'Inter\',sans-serif;color:#111;background:#f8f8f8;cursor:pointer;appearance:none;-webkit-appearance:none;">';
+      Object.keys(DC_ESTADOS).forEach(function(k) {
+        var s = DC_ESTADOS[k];
+        html += '<option value="' + k + '"' + (k === estActual ? ' selected' : '') + '>'
+          + s.ic + ' ' + s.lbl + ' — ' + s.desc + '</option>';
+      });
+      html += '</select>';
+      html += '</div>';
+    }
+
+    // ── 7. CUENTA ─────────────────────────────────────────────
+    html += SEC('Cuenta');
+    html += '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 12px;overflow:hidden;">';
+    html += ACCION('💳','Métodos de pago','');
+    html += ACCION('🔔','Notificaciones','');
+    if (tipo !== 'vecino') {
+      html += ACCION('⭐','Membresía y plan',"go('v-espera-pago','right')");
+      if (tipo === 'restaurante' || tipo === 'negocio') {
+        html += ACCION('📣','Crear promoción',"window.irACrearPromo&&window.irACrearPromo()");
       }
-    } catch(e){ console.log('Perfil error:',e.message); }
+    }
+    if (['proveedor','restaurante','negocio','transporte','repartidor','ambos'].indexOf(tipo) !== -1) {
+      html += ACCION('📅','Agenda / Reservas',"go('v-agenda','right');setTimeout(window._initAgenda,200)");
+    }
+    html += ACCION_LAST('🚪','Cerrar sesión','cerrarSesion()','#D63A2A');
+    html += '</div>';
+
+    html += '<div style="height:8px;"></div>';
+    scroll.innerHTML = html;
+
+    // ── Firebase: poblar campos reales ──────────────────────────
+    try {
+      var user = auth.currentUser;
+      if (!user) return;
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      var snap = await _fb.getDoc(_fb.doc(db, 'usuarios', user.uid));
+      if (!snap.exists()) return;
+      var u = snap.data();
+
+      var set = function(id, v) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = (v !== null && v !== undefined && v !== '') ? String(v) : '—';
+      };
+
+      set('panel-nombre',  u.nombre || u.nombreNegocio);
+      set('panel-correo',  u.correo || user.email);
+      set('panel-usuario', u.usuario);
+      set('panel-tel',     u.whatsapp || (u.prefijoWhatsapp && u.telefono ? u.prefijoWhatsapp + u.telefono : u.telefono));
+      set('panel-frac',    u.fraccionamiento || u.zona);
+
+      // Nombre en header global
+      if (u.nombre || u.nombreNegocio) {
+        var nombreReal = u.nombre || u.nombreNegocio;
+        localStorage.setItem('dcuser', nombreReal);
+        document.querySelectorAll('.user-name-display').forEach(function(el){ el.textContent = nombreReal; });
+        if (subtitle) subtitle.textContent = (LABELS[u.tipo] || u.tipo || '') + ' · ' + nombreReal;
+      }
+
+      // Estado badge
+      var estadoMap = {
+        activo:'Activo ✓', pendiente_revision:'En revisión', aprobado_pendiente_pago:'Pago pendiente',
+        rechazado:'No aprobado', suspendido:'Suspendido'
+      };
+      var colorEstado = {
+        activo:'#1FC26A', pendiente_revision:'#F5C518', aprobado_pendiente_pago:'#1A7AB5',
+        rechazado:'#D63A2A', suspendido:'#D63A2A'
+      };
+      if (u.estado && estadoBadge) {
+        // mp2-estado-badge muestra el ESTADO OPERATIVO (no el estado de cuenta)
+        var estOp = window.getEstadoOperativo();
+        var cfgOp = DC_ESTADOS[estOp] || DC_ESTADOS.activo;
+        estadoBadge.textContent = cfgOp.ic + ' ' + cfgOp.lbl;
+        estadoBadge.style.background = cfgOp.bg;
+        estadoBadge.style.color = cfgOp.col;
+        estadoBadge.style.display = 'inline-flex';
+      }
+
+      // Sección servicio/negocio
+      if (tipo !== 'vecino') {
+        var srvDesc = u.descripcion || u.oficio1 || u.categoria || '—';
+        set('mp2-srv-desc', srvDesc);
+        var el = document.getElementById('mp2-srv-estado');
+        if (el && u.estado) {
+          el.textContent = estadoMap[u.estado] || u.estado;
+          el.style.color = '#555';
+          el.style.fontWeight = '500';
+        }
+        // Re-aplicar estado operativo ahora que el uid está disponible
+        // (la primera pasada puede haber usado el fallback por tipo)
+        var estReal = window.getEstadoOperativo();
+        var cfgReal = DC_ESTADOS[estReal] || DC_ESTADOS.activo;
+        var elTitle = document.getElementById('mp2-estado-lbl-title');
+        if (elTitle) elTitle.textContent = cfgReal.ic + ' ' + cfgReal.lbl;
+        var elDesc = document.getElementById('mp2-estado-lbl');
+        if (elDesc) { elDesc.textContent = cfgReal.desc; elDesc.style.color = cfgReal.col; }
+        var elDot = document.getElementById('mp2-estado-dot');
+        if (elDot) elDot.style.background = cfgReal.col;
+        var elSel = document.getElementById('mp2-estado-sel');
+        if (elSel) elSel.value = estReal;
+      }
+
+    } catch(e) { console.log('M2-B panel error:', e.message); }
+
+    // M2-I: cargar resumen de notificaciones reales para Mi Panel
+    window.cargarNotificaciones && window.cargarNotificaciones().then(function(notifs) {
+      var noLeidas = notifs.filter(function(n){ return !n.leida; }).length;
+      var res = document.getElementById('mp2-notif-resumen');
+      var sub = document.getElementById('mp2-notif-sub');
+      if (res) res.textContent = noLeidas > 0
+        ? noLeidas + ' notificacion' + (noLeidas !== 1 ? 'es' : '') + ' sin leer'
+        : 'Sin actividad reciente';
+      if (sub) {
+        if (notifs.length > 0) {
+          var ultima = notifs[0];
+          sub.textContent = ultima.titulo || ultima.mensaje || 'Última notificación disponible';
+        } else {
+          sub.textContent = 'Tus pedidos y servicios aparecerán aquí';
+        }
+      }
+    });
   };
+  // ── FIN M2-B cargarMiPerfil ──────────────────────────────────
 
   // ── cargarMiPerfilDetalle — vista v-mi-perfil (solo lectura por tipo) ──
   window.cargarMiPerfilDetalle = async function() {
@@ -1359,122 +1700,882 @@
     }
   };
 
-  // ─── CERRAR SESIÓN ──────────────────────────────────────
-
-  // ── renderHomePersonalizado — M2-HOME-PERSONALIZADO-v1 ──────────────
-  window.renderHomePersonalizado = function() {
-    const tipo   = (localStorage.getItem('dcuserTipo')   || 'vecino').toLowerCase();
-    const estado = (localStorage.getItem('dcuserEstado') || '').toLowerCase();
-    const nombre = localStorage.getItem('dcuser') || '';
-
-    // Saludo por hora
-    const h = new Date().getHours();
-    const saludo = h < 12 ? 'Buenos d\u00edas,' : h < 19 ? 'Buenas tardes,' : 'Buenas noches,';
-    const elSaludo = document.getElementById('home-saludo');
-    if (elSaludo) elSaludo.textContent = saludo;
-
-    // Tipo label + color accent
-    const _cfg = {
-      'vecino':       { label: '&#128274; Residente \u00b7 Dominio Cumbres',  color: 'rgba(31,194,106,.25)',  accent: '#1FC26A' },
-      'proveedor':    { label: '&#128295; Proveedor de servicios',             color: 'rgba(245,197,24,.20)',  accent: '#F5C518' },
-      'transporte':   { label: '&#128663; Transportista',                      color: 'rgba(214,58,42,.20)',   accent: '#D63A2A' },
-      'repartidor':   { label: '&#128666; Repartidor',                         color: 'rgba(214,58,42,.20)',   accent: '#D63A2A' },
-      'ambos':        { label: '&#128663; Transporte / Repartidor',            color: 'rgba(214,58,42,.20)',   accent: '#D63A2A' },
-      'restaurante':  { label: '&#127828; Restaurante',                        color: 'rgba(26,122,181,.22)',  accent: '#1A7AB5' },
-      'negocio':      { label: '&#127978; Negocio',                            color: 'rgba(26,122,181,.22)',  accent: '#1A7AB5' },
-    };
-    const cfg = _cfg[tipo] || _cfg['vecino'];
-
-    // Update tipo label
-    const elTipo = document.getElementById('home-tipo-label');
-    if (elTipo) { elTipo.innerHTML = cfg.label; elTipo.style.color = cfg.accent; }
-
-    // Update avatar ring color
-    const avatarDiv = document.querySelector('#v-home .home-hdr [onclick="go(\'v-mipanel\',\'right\')"]');
-    if (avatarDiv) {
-      avatarDiv.style.borderColor   = cfg.accent;
-      avatarDiv.style.boxShadow     = '0 0 12px ' + cfg.color;
-    }
-
-    // ── Tarjeta destacada ──────────────────────────────────────────
-    const td = document.getElementById('home-tarjeta-destacada');
-    if (!td) return;
-
-    const _estadoLabel = {
-      'activo':                 { txt: 'Cuenta activa',        col: '#1FC26A' },
-      'pendiente_revision':     { txt: 'En revisi\u00f3n',         col: '#F5C518' },
-      'aprobado_pendiente_pago':{ txt: 'Pago pendiente',       col: '#1A7AB5' },
-      'rechazado':              { txt: 'No aprobada',          col: '#D63A2A' },
-    };
-    const eBadge = (estado && _estadoLabel[estado])
-      ? '<span style="font-size:10px;font-weight:700;color:'+_estadoLabel[estado].col+';background:'+_estadoLabel[estado].col+'20;padding:3px 8px;border-radius:20px;">'+_estadoLabel[estado].txt+'</span>'
-      : '';
-
-    let tarjeta = '';
-
-    const _card = (icon, titulo, subtitulo, btns) =>
-      '<div style="background:var(--card-dark);border-radius:16px;padding:14px 16px;border:.5px solid var(--card-border);">'
-      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
-      + '<span style="font-size:22px;">'+icon+'</span>'
-      + '<div><div style="font-size:13px;font-weight:700;color:#fff;">'+titulo+'</div>'
-      + '<div style="font-size:11px;color:var(--white-50);">'+subtitulo+'</div></div>'
-      + (eBadge ? '<div style="margin-left:auto;">'+eBadge+'</div>' : '')
-      + '</div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+ btns +'</div>'
-      + '</div>';
-
-    const _btn = (label, onclick, bg) =>
-      '<button onclick="'+onclick+'" style="background:'+bg+';border:none;border-radius:10px;padding:8px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;color:#fff;">'+label+'</button>';
-
-    if (tipo === 'vecino') {
-      tarjeta = _card(
-        '&#127968;',
-        'Bienvenido, '+( nombre||'Residente'),
-        'Todo tu fraccionamiento en un lugar',
-        _btn('&#127828; Pedir comida', "go('v-food','right')", '#F5C518') +
-        _btn('&#128663; Pedir ride', "go('v-ride','right')", '#D63A2A') +
-        _btn('&#127979; Servicios', "go('v-servicios','right')", '#1FC26A')
-      );
-
-    } else if (tipo === 'proveedor') {
-      tarjeta = _card(
-        '&#128295;',
-        'Hola, '+(nombre||'Proveedor'),
-        'Gestiona tu servicio y solicitudes',
-        _btn('&#128196; Mis solicitudes', "go('v-mi-perfil','right')", '#F5C518') +
-        _btn('&#128100; Mi Perfil', "go('v-mi-perfil','right')", '#1FC26A')
-      );
-
-    } else if (['transporte','repartidor','ambos'].includes(tipo)) {
-      tarjeta = _card(
-        '&#128666;',
-        'Hola, '+(nombre||'Transportista'),
-        'Tu cobertura y actividad del d\u00eda',
-        _btn('&#128196; Mis servicios', "go('v-mi-perfil','right')", '#D63A2A') +
-        _btn('&#128100; Mi Perfil', "go('v-mi-perfil','right')", '#1FC26A')
-      );
-
-    } else if (tipo === 'restaurante') {
-      tarjeta = _card(
-        '&#127828;',
-        nombre||'Mi Restaurante',
-        'Gestiona tu operaci\u00f3n en la app',
-        _btn('&#128100; Mi Perfil', "go('v-mi-perfil','right')", '#1A7AB5') +
-        _btn('&#128196; Solicitudes', "go('v-mi-perfil','right')", '#F5C518')
-      );
-
-    } else if (tipo === 'negocio') {
-      tarjeta = _card(
-        '&#127978;',
-        nombre||'Mi Negocio',
-        'Gestiona tu presencia en la app',
-        _btn('&#128100; Mi Perfil', "go('v-mi-perfil','right')", '#1A7AB5') +
-        _btn('&#128196; Solicitudes', "go('v-mi-perfil','right')", '#F5C518')
-      );
-    }
-
-    td.innerHTML = tarjeta;
+  // ── M2-D: ESTADO OPERATIVO ──────────────────────────────────
+  // Persiste en localStorage. Preparado para Firestore futuro.
+  var DC_ESTADOS = {
+    activo:        { ic:'🟢', lbl:'Activo',           col:'#1FC26A', bg:'#e8f5e1', desc:'Recibiendo solicitudes' },
+    ocupado:       { ic:'🟡', lbl:'Ocupado',           col:'#d97706', bg:'#FFF8DC', desc:'Respuesta lenta' },
+    fuera_horario: { ic:'🕐', lbl:'Fuera de horario',  col:'#666',    bg:'#f0f0f0', desc:'Sin SLA activo' },
+    vacaciones:    { ic:'✈️', lbl:'Vacaciones',        col:'#1A7AB5', bg:'#E8F0F8', desc:'Sin nuevas solicitudes' },
+    invisible:     { ic:'👁',  lbl:'Invisible',         col:'#666',    bg:'#f5f5f5', desc:'No aparece en búsquedas' },
+    cerrado:       { ic:'🔴', lbl:'Cerrado',            col:'#D63A2A', bg:'#FDECEA', desc:'Sin nuevas solicitudes' },
   };
+
+  // Devuelve la clave estable para el estado operativo.
+  // Usa uid de Firebase si está disponible (nunca cambia).
+  // Fallback: dcuserTipo, que también es estable por sesión.
+  function _estadoKey() {
+    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    if (uid) return 'dcuserEstadoOp_' + uid;
+    var tipo = localStorage.getItem('dcuserTipo') || 'u';
+    return 'dcuserEstadoOp_t_' + tipo;
+  }
+
+  window.getEstadoOperativo = function() {
+    return localStorage.getItem(_estadoKey()) || 'activo';
+  };
+
+  window.setEstadoOperativo = function(estado) {
+    localStorage.setItem(_estadoKey(), estado);
+    var cfg = DC_ESTADOS[estado] || DC_ESTADOS.activo;
+    // Home label
+    var el = document.getElementById('home-estado-op');
+    if (el) { el.textContent = cfg.ic + ' ' + cfg.lbl; el.style.background = cfg.bg; el.style.color = cfg.col; }
+    // Mi Panel header badge (arriba a la derecha)
+    var badge = document.getElementById('mp2-estado-badge');
+    if (badge) { badge.textContent = cfg.ic + ' ' + cfg.lbl; badge.style.background = cfg.bg; badge.style.color = cfg.col; badge.style.display = 'inline-flex'; }
+    // Mi Panel — título del estado
+    var t = document.getElementById('mp2-estado-lbl-title');
+    if (t) t.textContent = cfg.ic + ' ' + cfg.lbl;
+    // Mi Panel — descripción del estado
+    var lbl = document.getElementById('mp2-estado-lbl');
+    if (lbl) { lbl.textContent = cfg.desc; lbl.style.color = cfg.col; }
+    // Mi Panel — punto de color
+    var dot = document.getElementById('mp2-estado-dot');
+    if (dot) dot.style.background = cfg.col;
+    // Mi Panel — selector
+    var sel = document.getElementById('mp2-estado-sel');
+    if (sel) sel.value = estado;
+  };
+  // ── FIN M2-D helpers ─────────────────────────────────────────
+
+  // ── M2-E: SISTEMA DE PROMOCIONES ────────────────────────────
+  // localStorage keys: dcPromoDraft | dcPromoCarrito | dcPromoActivas
+  // Sin pagos reales. Flujo: crear → preview → carrito → activar mock.
+
+  window.getPromoActivas = function() {
+    try {
+      var all = JSON.parse(localStorage.getItem('dcPromoActivas') || '[]');
+      var now = Date.now();
+      // Solo promos con estado activa y no vencidas
+      return all.filter(function(p) {
+        return p.estado === 'activa' && p.expira > now;
+      });
+    } catch(e) { return []; }
+  };
+
+  window.crearPromoDraft = function(data) {
+    localStorage.setItem('dcPromoDraft', JSON.stringify(data));
+  };
+
+  window.activarPromo = function() {
+    try {
+      var draft = JSON.parse(localStorage.getItem('dcPromoDraft') || 'null');
+      if (!draft) return false;
+      var durMs = { '24h': 86400000, '3d': 259200000, '7d': 604800000 };
+      var ms = durMs[draft.duracion] || 86400000;
+      draft.id = 'p_' + Date.now();
+      draft.estado = 'pendiente_pago'; // NO activa hasta pago o admin
+      draft.creada = Date.now();
+      draft.expira = Date.now() + ms;
+      var all = JSON.parse(localStorage.getItem('dcPromoActivas') || '[]');
+      all.unshift(draft);
+      localStorage.setItem('dcPromoActivas', JSON.stringify(all));
+      localStorage.removeItem('dcPromoDraft');
+      localStorage.removeItem('dcPromoCarrito');
+      return true;
+    } catch(e) { return false; }
+  };
+
+  // Inyecta slides de promos activas al inicio del carrusel del home
+  window.renderPromoEnCarrusel = function() {
+    var track = document.getElementById('home-ads-track');
+    var dots  = document.getElementById('home-ads-dots');
+    if (!track) return;
+    // Quitar slides de promo anteriores
+    Array.from(track.querySelectorAll('[data-promo]')).forEach(function(el){ el.remove(); });
+    var promos = window.getPromoActivas();
+    if (!promos.length) return;
+    // Insertar al inicio (máximo 1 promo visible)
+    var p = promos[0];
+    var TIPOS = {
+      destacado: { bg:'linear-gradient(120deg,#1a3a2a,#2d6e3a)', ic:'⭐' },
+      promocion:  { bg:'linear-gradient(120deg,#2a1a3a,#5a2a80)', ic:'🏷️' },
+      oferta:     { bg:'linear-gradient(120deg,#3a1a1a,#8a2020)', ic:'🔥' },
+      impulso:    { bg:'linear-gradient(120deg,#1a2a3a,#1a5a8a)', ic:'🚀' },
+    };
+    var t = TIPOS[p.tipo] || TIPOS.promocion;
+    var slide = document.createElement('div');
+    slide.setAttribute('data-promo', p.id);
+    slide.setAttribute('data-ad-category', 'promo');
+    slide.style.cssText = 'min-width:100%;height:95px;border-radius:16px;overflow:hidden;position:relative;flex-shrink:0;background:'+t.bg+';';
+    slide.innerHTML = '<div style="position:absolute;inset:0;padding:14px 16px;display:flex;align-items:center;gap:14px;">'
+      + '<div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">' + t.ic + '</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:3px;">' + (p.titulo||'Promoción') + '</div>'
+      + '<div style="font-size:12px;color:rgba(255,255,255,.75);line-height:1.3;">' + (p.subtitulo||'') + '</div>'
+      + '</div></div>'
+      + '<div style="position:absolute;bottom:8px;right:12px;font-size:9px;color:rgba(255,255,255,.4);font-weight:500;letter-spacing:.3px;">Patrocinado</div>';
+    track.insertBefore(slide, track.firstChild);
+    // Añadir dot extra si hace falta
+    if (dots && dots.children.length < track.children.length) {
+      var newDot = document.createElement('span');
+      newDot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:#d0d0d0;display:inline-block;transition:background .3s;';
+      dots.appendChild(newDot);
+    }
+  };
+
+  // Navegar a crear promoción
+  window.irACrearPromo = function() {
+    go('v-promo-crear', 'right');
+  };
+  // ── FIN M2-E helpers ─────────────────────────────────────────
+
+  // ── M2-F: STATS LOADERS ──────────────────────────────────────
+  window._cargarBizStats = function() {
+    var s = {}; try { s = JSON.parse(localStorage.getItem('dcBizStats')||'{}'); } catch(e) {}
+    var set = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+    set('vbn-visitas', s.visitas||0);
+    set('vbn-clics',   s.clics||0);
+    // Promos activas
+    var promos = 0; try { promos = JSON.parse(localStorage.getItem('dcPromoActivas')||'[]').filter(function(p){ return p.estado==='activa'; }).length; } catch(e){}
+    set('vbn-promos', promos);
+    // Nombre del negocio
+    var nom = localStorage.getItem('dcuser')||'Mi Negocio';
+    var sub = document.getElementById('vbn-subtitle');
+    if(sub) sub.textContent = s.categoria || 'Plaza Digital';
+  };
+
+  window._cargarRestStats = function() {
+    var s = {}; try { s = JSON.parse(localStorage.getItem('dcRestStats')||'{}'); } catch(e) {}
+    var set = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+    set('vmr-pedidos', s.pedidos||0);
+    set('vmr-ventas',  '$'+(s.ventas||0));
+    set('vmr-visitas', s.visitas||0);
+  };
+  // ── FIN M2-F helpers ─────────────────────────────────────────
+
+  // ── M2-G: BÚSQUEDA Y DESCUBRIMIENTO ─────────────────────────
+  var SEARCH_KEY   = 'dcSearchRecent';
+  var DISCOVER_KEY = 'dcDiscover';
+
+  // Mock de contenido descubrible
+  // buscarItems: consulta Firestore real (misma fuente que v-servicios).
+  // Sin mocks. Sin arrays hardcodeados.
+  // Retorna promesa. _renderBusqueda lo maneja con .then().
+  window.buscarItems = async function(q) {
+    if (!q || !q.trim()) return [];
+    var lq = q.toLowerCase();
+    try {
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      var snap = await _fb.getDocs(
+        _fb.query(_fb.collection(db,'usuarios'), _fb.where('tipo','==','proveedor'))
+      );
+      var results = [];
+      snap.forEach(function(d) {
+        var p = d.data(); p._id = d.id;
+        if (p.estado !== 'activo') return;
+        var haystack = [p.nombre||'', p.descripcion||'', p.categoria||'', p.oficio1||''].join(' ').toLowerCase();
+        if (haystack.indexOf(lq) !== -1) results.push(p);
+      });
+      return results;
+    } catch(e) {
+      console.log('buscarItems error:', e.message);
+      return [];
+    }
+  };
+
+  window.getSearchRecent = function() {
+    try { return JSON.parse(localStorage.getItem(SEARCH_KEY) || '[]'); } catch(e) { return []; }
+  };
+
+  window.addSearchRecent = function(q) {
+    if (!q || !q.trim()) return;
+    var list = window.getSearchRecent().filter(function(s){ return s !== q.trim(); });
+    list.unshift(q.trim());
+    localStorage.setItem(SEARCH_KEY, JSON.stringify(list.slice(0,5)));
+  };
+
+  // renderBusqueda: no-op. v-busqueda usa window._renderBusqueda.
+  window.renderBusqueda = function(q) {};
+
+  // Descubrimiento: sin datos reales cargados aún → estado vacío elegante.
+  window.renderDescubrimiento = function(contenedorId) {
+    var el = document.getElementById(contenedorId);
+    if (!el) return;
+    el.innerHTML = '<div style="text-align:center;padding:20px 14px;">'
+      + '<div style="font-size:28px;margin-bottom:8px;">🔎</div>'
+      + '<div style="font-size:12px;font-weight:700;color:#444;margin-bottom:4px;">Aún no hay resultados disponibles</div>'
+      + '<div style="font-size:11px;color:#999;line-height:1.5;">Cuando haya negocios o servicios<br>registrados aparecerán aquí.</div>'
+      + '</div>';
+  };
+
+    // ── FIN M2-G helpers ─────────────────────────────────────────
+
+  // ── M2-H: FAVORITOS + RECIENTES ─────────────────────────────
+  // Clave por usuario: usa uid de Firebase si está disponible.
+  // Fallback: dcuserTipo. Mismo patrón que _estadoKey() en M2-D.
+  function _favKey() {
+    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    return uid ? 'dcFavoritos_' + uid : 'dcFavoritos_t_' + (localStorage.getItem('dcuserTipo')||'u');
+  }
+
+  function _recKey() {
+    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    return uid ? 'dcRecientes_' + uid : 'dcRecientes_t_' + (localStorage.getItem('dcuserTipo')||'u');
+  }
+
+  window.getFavs = function() {
+    try { return JSON.parse(localStorage.getItem(_favKey()) || '[]'); } catch(e) { return []; }
+  };
+
+  window.isFav = function(provId) {
+    return window.getFavs().some(function(f){ return f.id === provId; });
+  };
+
+  window.toggleFav = function(p) {
+    var id = p._id || p.id || p.uid || p.nombre;
+    var favs = window.getFavs();
+    var idx = favs.findIndex ? favs.findIndex(function(f){ return f.id === id; })
+              : (function(){ for(var i=0;i<favs.length;i++) if(favs[i].id===id) return i; return -1; })();
+    if (idx !== -1) {
+      favs.splice(idx, 1); // quitar
+    } else {
+      // agregar sin duplicados
+      favs.unshift({ id:id, tipo:'proveedor', nombre:p.nombre||'—',
+                     categoria:p.categoria||'', descripcion:p.descripcion||'',
+                     datos: p, fecha: Date.now() });
+    }
+    localStorage.setItem(_favKey(), JSON.stringify(favs));
+    // Actualizar botón si está visible
+    var btn = document.getElementById('det-fav-btn');
+    if (btn) btn.textContent = window.isFav(id) ? '❤️' : '🤍';
+  };
+
+  window.addReciente = function(p) {
+    var id = p._id || p.id || p.uid || p.nombre;
+    try {
+      var list = JSON.parse(localStorage.getItem(_recKey()) || '[]');
+      list = list.filter(function(r){ return r.id !== id; });
+      list.unshift({ id:id, tipo:'proveedor', nombre:p.nombre||'—',
+                     categoria:p.categoria||'', datos:p, fecha:Date.now() });
+      localStorage.setItem(_recKey(), JSON.stringify(list.slice(0, 10)));
+    } catch(e) {}
+  };
+  // ── FIN M2-H helpers ─────────────────────────────────────────
+
+  // ── M2-I: NOTIFICACIONES REALES ──────────────────────────────
+  // Fuente: Firestore colección 'notificaciones', campo uid = currentUser.uid
+  // Sin seeds. Sin mocks. Vacío elegante si colección vacía o inexistente.
+
+  window.cargarNotificaciones = async function() {
+    var user = window.auth && window.auth.currentUser;
+    if (!user) return [];
+    try {
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      var q = _fb.query(
+        _fb.collection(db, 'notificaciones'),
+        _fb.where('uid', '==', user.uid),
+        _fb.orderBy('fecha', 'desc'),
+        _fb.limit(50)
+      );
+      var snap = await _fb.getDocs(q);
+      var notifs = [];
+      snap.forEach(function(d) {
+        var n = d.data(); n._id = d.id;
+        if (!n.eliminada) notifs.push(n);
+      });
+      return notifs;
+    } catch(e) {
+      // Colección no existe o sin permisos → vacío elegante
+      console.log('M2-I notificaciones:', e.message);
+      return [];
+    }
+  };
+
+  window.marcarNotifLeida = async function(id) {
+    var user = window.auth && window.auth.currentUser;
+    if (!user || !id) return;
+    try {
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      await _fb.updateDoc(_fb.doc(db, 'notificaciones', id), { leida: true });
+    } catch(e) { console.log('M2-I marcarLeida:', e.message); }
+  };
+
+  window.marcarTodasLeidas = async function() {
+    var user = window.auth && window.auth.currentUser;
+    if (!user) return;
+    try {
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      var q = _fb.query(
+        _fb.collection(db, 'notificaciones'),
+        _fb.where('uid', '==', user.uid),
+        _fb.where('leida', '==', false)
+      );
+      var snap = await _fb.getDocs(q);
+      var batch = _fb.writeBatch(db);
+      snap.forEach(function(d) { batch.update(d.ref, { leida: true }); });
+      await batch.commit();
+    } catch(e) { console.log('M2-I marcarTodas:', e.message); }
+  };
+
+  // Actualiza badges del home con conteos reales de Firestore
+  window.actualizarBadgesReales = async function() {
+    var notifs = await window.cargarNotificaciones();
+    // Contar no leídas por módulo
+    var counts = {};
+    notifs.forEach(function(n) {
+      if (!n.leida && n.modulo) {
+        counts[n.modulo] = (counts[n.modulo] || 0) + 1;
+      }
+    });
+    // Actualizar badge de cada módulo
+    var MODULOS = ['chats','solicitudes','pedidos','promocion','sistema'];
+    MODULOS.forEach(function(m) {
+      if (counts[m]) {
+        window.setBadge && window.setBadge(m, counts[m], 'normal');
+      } else {
+        window.setBadge && window.setBadge(m, 0, 'normal'); // limpia
+      }
+    });
+    // Actualizar notif-dot en nav: mostrar si hay cualquier no leída
+    var total = notifs.filter(function(n){ return !n.leida; }).length;
+    document.querySelectorAll('.notif-dot').forEach(function(el) {
+      el.style.display = total > 0 ? 'block' : 'none';
+    });
+    return notifs;
+  };
+
+  // Ruta de módulo para notificación
+  window._notifRuta = function(n) {
+    var m = n.modulo || n.tipo || '';
+    if (m === 'chat')       return function(){ go('v-mis-chats','right'); setTimeout(cargarMisChats,200); };
+    if (m === 'solicitud')  return function(){ go('v-reportes-disponibles','right'); };
+    if (m === 'pedido')     return function(){ go('v-mis-pedidos-rest','right'); };
+    if (m === 'promocion')  return function(){ window.irACrearPromo && window.irACrearPromo(); };
+    return null; // sin ruta específica
+  };
+  // ── FIN M2-I helpers ─────────────────────────────────────────
+
+  // ── M2-J: AGENDA / RESERVAS ──────────────────────────────────
+  // localStorage por ahora. Preparado para Firestore.
+  // Clave: dcAgenda_[uid] o dcAgenda_t_[tipo] como fallback.
+
+  function _agendaKey() {
+    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    return uid ? 'dcAgenda_' + uid : 'dcAgenda_t_' + (localStorage.getItem('dcuserTipo')||'u');
+  }
+
+  window.getAgenda = function() {
+    try {
+      var raw = localStorage.getItem(_agendaKey());
+      if (!raw) return { dias:[], horarios:[], estado:'activo', reservas:[] };
+      return JSON.parse(raw);
+    } catch(e) { return { dias:[], horarios:[], estado:'activo', reservas:[] }; }
+  };
+
+  window.saveAgenda = function(agenda) {
+    try { localStorage.setItem(_agendaKey(), JSON.stringify(agenda)); } catch(e) {}
+  };
+
+  window._initAgenda = function() {
+    window._renderAgenda && window._renderAgenda();
+  };
+  // ── FIN M2-J helpers ─────────────────────────────────────────
+
+  // ── M2-J: RESERVAS (vecino → proveedor) ──────────────────────
+  function _reservasKey() {
+    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    return uid ? 'dcReservas_' + uid : 'dcReservas_t_' + (localStorage.getItem('dcuserTipo')||'u');
+  }
+
+  window.getReservas = function() {
+    try { return JSON.parse(localStorage.getItem(_reservasKey()) || '[]'); } catch(e) { return []; }
+  };
+
+  window.guardarReserva = async function(reserva) {
+    try {
+      // Validar proveedorUid antes de cualquier operación
+      if (!reserva.proveedorUid) {
+        return { ok: false, msg: 'No se pudo identificar al proveedor.' };
+      }
+
+      // Resolver identidad del vecino:
+      // 1. auth.currentUser.uid si ya está disponible
+      // 2. Esperar hasta 3s a que Firebase inicialice auth
+      // 3. Fallback: uid derivado de localStorage (usuario logueado en la app)
+      var vecinoUid = '';
+      var vecinoNombre = reserva.vecinoNombre || localStorage.getItem('dcuser') || 'Vecino';
+
+      // Intento 1: currentUser ya disponible
+      if (window.auth && window.auth.currentUser) {
+        vecinoUid = window.auth.currentUser.uid;
+      } else {
+        // Intento 2: esperar onAuthStateChanged hasta 3 segundos
+        vecinoUid = await new Promise(function(resolve) {
+          var resolved = false;
+          var timer = setTimeout(function() {
+            if (!resolved) { resolved = true; resolve(''); }
+          }, 3000);
+          if (window.auth && window.auth.onAuthStateChanged) {
+            window.auth.onAuthStateChanged(function(u) {
+              if (!resolved) {
+                resolved = true;
+                clearTimeout(timer);
+                resolve(u ? u.uid : '');
+              }
+            });
+          } else {
+            clearTimeout(timer);
+            resolve('');
+          }
+        });
+      }
+
+      // Intento 3: fallback local si Firebase no respondió
+      // El usuario está logueado en la app aunque auth tarde
+      if (!vecinoUid) {
+        // Tier 2: uid guardado en localStorage durante el login
+        var savedUid = localStorage.getItem('dcuserUid') || '';
+        if (savedUid) {
+          vecinoUid = savedUid;
+        } else {
+          // Tier 3: uid sintético por nombre+tipo (solo si hay usuario identificado)
+          var dcuser = localStorage.getItem('dcuser') || '';
+          var dcTipo = localStorage.getItem('dcuserTipo') || 'vecino';
+          if (!dcuser) {
+            return { ok: false, msg: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
+          }
+          vecinoUid = 'local_' + dcTipo + '_' + dcuser.replace(/\s+/g,'').toLowerCase();
+        }
+      }
+
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+
+      // Verificar duplicado (solo si uid real de Firebase, no local)
+      if (!vecinoUid.startsWith('local_')) {
+        var qDup = _fb.query(
+          _fb.collection(db, 'reservas'),
+          _fb.where('vecinoUid', '==', vecinoUid),
+          _fb.where('proveedorUid', '==', reserva.proveedorUid),
+          _fb.where('dia', '==', reserva.dia),
+          _fb.where('hora', '==', reserva.hora)
+        );
+        var dupSnap = await _fb.getDocs(qDup);
+        if (!dupSnap.empty) return { ok: false, msg: 'Ya tienes una reserva con este proveedor ese día y hora.' };
+      }
+
+      // Guardar reserva en Firestore
+      var docRef = await _fb.addDoc(_fb.collection(db, 'reservas'), {
+        proveedorUid:    reserva.proveedorUid,
+        proveedorNombre: reserva.proveedorNombre || '—',
+        vecinoUid:       vecinoUid,
+        vecinoNombre:    vecinoNombre,
+        dia:             reserva.dia,
+        hora:            reserva.hora,
+        nota:            reserva.nota || '',
+        estado:          'pendiente',
+        creada:          _fb.serverTimestamp()
+      });
+
+      // Notificación para el proveedor
+      try {
+        await _fb.addDoc(_fb.collection(db, 'notificaciones'), {
+          uid:       reserva.proveedorUid,
+          tipo:      'reserva',
+          modulo:    'agenda',
+          titulo:    'Nueva reserva',
+          mensaje:   vecinoNombre + ' solicitó ' + reserva.dia + ' a las ' + reserva.hora,
+          leida:     false,
+          eliminada: false,
+          prioridad: 'normal',
+          reservaId: docRef.id,
+          fecha:     _fb.serverTimestamp()
+        });
+      } catch(ne) {
+        // Notificación es secundaria — no bloquear si falla
+        console.log('notificacion error:', ne.message);
+      }
+
+      return { ok: true, id: docRef.id };
+    } catch(e) {
+      console.log('guardarReserva error:', e.message);
+      return { ok: false, msg: 'No se pudo guardar: ' + e.message };
+    }
+  };
+
+  window._actualizarEstadoReserva = async function(reservaId, nuevoEstado) {
+    try {
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      await _fb.updateDoc(_fb.doc(db, 'reservas', reservaId), { estado: nuevoEstado });
+      window._renderAgenda && window._renderAgenda();
+    } catch(e) { alert('No se pudo actualizar: ' + e.message); }
+  };
+
+  // Abre v-reservar — SIN Firestore. Firestore solo se usa al confirmar.
+  window._irAReservar = function() {
+    var p  = window._proveedorActual;
+    var ag = window._agendaProveedorActual;
+    if (!p || !ag || !ag.horarios || !ag.horarios.length) return;
+    go('v-reservar', 'right');
+    setTimeout(function() { window._renderReservar && window._renderReservar(); }, 150);
+  };
+  // ── FIN M2-J reservas ────────────────────────────────────────
+
+
+  // ── M2-A: renderHomeM2 — Home multirol real ──────────────────
+  // Lee tipo/estado/nombre de localStorage (escritos por loginFirebase).
+  // Reescribe SOLO el interior del scroll de v-home.
+  // No crea vistas nuevas. No toca go(). No toca login.
+  window.renderHomePersonalizado = window.renderHomeM2 = function() {
+    var tipo   = (localStorage.getItem('dcuserTipo')   || 'vecino').toLowerCase();
+    var estado = (localStorage.getItem('dcuserEstado') || '').toLowerCase();
+    var nombre = localStorage.getItem('dcuser') || 'Usuario';
+
+    // ── 1. Header dinámico ──────────────────────────────────────
+    var h = new Date().getHours();
+    var saludo = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+
+    // Actualizar saludo en el badge existente
+    var elS = document.getElementById('home-saludo');
+    if (elS) elS.textContent = saludo + ',';
+
+    // Paleta por rol
+    var PALETA = {
+      vecino:      { color:'#1FC26A', bg:'#e8f5e1', label:'Vecino',                  ic:'🏠' },
+      proveedor:   { color:'#F5C518', bg:'#FFF8DC', label:'Proveedor',               ic:'🔧' },
+      transporte:  { color:'#1A7AB5', bg:'#E8F0F8', label:'Transporte / Repartidor', ic:'🚗' },
+      repartidor:  { color:'#1A7AB5', bg:'#E8F0F8', label:'Repartidor',              ic:'🏍️' },
+      ambos:       { color:'#1A7AB5', bg:'#E8F0F8', label:'Transporte / Reparto',    ic:'🚗' },
+      restaurante: { color:'#D63A2A', bg:'#FDECEA', label:'Restaurante',             ic:'🍽️' },
+      negocio:     { color:'#7B3FA0', bg:'#F0EBF8', label:'Negocio',                 ic:'🏪' },
+    };
+    var pal = PALETA[tipo] || PALETA.vecino;
+
+    // Actualizar badge de tipo
+    var elT = document.getElementById('home-tipo-label');
+    if (elT) {
+      elT.style.background = pal.bg;
+      elT.style.color = pal.color;
+      elT.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:'+pal.color+';display:inline-block;flex-shrink:0;margin-right:5px;"></span>'
+        + pal.ic + ' ' + pal.label;
+    }
+
+    // ── M2-D: Estado operativo en Home ────────────────────────
+    // Solo para no-vecino. Vecino no tiene estado de operación.
+    var elEst = document.getElementById('home-estado-op');
+    if (tipo !== 'vecino') {
+      var estKey = window.getEstadoOperativo();
+      var estCfg = DC_ESTADOS[estKey] || DC_ESTADOS.activo;
+      if (!elEst) {
+        // Crear el label si no existe (primera carga)
+        var wrapper = document.getElementById('home-tipo-label') &&
+                      document.getElementById('home-tipo-label').parentNode;
+        if (wrapper) {
+          var newEl = document.createElement('span');
+          newEl.id = 'home-estado-op';
+          newEl.style.cssText = 'display:inline-flex;align-items:center;margin-left:6px;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;';
+          wrapper.appendChild(newEl);
+          elEst = newEl;
+        }
+      }
+      if (elEst) {
+        elEst.textContent = estCfg.ic + ' ' + estCfg.lbl;
+        elEst.style.background = estCfg.bg;
+        elEst.style.color = estCfg.col;
+      }
+    } else if (elEst) {
+      elEst.style.display = 'none';
+    }
+
+    // ── M2-G: Mostrar barra de búsqueda solo para vecino/restaurante/negocio
+    var searchWrap = document.getElementById('home-search-wrap');
+    if (searchWrap) {
+      var showSearch = ['vecino','restaurante','negocio'].indexOf(tipo) !== -1;
+      searchWrap.style.display = showSearch ? 'block' : 'none';
+    }
+
+    // ── 2. Banners de publicidad: rotar según rol ───────────────
+    var track = document.getElementById('home-ads-track');
+    if (track) {
+      // Reordenar: poner el banner relevante al rol primero
+      var relevante = { vecino:'comida', proveedor:'servicios', transporte:'ride',
+                        repartidor:'ride', ambos:'ride', restaurante:'comida', negocio:'plaza' };
+      var cat = relevante[tipo] || 'comida';
+      var slides = Array.from(track.children);
+      var first = slides.find(function(s){ return s.dataset.adCategory === cat; });
+      if (first && first !== slides[0]) track.insertBefore(first, slides[0]);
+    }
+    // Insertar promos activas al inicio del carrusel
+    window.renderPromoEnCarrusel && window.renderPromoEnCarrusel();
+
+    // ── 3. Contenido del scroll ────────────────────────────────
+    var scroll = document.querySelector('#v-home .scroll');
+    if (!scroll) return;
+
+    // ══════════════════════════════════════════════════════════
+    // ── M2-C: SISTEMA DE BADGES ───────────────────────────────
+    // Badges solo se muestran si existen en localStorage via setBadge().
+    // No se siembra nada automáticamente.
+    var BADGE_KEY = 'dc_badges_v1';
+
+    window.getBadges = function() {
+      try { return JSON.parse(localStorage.getItem(BADGE_KEY) || '{}'); }
+      catch(e) { return {}; }
+    };
+
+    window.setBadge = function(m, count, urgencia) {
+      var all = window.getBadges();
+      if (count <= 0) { delete all[m]; }
+      else { all[m] = { count: count, urgencia: urgencia || 'normal', ts: Date.now() }; }
+      localStorage.setItem(BADGE_KEY, JSON.stringify(all));
+    };
+
+    // Limpia datos de sesión anterior que no correspondan al tipo actual
+    // Evita mostrar badges de otro rol o de mocks previos
+    (function limpiarBadgesExpirados() {
+      // Módulos válidos por rol
+      var modulosPorRol = {
+        vecino:      ['informa'],
+        proveedor:   ['solicitudes','chats'],
+        transporte:  ['solicitudes','chats'],
+        repartidor:  ['solicitudes','chats'],
+        ambos:       ['solicitudes','chats'],
+        restaurante: ['pedidos','chats'],
+        negocio:     ['solicitudes','chats'],
+      };
+      var validos = modulosPorRol[tipo] || [];
+      var all = window.getBadges();
+      var changed = false;
+      Object.keys(all).forEach(function(k) {
+        if (validos.indexOf(k) === -1) { delete all[k]; changed = true; }
+      });
+      if (changed) localStorage.setItem(BADGE_KEY, JSON.stringify(all));
+    })();
+
+    // M2-I: actualizar badges con datos reales de Firestore (async, no bloquea render)
+    window.actualizarBadgesReales && window.actualizarBadgesReales();
+
+    window.marcarModuloVisto = function(m) {
+      var all = window.getBadges();
+      delete all[m];
+      localStorage.setItem(BADGE_KEY, JSON.stringify(all));
+      var vh = document.getElementById('v-home');
+      if (vh && vh.classList.contains('active')) {
+        window.renderHomeM2 && window.renderHomeM2();
+      }
+    };
+
+    window.renderBadge = function(m) {
+      var b = window.getBadges()[m];
+      if (!b || b.count <= 0) return '';
+      var n = b.count > 9 ? '9+' : String(b.count);
+      return n + (b.urgencia === 'critical' ? '🔥' : b.urgencia === 'aged' ? '⏳' : '');
+    };
+
+    // ── helpers de layout ─────────────────────────────────────
+    function chip(ic, lbl, ruta, badgeKey) {
+      var txt = badgeKey ? window.renderBadge(badgeKey) : '';
+      var b = txt ? '<span style="position:absolute;top:-5px;right:-5px;background:#D63A2A;color:#fff;font-size:8px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;white-space:nowrap;">' + txt + '</span>' : '';
+      return '<div onclick="' + ruta + '" style="position:relative;display:inline-flex;flex-direction:column;align-items:center;gap:4px;background:#fff;border-radius:14px;padding:10px 14px;border:.5px solid #e8e8e8;cursor:pointer;min-width:58px;box-shadow:0 1px 3px rgba(0,0,0,.04);">'
+        + b + '<span style="font-size:20px;">' + ic + '</span>'
+        + '<span style="font-size:10px;font-weight:600;color:#444;">' + lbl + '</span></div>';
+    }
+
+    function modulo(ic, bg, lbl, sub, ruta, badgeKey) {
+      var txt = badgeKey ? window.renderBadge(badgeKey) : '';
+      var dot = txt ? '<div style="position:absolute;top:8px;right:8px;background:#D63A2A;color:#fff;font-size:8px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;white-space:nowrap;">' + txt + '</div>' : '';
+      return '<div onclick="' + ruta + '" style="position:relative;background:#fff;border-radius:16px;padding:14px 14px 13px;display:flex;flex-direction:column;gap:9px;border:.5px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;">'
+        + dot
+        + '<div style="width:40px;height:40px;border-radius:11px;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:20px;">' + ic + '</div>'
+        + '<div><div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.2;">' + lbl + '</div>'
+        + (sub ? '<div style="font-size:10px;color:#888;margin-top:2px;">' + sub + '</div>' : '')
+        + '</div></div>';
+    }
+
+    function secLabel(txt) {
+      return '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:0 18px;margin-bottom:10px;">'+txt+'</div>';
+    }
+
+    function panelBtn(ruta) {
+      return '<div onclick="'+ruta+'" style="margin:0 14px 18px;background:#f8f8f8;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:10px;border:.5px solid #eee;cursor:pointer;" ontouchstart="this.style.opacity=\'.8\'" ontouchend="this.style.opacity=\'1\'">'
+        + '<div style="width:36px;height:36px;border-radius:10px;background:'+pal.bg+';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">👤</div>'
+        + '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#111;">Mi Panel</div><div style="font-size:10px;color:#888;margin-top:1px;">Perfil · métricas · cuenta</div></div>'
+        + '<div style="font-size:18px;color:#ccc;">›</div>'
+        + '</div>';
+    }
+
+    function descubrimiento(tieneActividad) {
+      if (tieneActividad) return '';
+      return '<div style="margin:0 0 18px;">'
+        + '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:0 18px;margin-bottom:10px;">✨ Descubre hoy</div>'
+        + '<div id="home-discover-list" style="padding:0 14px;"></div>'
+        + '<div style="padding:0 18px;"><div style="font-size:11px;font-weight:700;color:#1f7a38;cursor:pointer;" onclick="go(\'v-busqueda\',\'right\')">Ver más →</div></div>'
+        + '</div>';
+    }
+
+    // ── CONTENIDO POR ROL ─────────────────────────────────────
+    var html = '';
+    var tieneActividad = false;
+
+    // ── VECINO ────────────────────────────────────────────────
+    if (tipo === 'vecino') {
+      html += secLabel('¿Qué necesitas hoy?');
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px;margin-bottom:12px;">'
+        + modulo('🍽️','#FFF3E0','Pedir Comida','14 restaurantes',"go('v-food','right')")
+        + modulo('🔧','#e8f5e1','Servicios','52 verificados',"go('v-servicios','right')")
+        + modulo('🚗','#E8F0F8','Ride','6 disp. · ~4 min',"go('v-ride','right')")
+        + modulo('🏪','#F0EBF8','Plaza','18 comercios',"go('v-plaza','right')")
+        + '</div>';
+
+      html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 14px;margin-bottom:18px;">'
+        + chip('📰','Informa', "window.marcarModuloVisto('informa');go('v-informa','right')", 'informa')
+        + chip('🎪','Eventos', "go('v-eventos','right')")
+        + chip('🚨','Seguridad',"go('v-seguridad','right')")
+        + chip('❤️','Favoritos',"go('v-favoritos','right');setTimeout(cargarFavoritos,400)")
+        + '</div>';
+
+      html += descubrimiento(tieneActividad);
+      html += secLabel('Actividad reciente');
+      html += '<div id="home-actividad" style="padding:0 14px;">'
+        + '<div style="background:#F5F6F0;border-radius:14px;padding:14px;text-align:center;border:.5px solid #e0e0e0;">'
+        + '<div style="font-size:22px;margin-bottom:6px;">📋</div>'
+        + '<div style="font-size:12px;font-weight:700;color:#222;margin-bottom:4px;">Sin actividad aún</div>'
+        + '<div style="font-size:11px;color:#999;">Tus pedidos y servicios aparecerán aquí</div>'
+        + '</div></div>';
+    }
+
+    // ── PROVEEDOR ─────────────────────────────────────────────
+    else if (tipo === 'proveedor') {
+      html += secLabel('Operación');
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px;margin-bottom:18px;">'
+        + modulo('📋','#FFF8DC','Solicitudes','Ver pedidos',
+            "window.marcarModuloVisto('solicitudes');go('v-reportes-disponibles','right');setTimeout(function(){window.cargarReportesDisponibles&&window.cargarReportesDisponibles();},300)",
+            'solicitudes')
+        + modulo('💬','#e8f5e1','Mis Chats','Mensajes activos',
+            "window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",
+            'chats')
+        + modulo('🔧','#FFF8DC','Mi Servicio','Editar perfil',"go('v-mipanel','right')")
+        + modulo('⭐','#FFF8DC','Membresía','Estado y plan',"go('v-espera-pago','right')")
+        + '</div>';
+
+      html += descubrimiento(tieneActividad);
+      html += secLabel('Actividad reciente');
+      html += '<div id="home-actividad" style="padding:0 14px;">'
+        + '<div style="background:#FFFDF5;border-radius:14px;padding:14px;text-align:center;border:.5px solid #f0e8c0;">'
+        + '<div style="font-size:22px;margin-bottom:6px;">📋</div>'
+        + '<div style="font-size:12px;font-weight:700;color:#7a5000;margin-bottom:4px;">Sin solicitudes nuevas</div>'
+        + '<div style="font-size:11px;color:#999;">Cuando lleguen pedidos aparecerán aquí</div>'
+        + '</div></div>';
+    }
+
+    // ── TRANSPORTE / REPARTIDOR ───────────────────────────────
+    else if (['transporte','repartidor','ambos'].includes(tipo)) {
+      html += secLabel('Mi operación');
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px;margin-bottom:18px;">'
+        + modulo('🗺️','#E8F0F8','Mi Cobertura','Zona activa',"go('v-ride','right')")
+        + modulo('💬','#E8F0F8','Mis Chats','Mensajes',
+            "window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",
+            'chats')
+        + modulo('📋','#E8F0F8','Solicitudes','Pedidos disp.',
+            "window.marcarModuloVisto('solicitudes');window.irASolicitudes&&window.irASolicitudes()",
+            'solicitudes')
+        + modulo('📊','#E8F0F8','Estadísticas','Mi semana',"go('v-mipanel','right')")
+        + '</div>';
+
+      html += '<div style="margin:0 14px 18px;background:linear-gradient(120deg,#0A3055,#1A7AB5);border-radius:14px;padding:13px 14px;display:flex;align-items:center;gap:12px;">'
+        + '<div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🚗</div>'
+        + '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#fff;">$0.00 hoy</div><div style="font-size:10px;color:rgba(255,255,255,.65);">Ganancias del día · Dominio Cumbres</div></div>'
+        + '<div style="display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.15);border-radius:20px;padding:3px 9px;"><div style="width:6px;height:6px;border-radius:50%;background:#1FC26A;"></div><span style="font-size:10px;color:#fff;font-weight:700;">En línea</span></div>'
+        + '</div>';
+
+      html += descubrimiento(tieneActividad);
+      html += secLabel('Actividad reciente');
+      html += '<div id="home-actividad" style="padding:0 14px;">'
+        + '<div style="background:#F5F8FC;border-radius:14px;padding:14px;text-align:center;border:.5px solid #c0d4e8;">'
+        + '<div style="font-size:22px;margin-bottom:6px;">🚗</div>'
+        + '<div style="font-size:12px;font-weight:700;color:#0A3055;margin-bottom:4px;">Sin viajes hoy</div>'
+        + '<div style="font-size:11px;color:#999;">Activa tu disponibilidad para recibir solicitudes</div>'
+        + '</div></div>';
+    }
+
+    // ── RESTAURANTE ───────────────────────────────────────────
+    else if (tipo === 'restaurante') {
+      html += secLabel('Operación hoy');
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;padding:0 14px;margin-bottom:18px;">'
+        + modulo('📦','#FDECEA','Pedidos','Ver todos',
+            "window.marcarModuloVisto('pedidos');go('v-mis-pedidos-rest','right')",
+            'pedidos')
+        + modulo('💬','#FDECEA','Chats','Mensajes',
+            "window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",
+            'chats')
+        + modulo('🍽️','#FDECEA','Mi Menú','Gestionar',"go('v-mipanel','right')")
+        + '</div>';
+
+      var _rst = (function(){ try{ return JSON.parse(localStorage.getItem('dcRestStats')||'{}'); }catch(e){ return {}; } })();
+      html += '<div onclick="go(\'v-mi-restaurante\',\'right\')" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 14px;margin-bottom:6px;cursor:pointer;">'
+        + '<div style="background:#fff;border-radius:12px;padding:10px 8px;text-align:center;border:.5px solid #ececec;"><div style="font-size:20px;font-weight:700;color:#D63A2A;">'+(_rst.pedidos||0)+'</div><div style="font-size:9px;color:#999;">Pedidos</div></div>'
+        + '<div style="background:#fff;border-radius:12px;padding:10px 8px;text-align:center;border:.5px solid #ececec;"><div style="font-size:16px;font-weight:700;color:#D63A2A;">$'+(_rst.ventas||0)+'</div><div style="font-size:9px;color:#999;">Ventas</div></div>'
+        + '<div style="background:#fff;border-radius:12px;padding:10px 8px;text-align:center;border:.5px solid #ececec;"><div style="font-size:20px;font-weight:700;color:#D63A2A;">'+(_rst.visitas||0)+'</div><div style="font-size:9px;color:#999;">Visitas</div></div>'
+        + '</div>'
+        + '<div style="padding:0 14px;margin-bottom:18px;">'
+        +   '<button onclick="event.stopPropagation();go(\'v-mi-restaurante\',\'right\')" style="width:100%;background:#D63A2A;border:none;border-radius:11px;padding:9px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;">Ver mi restaurante →</button>'
+        + '</div>';
+
+      html += descubrimiento(tieneActividad);
+      html += secLabel('Actividad reciente');
+      html += '<div id="home-actividad" style="padding:0 14px;">'
+        + '<div style="background:#FDF5F5;border-radius:14px;padding:14px;text-align:center;border:.5px solid #f0c8c8;">'
+        + '<div style="font-size:22px;margin-bottom:6px;">📋</div>'
+        + '<div style="font-size:12px;font-weight:700;color:#7A1810;margin-bottom:4px;">Sin pedidos nuevos</div>'
+        + '<div style="font-size:11px;color:#999;">Los pedidos del día aparecerán aquí</div>'
+        + '</div></div>';
+    }
+
+    // ── NEGOCIO / PLAZA DIGITAL ───────────────────────────────
+    else if (tipo === 'negocio') {
+      html += secLabel('Mi negocio');
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px;margin-bottom:18px;">'
+        + modulo('🏪','#F0EBF8','Mi Tienda','Gestionar',"go('v-mipanel','right')")
+        + modulo('💬','#F0EBF8','Chats','Mensajes',
+            "window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",
+            'chats')
+        + modulo('📋','#F0EBF8','Solicitudes','Pedidos',
+            "window.marcarModuloVisto('solicitudes');window.irASolicitudes&&window.irASolicitudes()",
+            'solicitudes')
+        + modulo('📊','#F0EBF8','Estadísticas','Esta semana',"go('v-mipanel','right')")
+        + '</div>';
+
+      var _biz = (function(){ try{ return JSON.parse(localStorage.getItem('dcBizStats')||'{}'); }catch(e){ return {}; } })();
+      html += '<div onclick="go(\'v-mi-negocio\',\'right\')" style="margin:0 14px 18px;background:linear-gradient(120deg,#4A1A70,#7B3FA0);border-radius:14px;padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;" ontouchstart="this.style.opacity=\'.85\'" ontouchend="this.style.opacity=\'1\'">'
+        + '<div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏪</div>'
+        + '<div style="flex:1;">'
+        +   '<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;">'+nombre+'</div>'
+        +   '<div style="font-size:10px;color:rgba(255,255,255,.65);">'+(_biz.visitas||0)+' visitas · '+(_biz.categoria||'Plaza Digital')+'</div>'
+        + '</div>'
+        + '<div style="font-size:18px;color:rgba(255,255,255,.5);">›</div>'
+        + '</div>';
+
+      html += descubrimiento(tieneActividad);
+      html += secLabel('Actividad reciente');
+      html += '<div id="home-actividad" style="padding:0 14px;">'
+        + '<div style="background:#F8F5FC;border-radius:14px;padding:14px;text-align:center;border:.5px solid #d0b8e8;">'
+        + '<div style="font-size:22px;margin-bottom:6px;">🛍️</div>'
+        + '<div style="font-size:12px;font-weight:700;color:#4A1A70;margin-bottom:4px;">Sin ventas hoy</div>'
+        + '<div style="font-size:11px;color:#999;">Las ventas y solicitudes aparecerán aquí</div>'
+        + '</div></div>';
+    }
+
+    else {
+      html += '<div id="home-actividad" style="padding:0 14px;"></div>';
+    }
+
+    html += '<div style="height:14px;"></div>';
+    scroll.innerHTML = html;
+    // M2-G: poblar descubrimiento si el contenedor fue inyectado
+    window.renderDescubrimiento && window.renderDescubrimiento('home-discover-list');
+  };
+  // ── FIN M2-A ─────────────────────────────────────────────────
   window.cerrarSesion = async function() {
     // 1. Cerrar sesión Firebase
     try {
@@ -1483,6 +2584,8 @@
     } catch(e) {}
     // 2. Limpiar localStorage de sesión
     localStorage.removeItem('dcuser');
+    localStorage.removeItem('dc_badges_v1'); // limpiar badges al cerrar sesión
+    localStorage.removeItem('dcuserUid');    // limpiar uid guardado
     localStorage.removeItem('dcuserTipo');
     localStorage.removeItem('dcuserEstado');
     // 3. Cancelar subscripciones activas
@@ -1608,6 +2711,10 @@
         // Guardar tipo y estado normalizados en localStorage
         localStorage.setItem('dcuserTipo', datos.tipo || 'vecino');
         localStorage.setItem('dcuserEstado', estado);
+        // Guardar uid de Firebase para uso como fallback en funciones async
+        if (window.auth && window.auth.currentUser) {
+          localStorage.setItem('dcuserUid', window.auth.currentUser.uid);
+        }
 
         if (datos.tipo === 'vecino') {
           go('v-home','right');
@@ -3409,7 +4516,17 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
   </div>
   <div style="background:#fff;font-size:12px;color:#888;padding:4px 18px 10px;">📍 Dominio Cumbres · Zona privada</div>
 
-  <!-- ── HERO ── -->
+  <!-- ── BARRA DE BÚSQUEDA (M2-G) — solo vecino/restaurante/negocio ── -->
+  <div id="home-search-wrap" style="display:none;padding:0 14px 12px;">
+    <div onclick="go('v-busqueda','right')"
+      style="display:flex;align-items:center;gap:10px;background:#F5F6F0;border-radius:14px;padding:10px 14px;cursor:pointer;border:.5px solid #e8e8e8;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <span style="font-size:13px;color:#aaa;" id="home-search-placeholder">Buscar comida, servicios, lugares…</span>
+    </div>
+  </div>
+
   <!-- ── CARRUSEL DE ANUNCIOS ── -->
   <!-- data-ads: preparado para targeting futuro por interés (comida/ride/servicios/plaza) -->
   <div id="home-ads-wrap" style="margin:0 14px 14px;position:relative;flex-shrink:0;">
@@ -3550,71 +4667,18 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
   // ── Fin carrusel ─────────────────────────────────────────────
   </script>
 
-  <!-- ── SCROLL AREA ── -->
+  <!-- ── SCROLL AREA — renderHomeM2() reescribe este bloque al entrar ── -->
   <div class="scroll" style="padding:0 0 14px;">
-
-    <!-- ¿QUÉ NECESITAS HOY? — grid 2×2 con los 4 módulos principales -->
-    <div style="font-size:13px;font-weight:700;color:#111;padding:0 18px;margin-bottom:11px;">¿Qué necesitas hoy?</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px;margin-bottom:20px;">
-
-      <div onclick="go('v-servicios','right')" style="background:#fff;border-radius:16px;padding:15px 14px 14px;display:flex;flex-direction:column;gap:10px;border:.5px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;" ontouchstart="this.style.opacity='.75'" ontouchend="this.style.opacity='1'">
-        <div style="width:42px;height:42px;border-radius:12px;background:#e8f5e1;display:flex;align-items:center;justify-content:center;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a6b10" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-        </div>
-        <div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.2;">Buscar<br>Servicios</div>
-      </div>
-
-      <div onclick="go('v-food','right')" style="background:#fff;border-radius:16px;padding:15px 14px 14px;display:flex;flex-direction:column;gap:10px;border:.5px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;" ontouchstart="this.style.opacity='.75'" ontouchend="this.style.opacity='1'">
-        <div style="width:42px;height:42px;border-radius:12px;background:#fff3e0;display:flex;align-items:center;justify-content:center;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d84000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
-        </div>
-        <div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.2;">Pedir<br>Comida</div>
-      </div>
-
-      <div onclick="go('v-ride','right')" style="background:#fff;border-radius:16px;padding:15px 14px 14px;display:flex;flex-direction:column;gap:10px;border:.5px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;" ontouchstart="this.style.opacity='.75'" ontouchend="this.style.opacity='1'">
-        <div style="width:42px;height:42px;border-radius:12px;background:#e4eef8;display:flex;align-items:center;justify-content:center;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1458a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-        </div>
-        <div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.2;">Transporte</div>
-      </div>
-
-      <div onclick="go('v-plaza','right')" style="background:#fff;border-radius:16px;padding:15px 14px 14px;display:flex;flex-direction:column;gap:10px;border:.5px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;" ontouchstart="this.style.opacity='.75'" ontouchend="this.style.opacity='1'">
-        <div style="width:42px;height:42px;border-radius:12px;background:#f0eafc;display:flex;align-items:center;justify-content:center;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5c12a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        </div>
-        <div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.2;">Plaza<br>Digital</div>
-      </div>
-
-    </div>
-
-    <!-- MÁS MÓDULOS -->
-    <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:0 18px;margin-bottom:10px;">Más módulos</div>
-    <div class="chips-row" style="margin-bottom:18px;">
-      <div class="chip" onclick="go('v-informa','right')"><span class="chip-ic">📰</span><span class="chip-n">Informa</span></div>
-      <div class="chip" onclick="go('v-eventos','right')"><span class="chip-ic">🎪</span><span class="chip-n">Eventos</span></div>
-      <div class="chip" onclick="go('v-seguridad','right')"><span class="chip-ic">🚨</span><span class="chip-n">Seguridad</span></div>
-      <div class="chip" onclick="go('v-favoritos','right');setTimeout(cargarFavoritos,400);"><span class="chip-ic">❤️</span><span class="chip-n">Favoritos</span></div>
-      <div class="chip" onclick="go('v-mipanel','right')"><span class="chip-ic">📊</span><span class="chip-n">Mi Panel</span></div>
-    </div>
-
-    <!-- ACTIVIDAD RECIENTE -->
-    <div style="font-size:13px;font-weight:700;color:#111;padding:0 18px;margin-bottom:10px;">Actividad reciente</div>
-    <div id="home-actividad" style="padding:0 14px;">
-      <div style="background:#F5F6F0;border-radius:14px;padding:14px;text-align:center;border:.5px solid #e0e0e0;">
-        <div style="font-size:22px;margin-bottom:6px;">📋</div>
-        <div style="font-size:12px;font-weight:700;color:#222;margin-bottom:4px;">Sin actividad aún</div>
-        <div style="font-size:11px;color:#999;">Tus pedidos y servicios aparecerán aquí</div>
-      </div>
-    </div>
+    <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:0 18px;margin-bottom:10px;">Cargando…</div>
+    <div id="home-actividad" style="padding:0 14px;"></div>
     <div style="height:14px;"></div>
-
   </div><!-- /scroll -->
 
   <!-- ── BOTTOM NAV (igual que antes) ── -->
   <div class="nav">
     <div class="ni"><div class="ni-ic">🏠</div><div class="si04 ni-lb">Inicio</div></div>
     <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
-    <div class="ni"><div class="notif-w"><div class="ni-ic">🔔</div><span class="notif-dot"></span></div><div class="ni-lb">Alertas</div></div>
+    <div class="ni" onclick="go('v-notificaciones','right');setTimeout(window.renderNotificaciones,300);"><div class="notif-w"><div class="ni-ic">🔔</div><span class="notif-dot" style="display:none;"></span></div><div class="ni-lb">Alertas</div></div>
     <div class="ni" onclick="go('v-mipanel','right')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
   </div>
 
@@ -3790,47 +4854,29 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       </div>
     </div>
 <div class="view go-right" id="v-mipanel">
-      <div style="background:var(--dark);padding:12px 18px 18px;flex-shrink:0;position:relative;overflow:hidden;">
-        <div class="sbar dk"><span>9:41</span><span>▲</span></div>
-        <div class="si07">
-          <button class="btn-back" onclick="go('v-home','left')">‹</button>
-          <div class="si03"><div class="si37">📊 Mi Panel</div><div class="si28"><span class="user-name-display">Usuario</span> · Vecino</div></div>
-        </div>
+  <div style="background:#fff;flex-shrink:0;border-bottom:.5px solid #eee;">
+    <div class="sbar dk" style="background:#fff;padding:10px 18px 0;display:flex;justify-content:space-between;"><span style="color:#111;font-size:11px;font-weight:600;">9:41</span><span style="color:#111;font-size:11px;">▲ ■ ■</span></div>
+    <div style="padding:10px 18px 12px;display:flex;align-items:center;gap:10px;">
+      <button onclick="go('v-home','left')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:#F3F4F6;border:1.5px solid #D1D5DB;color:#111;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;line-height:1;">‹</button>
+      <div style="flex:1;">
+        <div style="font-size:16px;font-weight:700;color:#111;">Mi Panel</div>
+        <div style="font-size:11px;color:#888;" id="mp2-subtitle">Cargando…</div>
       </div>
-      <div class="scroll" style="padding:14px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-          <div style="background:#fff;border-radius:16px;padding:14px;border:.5px solid #e0e0e0;"><div style="font-size:22px;font-weight:700;color:var(--text-primary);" id="panel-pedidos">0</div><div class="si10">Pedidos realizados</div></div>
-          <div style="background:#fff;border-radius:16px;padding:14px;border:.5px solid #e0e0e0;"><div style="font-size:22px;font-weight:700;color:var(--text-primary);" id="panel-gastado">$0</div><div class="si10">Gastado este mes</div></div>
-        </div>
-        <div class="si68">Mi información</div>
-        <div style="background:#fff;border-radius:16px;padding:14px;border:.5px solid #e0e0e0;margin-bottom:14px;">
-          <div class="si71"><span class="si08">Nombre</span><span class="si06" id="panel-nombre">—</span></div>
-          <div class="si71"><span class="si08">Correo</span><span class="si06" id="panel-correo">—</span></div>
-          <div class="si71"><span class="si08">Usuario</span><span class="si06" id="panel-usuario">—</span></div>
-          <div class="si71"><span class="si08">Teléfono</span><span class="si06" id="panel-tel">—</span></div>
-          <div style="display:flex;justify-content:space-between;padding:6px 0;"><span class="si08">Fraccionamiento</span><span class="si06" id="panel-frac">—</span></div>
-        </div>
-        <div class="si68">Actividad reciente</div>
-        <div style="background:#F5F6F0;border-radius:14px;padding:14px;text-align:center;border:.5px solid #e0e0e0;margin-bottom:14px;" id="panel-actividad">
-          <div style="font-size:20px;margin-bottom:6px;">📋</div>
-          <div class="si08">Sin actividad aún</div>
-        </div>
-        <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin:14px 0 8px;">Mi cuenta</div>
-        <div style="background:#fff;border-radius:16px;overflow:hidden;border:.5px solid #e0e0e0;">
-          <div style="padding:12px 14px;display:flex;justify-content:space-between;border-bottom:.5px solid #f5f5f5;cursor:pointer;" onclick="go('v-mi-perfil','right')"><span style="font-size:13px;font-weight:600;color:var(--text-primary);">👤 Mi perfil</span><span class="si72">›</span></div>
-          <div style="padding:12px 14px;display:flex;justify-content:space-between;border-bottom:.5px solid #f5f5f5;cursor:pointer;"><span style="font-size:13px;font-weight:600;color:var(--text-primary);">💳 Mis métodos de pago</span><span class="si72">›</span></div>
-          <div style="padding:12px 14px;display:flex;justify-content:space-between;border-bottom:.5px solid #f5f5f5;cursor:pointer;"><span style="font-size:13px;font-weight:600;color:var(--text-primary);">🔔 Notificaciones</span><span class="si72">›</span></div>
-          <div style="padding:12px 14px;display:flex;justify-content:space-between;cursor:pointer;" onclick="go('v-home','left')"><span style="font-size:13px;font-weight:600;color:var(--red);">🚪 Cerrar sesión</span><span class="si72">›</span></div>
-        </div>
-        <div class="si14"></div>
-      </div>
-      <div class="nav">
-        <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
-        <div class="ni"><div class="ni-ic">🔍</div><div class="ni-lb">Buscar</div></div>
-        <div class="ni"><div class="ni-ic">🔔</div><div class="ni-lb">Alertas</div></div>
-        <div class="ni"><div class="ni-ic">👤</div><div class="si04 ni-lb">Mi Panel</div></div>
-      </div>
+      <div id="mp2-estado-badge" style="font-size:10px;font-weight:700;border-radius:20px;padding:3px 10px;background:#e8f5e1;color:#1f5c10;display:none;"></div>
     </div>
+  </div>
+
+  <div class="scroll" style="padding:0 0 14px;" id="mp2-scroll">
+    <div style="text-align:center;padding:40px 20px;color:#999;font-size:13px;">Cargando tu panel…</div>
+  </div>
+
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="go('v-notificaciones','right');setTimeout(window.renderNotificaciones,300);"><div class="notif-w"><div class="ni-ic">🔔</div><span class="notif-dot" style="display:none;"></span></div><div class="ni-lb">Alertas</div></div>
+    <div class="ni"><div class="ni-ic">👤</div><div class="si04 ni-lb">Mi Panel</div></div>
+  </div>
+</div>
 <div class="view go-right" id="v-mi-perfil">
       <div class="hdr" style="background:linear-gradient(135deg,#0C1A10,#1a2e1a);">
         <div class="sbar dk"><span>9:41</span><span>&#9650;</span></div>
@@ -3975,6 +5021,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       <div id="det-header" style="width:100%;height:130px;background:#E8F5EE;display:flex;align-items:center;justify-content:center;font-size:54px;position:relative;flex-shrink:0;">
         <span id="det-ic">🔧</span>
         <button style="position:absolute;top:12px;left:12px;width:34px;height:34px;border-radius:10px;background:rgba(0,0,0,.25);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="go('v-servicios','left')">‹</button>
+        <button id="det-fav-btn" onclick="window.toggleFav&&window.toggleFav(window._proveedorActual||{})" style="position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.85);border:none;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;">🤍</button>
       </div>
       <div style="padding:12px 16px;background:#fff;border-bottom:.5px solid #f0f0f0;flex-shrink:0;">
         <div class="si05">
@@ -3993,6 +5040,20 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
           <div id="det-correo" style="font-size:12px;color:#444;margin-bottom:4px;"></div>
           <div id="det-tel2" style="font-size:12px;color:#444;"></div>
         </div>
+
+        <!-- M2-J: Bloque de disponibilidad — se muestra/oculta según agenda del proveedor -->
+        <div id="det-agenda-block" style="display:none;background:#f8fff8;border-radius:14px;padding:14px;margin-bottom:14px;border:.5px solid #c8e8c8;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;">📅 Disponibilidad</div>
+              <div style="font-size:11px;" id="det-agenda-estado"></div>
+            </div>
+          </div>
+          <div id="det-agenda-dias" style="margin-bottom:8px;"></div>
+          <div id="det-agenda-horarios" style="margin-bottom:12px;"></div>
+          <button onclick="window._irAReservar()" style="width:100%;background:#1FC26A;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;">📅 Reservar</button>
+        </div>
+
         <button class="btn btn-green" onclick="go('v-chat','right')">💬 Contactar y agendar →</button>
         <div style="height:10px;"></div>
       </div>
@@ -4315,7 +5376,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
   <div style="background:linear-gradient(135deg,#0A4220,#1FC26A);padding:12px 18px 14px;flex-shrink:0;">
     <div class="sbar dk"><span>9:41</span><span>▲</span></div>
     <div class="si07">
-      <button class="btn-back" onclick="go('v-mipanel','left')">‹</button>
+      <button class="btn-back" onclick="go('v-home','left')">‹</button>
       <div>
         <div class="si13">🔧 Solicitudes disponibles</div>
         <div class="si21">Clientes que necesitan tu servicio</div>
@@ -4325,8 +5386,15 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 
   <div class="scroll" style="padding:10px 0;">
     <div id="reportes-disponibles-lista">
-      <div style="text-align:center;padding:20px;font-size:12px;color:var(--text-muted);">
-        Cargando... ⏳
+      <!-- Estado vacío de seguridad — cargarReportesDisponibles lo reemplaza si hay datos -->
+      <div style="text-align:center;padding:40px 20px;">
+        <div style="font-size:36px;margin-bottom:12px;">📭</div>
+        <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:6px;">Sin solicitudes disponibles</div>
+        <div style="font-size:11px;color:#888;line-height:1.5;margin-bottom:16px;">Cuando un vecino solicite tu servicio,<br>aparecerá aquí.</div>
+        <button onclick="window.cargarReportesDisponibles&&window.cargarReportesDisponibles()"
+          style="background:#1FC26A;border:none;border-radius:12px;padding:10px 20px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;">
+          Actualizar
+        </button>
       </div>
     </div>
     <div style="height:8px;"></div>
@@ -4344,6 +5412,53 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     </div>
     <div class="ni" onclick="go('v-mipanel','right')">
       <div class="ni-ic">👤</div><div class="ni-lb">Perfil</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VISTA: Mis pedidos — Restaurante ══════════════════════
+  Vista estática segura para restaurante.
+  Sin Firebase por ahora. Estado vacío hasta que se construya M2-D.
+  Acceso: go('v-mis-pedidos-rest','right')
+  Back:   go('v-home','left')
+════════════════════════════════════════════════════════════ -->
+<div class="view go-right" id="v-mis-pedidos-rest">
+  <div style="background:linear-gradient(135deg,#7A1810,#D63A2A);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button class="btn-back" onclick="go('v-home','left')">‹</button>
+      <div>
+        <div class="si13">📦 Mis pedidos</div>
+        <div class="si21">Pedidos de tu restaurante</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll" style="padding:10px 0;">
+    <div style="text-align:center;padding:40px 20px;">
+      <div style="font-size:36px;margin-bottom:12px;">📭</div>
+      <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:6px;">Sin pedidos todavía</div>
+      <div style="font-size:11px;color:#888;line-height:1.5;margin-bottom:16px;">Cuando recibas pedidos,<br>aparecerán aquí.</div>
+      <button onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"
+        style="background:#D63A2A;border:none;border-radius:12px;padding:10px 20px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;">
+        Ver mis chats
+      </button>
+    </div>
+    <div style="height:8px;"></div>
+  </div>
+
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')">
+      <div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div>
+    </div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)">
+      <div class="ni-ic">💬</div><div class="ni-lb">Chats</div>
+    </div>
+    <div class="ni">
+      <div class="ni-ic">📦</div><div class="ni-lb" style="color:#D63A2A;">Pedidos</div>
+    </div>
+    <div class="ni" onclick="go('v-mipanel','right')">
+      <div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div>
     </div>
   </div>
 </div>
@@ -4609,6 +5724,1101 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <div class="ni"><div class="ni-ic">👤</div><div class="ni-lb">Perfil</div></div>
       </div>
     </div>
+<!-- ══ VISTAS M2-E: SISTEMA DE PROMOCIONES ══════════════════
+  v-promo-crear   → formulario de nueva promoción
+  v-promo-preview → vista previa antes de activar
+  v-promo-activa  → confirmación / estado activo
+════════════════════════════════════════════════════════════ -->
+
+<div class="view go-right" id="v-promo-crear">
+  <div style="background:linear-gradient(135deg,#1a1a3a,#5a2a80);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button class="btn-back" onclick="go('v-mipanel','left')">‹</button>
+      <div><div class="si13">📣 Crear promoción</div><div class="si21">Destaca tu negocio en la app</div></div>
+    </div>
+  </div>
+  <div class="scroll" style="padding:14px;">
+
+    <div style="background:#fff;border-radius:16px;padding:14px 16px;border:.5px solid #e8e8e8;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">Tipo de promoción</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="promo-tipo-grid">
+        <div onclick="window._promoSelTipo(this,'destacado')" data-tipo="destacado" style="background:#f8f8f8;border-radius:12px;padding:12px 10px;text-align:center;cursor:pointer;border:1.5px solid transparent;">
+          <div style="font-size:22px;margin-bottom:4px;">⭐</div>
+          <div style="font-size:12px;font-weight:700;color:#111;">Destacado</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;">Sube en resultados</div>
+        </div>
+        <div onclick="window._promoSelTipo(this,'promocion')" data-tipo="promocion" style="background:#f8f8f8;border-radius:12px;padding:12px 10px;text-align:center;cursor:pointer;border:1.5px solid transparent;">
+          <div style="font-size:22px;margin-bottom:4px;">🏷️</div>
+          <div style="font-size:12px;font-weight:700;color:#111;">Promoción</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;">Muestra beneficio</div>
+        </div>
+        <div onclick="window._promoSelTipo(this,'oferta')" data-tipo="oferta" style="background:#f8f8f8;border-radius:12px;padding:12px 10px;text-align:center;cursor:pointer;border:1.5px solid transparent;">
+          <div style="font-size:22px;margin-bottom:4px;">🔥</div>
+          <div style="font-size:12px;font-weight:700;color:#111;">Oferta</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;">Tiempo limitado</div>
+        </div>
+        <div onclick="window._promoSelTipo(this,'impulso')" data-tipo="impulso" style="background:#f8f8f8;border-radius:12px;padding:12px 10px;text-align:center;cursor:pointer;border:1.5px solid transparent;">
+          <div style="font-size:22px;margin-bottom:4px;">🚀</div>
+          <div style="font-size:12px;font-weight:700;color:#111;">Impulso</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;">Más descubrimiento</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:14px 16px;border:.5px solid #e8e8e8;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">Contenido</div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:5px;">Título *</label>
+        <input id="promo-titulo" maxlength="40" placeholder="Ej: 20% de descuento hoy"
+          style="width:100%;box-sizing:border-box;border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:#111;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:5px;">Subtítulo (opcional)</label>
+        <input id="promo-subtitulo" maxlength="60" placeholder="Ej: Solo pedidos en la app"
+          style="width:100%;box-sizing:border-box;border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:#111;">
+      </div>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:14px 16px;border:.5px solid #e8e8e8;margin-bottom:20px;">
+      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">Duración</div>
+      <div style="display:flex;gap:8px;" id="promo-dur-grid">
+        <div onclick="window._promoSelDur(this,'24h')" data-dur="24h" style="flex:1;background:#f8f8f8;border-radius:11px;padding:10px 6px;text-align:center;cursor:pointer;border:1.5px solid transparent;">
+          <div style="font-size:15px;font-weight:700;color:#111;">24h</div>
+          <div style="font-size:9px;color:#888;margin-top:1px;">1 día</div>
+        </div>
+        <div onclick="window._promoSelDur(this,'3d')" data-dur="3d" style="flex:1;background:#f8f8f8;border-radius:11px;padding:10px 6px;text-align:center;cursor:pointer;border:1.5px solid transparent;">
+          <div style="font-size:15px;font-weight:700;color:#111;">3 días</div>
+          <div style="font-size:9px;color:#888;margin-top:1px;">Fin de semana</div>
+        </div>
+        <div onclick="window._promoSelDur(this,'7d')" data-dur="7d" style="flex:1;background:#f8f8f8;border-radius:11px;padding:10px 6px;text-align:center;cursor:pointer;border:1.5px solid transparent;">
+          <div style="font-size:15px;font-weight:700;color:#111;">7 días</div>
+          <div style="font-size:9px;color:#888;margin-top:1px;">1 semana</div>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="window._promoIrPreview()"
+      style="width:100%;background:#5a2a80;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:14px;">
+      Ver vista previa →
+    </button>
+    <div id="promo-crear-err" style="display:none;text-align:center;font-size:12px;color:#D63A2A;margin-bottom:10px;"></div>
+    <div style="height:10px;"></div>
+  </div>
+</div>
+
+<div class="view go-right" id="v-promo-preview">
+  <div style="background:linear-gradient(135deg,#1a1a3a,#5a2a80);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button class="btn-back" onclick="go('v-promo-crear','left')">‹</button>
+      <div><div class="si13">👁 Vista previa</div><div class="si21">Así verán tu promoción</div></div>
+    </div>
+  </div>
+  <div class="scroll" style="padding:14px;">
+
+    <div style="font-size:11px;font-weight:700;color:#999;letter-spacing:.6px;text-transform:uppercase;margin-bottom:10px;">Así aparece en el Home</div>
+    <!-- Preview del slide del carrusel -->
+    <div id="promo-preview-slide" style="height:95px;border-radius:16px;overflow:hidden;position:relative;margin-bottom:18px;background:linear-gradient(120deg,#2a1a3a,#5a2a80);">
+      <div id="promo-preview-inner" style="position:absolute;inset:0;padding:14px 16px;display:flex;align-items:center;gap:14px;">
+        <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;" id="promo-prev-ic">🏷️</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:3px;" id="promo-prev-titulo">Tu título aquí</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.75);line-height:1.3;" id="promo-prev-sub"></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:8px;right:12px;font-size:9px;color:rgba(255,255,255,.4);font-weight:500;letter-spacing:.3px;">Patrocinado</div>
+    </div>
+
+    <div style="background:#f8f8f8;border-radius:14px;padding:13px 14px;margin-bottom:18px;" id="promo-preview-info">
+      <div style="font-size:12px;color:#555;line-height:1.6;"></div>
+    </div>
+
+    <button onclick="window._promoIrCarrito()"
+      style="width:100%;background:#5a2a80;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:10px;">
+      Agregar a carrito →
+    </button>
+    <button onclick="go('v-promo-crear','left')"
+      style="width:100%;background:#f0f0f0;border:none;border-radius:14px;padding:12px;font-size:13px;font-weight:600;color:#555;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:14px;">
+      Editar
+    </button>
+    <div style="height:10px;"></div>
+  </div>
+</div>
+
+<div class="view go-right" id="v-promo-activa">
+  <div style="background:linear-gradient(135deg,#0A4220,#1FC26A);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button class="btn-back" onclick="go('v-mipanel','left')">‹</button>
+      <div><div class="si13">🕐 Promoción enviada</div><div class="si21">Pendiente de pago · En revisión</div></div>
+    </div>
+  </div>
+  <div class="scroll" style="padding:14px;">
+    <div style="text-align:center;padding:30px 20px;">
+      <div style="font-size:48px;margin-bottom:14px;">🕐</div>
+      <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:6px;">Solicitud enviada</div>
+      <div style="font-size:13px;color:#555;line-height:1.5;margin-bottom:24px;" id="promo-activa-desc">Tu promoción está <b>pendiente de pago</b>.<br>Una vez confirmado el pago, aparecerá en el Home.</div>
+
+      <div style="background:#fff;border-radius:16px;padding:14px;border:.5px solid #e8e8e8;margin-bottom:20px;text-align:left;" id="promo-activa-detail">
+      </div>
+
+      <button onclick="go('v-mipanel','left')"
+        style="width:100%;background:#1FC26A;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:10px;">
+        Volver a Mi Panel
+      </button>
+      <button onclick="go('v-mipanel','left')"
+        style="width:100%;background:#f0f0f0;border:none;border-radius:14px;padding:12px;font-size:13px;font-weight:600;color:#555;cursor:pointer;font-family:'Inter',sans-serif;">
+        Volver a Mi Panel
+      </button>
+    </div>
+    <div style="height:10px;"></div>
+  </div>
+</div>
+
+<script>
+// ── M2-E: Lógica de las vistas de promo ─────────────────────
+(function() {
+  var _tipo = '', _dur = '';
+
+  var TIPO_CFG = {
+    destacado: { ic:'⭐', bg:'linear-gradient(120deg,#1a3a2a,#2d6e3a)', col:'#2a7a40' },
+    promocion:  { ic:'🏷️', bg:'linear-gradient(120deg,#2a1a3a,#5a2a80)', col:'#5a2a80' },
+    oferta:     { ic:'🔥', bg:'linear-gradient(120deg,#3a1a1a,#8a2020)', col:'#8a2020' },
+    impulso:    { ic:'🚀', bg:'linear-gradient(120deg,#1a2a3a,#1a5a8a)', col:'#1a5a8a' },
+  };
+
+  window._promoSelTipo = function(el, tipo) {
+    _tipo = tipo;
+    Array.from(document.querySelectorAll('#promo-tipo-grid > div')).forEach(function(d) {
+      d.style.border = '1.5px solid transparent';
+      d.style.background = '#f8f8f8';
+    });
+    var cfg = TIPO_CFG[tipo] || TIPO_CFG.promocion;
+    el.style.border = '1.5px solid ' + cfg.col;
+    el.style.background = cfg.col + '18';
+  };
+
+  window._promoSelDur = function(el, dur) {
+    _dur = dur;
+    Array.from(document.querySelectorAll('#promo-dur-grid > div')).forEach(function(d) {
+      d.style.border = '1.5px solid transparent';
+      d.style.background = '#f8f8f8';
+    });
+    el.style.border = '1.5px solid #5a2a80';
+    el.style.background = '#f0eafc';
+  };
+
+  window._promoIrPreview = function() {
+    var titulo = (document.getElementById('promo-titulo') || {}).value || '';
+    var err = document.getElementById('promo-crear-err');
+    if (!_tipo) { if(err){err.textContent='Selecciona un tipo de promoción.';err.style.display='block';} return; }
+    if (!titulo.trim()) { if(err){err.textContent='Escribe un título para tu promoción.';err.style.display='block';} return; }
+    if (!_dur) { if(err){err.textContent='Selecciona la duración.';err.style.display='block';} return; }
+    if(err) err.style.display='none';
+
+    var sub = (document.getElementById('promo-subtitulo') || {}).value || '';
+    var draft = { tipo:_tipo, titulo:titulo.trim(), subtitulo:sub.trim(), duracion:_dur };
+    window.crearPromoDraft && window.crearPromoDraft(draft);
+
+    // Poblar preview
+    var cfg = TIPO_CFG[_tipo] || TIPO_CFG.promocion;
+    var slide = document.getElementById('promo-preview-slide');
+    if (slide) slide.style.background = cfg.bg;
+    var ic = document.getElementById('promo-prev-ic');
+    if (ic) ic.textContent = cfg.ic;
+    var t = document.getElementById('promo-prev-titulo');
+    if (t) t.textContent = titulo;
+    var s = document.getElementById('promo-prev-sub');
+    if (s) s.textContent = sub;
+
+    var DUR_LBL = {'24h':'1 día','3d':'3 días','7d':'7 días'};
+    var info = document.getElementById('promo-preview-info');
+    if (info) info.innerHTML = '<div style="font-size:12px;color:#555;line-height:1.8;">'
+      + '<b>Tipo:</b> ' + _tipo.charAt(0).toUpperCase()+_tipo.slice(1) + '<br>'
+      + '<b>Duración:</b> ' + (DUR_LBL[_dur]||_dur) + '<br>'
+      + '<b>Aparece en:</b> Carrusel del Home<br>'
+      + '<b>Marcado como:</b> Patrocinado (discreto)</div>';
+
+    go('v-promo-preview', 'right');
+  };
+
+  window._promoIrCarrito = function() {
+    var ok = window.activarPromo && window.activarPromo();
+    if (!ok) return;
+    // Leer de la lista completa — la promo recién guardada es pendiente_pago, no activa
+    var all = [];
+    try { all = JSON.parse(localStorage.getItem('dcPromoActivas') || '[]'); } catch(e) {}
+    var p = all[0];
+    if (!p) { go('v-promo-activa','right'); return; }
+
+    var DUR_LBL = {'24h':'1 día','3d':'3 días','7d':'7 días'};
+    var det = document.getElementById('promo-activa-detail');
+    if (det) det.innerHTML = '<div style="font-size:12px;color:#444;line-height:1.8;">'
+      + '<b>Título:</b> ' + p.titulo + (p.subtitulo ? '<br><b>Subtítulo:</b> ' + p.subtitulo : '') + '<br>'
+      + '<b>Tipo:</b> ' + p.tipo.charAt(0).toUpperCase()+p.tipo.slice(1) + '<br>'
+      + '<b>Duración:</b> ' + (DUR_LBL[p.duracion]||p.duracion) + '<br>'
+      + '<b>Estado:</b> <span style="color:#d97706;font-weight:700;">Pendiente de pago</span><br>'
+      + '<b>Se activa al:</b> confirmar pago</div>';
+
+    go('v-promo-activa', 'right');
+  };
+})();
+// ── FIN M2-E lógica de vistas ────────────────────────────────
+</script>
+
+<!-- ══ M2-G: VISTA DE BÚSQUEDA ═════════════════════════════════
+  v-busqueda → búsqueda global + recientes + resultados
+  Back: v-home. Sin backend. Mock local.
+════════════════════════════════════════════════════════════ -->
+<div class="view go-right" id="v-busqueda">
+  <div style="background:#fff;border-bottom:.5px solid #ebebeb;padding:10px 14px 12px;flex-shrink:0;">
+    <div style="background:#fff;padding:0 4px 8px;display:flex;justify-content:space-between;">
+      <span style="color:#111;font-size:11px;font-weight:600;">9:41</span>
+      <span style="color:#111;font-size:11px;">▲ ■ ■</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button onclick="go('v-home','left')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:#F3F4F6;border:1.5px solid #D1D5DB;color:#111;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;line-height:1;">‹</button>
+      <div style="flex:1;display:flex;align-items:center;gap:8px;background:#F5F6F0;border-radius:12px;padding:9px 12px;border:.5px solid #e8e8e8;overflow:hidden;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input id="busqueda-input" type="text" placeholder="Buscar comida, servicios, lugares…"
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          style="flex:1;min-width:0;border:none;background:transparent;font-size:13px;color:#111;outline:none;font-family:'Inter',sans-serif;-webkit-appearance:none;appearance:none;width:100%;"
+          oninput="clearTimeout(window._searchTimer);window._searchTimer=setTimeout(function(){window._renderBusqueda();},280)"
+          onkeydown="if(event.key==='Enter'){clearTimeout(window._searchTimer);window._renderBusqueda();}">
+        <span id="busqueda-clear" onclick="document.getElementById('busqueda-input').value='';window._renderBusqueda();"
+          style="display:none;color:#bbb;font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding-left:4px;">✕</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll" style="padding:14px 14px 14px;overflow-y:auto;">
+
+    <!-- RECIENTES -->
+    <div id="busqueda-recientes" style="display:none;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">Búsquedas recientes</div>
+      <div class="rec-list"></div>
+    </div>
+
+    <!-- RESULTADOS -->
+    <div id="busqueda-resultados" style="display:none;"></div>
+
+    <!-- VACÍO -->
+    <div id="busqueda-vacio" style="display:none;text-align:center;padding:40px 20px;">
+      <div style="font-size:36px;margin-bottom:12px;">🔎</div>
+      <div style="font-size:14px;font-weight:700;color:#222;margin-bottom:6px;">No encontramos resultados</div>
+      <div style="font-size:12px;color:#888;line-height:1.5;">Intenta con otro término<br>o explora las categorías.</div>
+    </div>
+
+    <!-- DESCUBRIMIENTO INICIAL -->
+    <div id="busqueda-discover">
+      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">✨ Descubre hoy</div>
+      <div id="busqueda-discover-list"></div>
+    </div>
+
+    <div style="height:14px;"></div>
+  </div>
+</div>
+
+<script>
+// ── M2-G: Lógica de v-busqueda (aislada, sin listeners globales) ─
+(function() {
+  window._renderBusqueda = function() {
+    var inp  = document.getElementById('busqueda-input');
+    var clr  = document.getElementById('busqueda-clear');
+    var res  = document.getElementById('busqueda-resultados');
+    var rec  = document.getElementById('busqueda-recientes');
+    var emp  = document.getElementById('busqueda-vacio');
+    var disc = document.getElementById('busqueda-discover');
+    if (!inp || !res) return;
+
+    var q = (inp.value || '').trim();
+    if (clr)  clr.style.display  = q ? 'block' : 'none';
+    if (disc) disc.style.display = q ? 'none'  : 'block';
+
+    if (!q) {
+      res.style.display = 'none';
+      emp.style.display = 'none';
+      var recent = window.getSearchRecent ? window.getSearchRecent() : [];
+      if (recent.length && rec) {
+        rec.style.display = 'block';
+        var rl = rec.querySelector('.rec-list');
+        if (rl) rl.innerHTML = recent.map(function(s) {
+          var safe = s.replace(/['"<>]/g,'');
+          return '<div onclick="var i=document.getElementById(\'busqueda-input\');if(i){i.value=\''+safe+'\';window._renderBusqueda();}" '
+            + 'style="padding:9px 0;border-bottom:.5px solid #f0f0f0;display:flex;align-items:center;gap:10px;cursor:pointer;">'
+            + '<span style="color:#bbb;font-size:14px;">🕐</span>'
+            + '<span style="font-size:13px;color:#444;">'+safe+'</span>'
+            + '</div>';
+        }).join('');
+      } else if (rec) { rec.style.display = 'none'; }
+      return;
+    }
+
+    // Con query: buscar async
+    if (window.addSearchRecent) window.addSearchRecent(q);
+    if (rec) rec.style.display = 'none';
+    // Mostrar buscando…
+    res.style.display = 'block';
+    res.innerHTML = '<div style="text-align:center;padding:20px;color:#999;font-size:12px;">Buscando…</div>';
+    emp.style.display = 'none';
+
+    var ICONOS = {plomero:'💧',electricista:'⚡',jardinero:'🌿',limpieza:'🧹',pintura:'🎨',ac:'❄️',cerrajero:'🔒',mascotas:'🐾',tecnologia:'🖥️',belleza:'💆',otro:'🔧'};
+
+    Promise.resolve(window.buscarItems ? window.buscarItems(q) : []).then(function(items) {
+      // Verificar que la query no cambió mientras esperábamos
+      var current = (document.getElementById('busqueda-input') || {}).value || '';
+      if (current.trim() !== q) return; // query cambió, descartar
+      if (!items || !items.length) {
+        res.style.display = 'none';
+        emp.style.display = 'block';
+        return;
+      }
+      window._searchResults = items; // cache para onclick seguro
+      res.innerHTML = '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">'
+        + items.length + ' resultado' + (items.length !== 1 ? 's' : '') + '</div>'
+        + items.map(function(p, idx) {
+            var cat = (p.categoria||'otro').toLowerCase();
+            var ic  = ICONOS[cat] || '🔧';
+            return '<div onclick="var p=window._searchResults&&window._searchResults['+idx+'];if(p&&window.abrirDetalleProveedor)window.abrirDetalleProveedor(p);" '
+              + 'style="background:#fff;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;border:.5px solid #e8e8e8;cursor:pointer;">'
+              + '<div style="width:40px;height:40px;border-radius:11px;background:#E8F5EE;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">'+ic+'</div>'
+              + '<div style="flex:1;min-width:0;">'
+              +   '<div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;">'+(p.nombre||'—')+'</div>'
+              +   '<div style="font-size:11px;color:#888;">'+(p.descripcion||p.categoria||'Proveedor')+'</div>'
+              + '</div>'
+              + '<div style="font-size:11px;color:#bbb;flex-shrink:0;">Servicios ›</div>'
+              + '</div>';
+          }).join('');
+    }).catch(function() {
+      res.innerHTML = '<div style="text-align:center;padding:20px;color:#999;font-size:12px;">Error al buscar. Intenta de nuevo.</div>';
+    });
+  };
+
+  window._initBusqueda = function() {
+    var inp = document.getElementById('busqueda-input');
+    var clr = document.getElementById('busqueda-clear');
+    var disc = document.getElementById('busqueda-discover');
+    if (inp) inp.value = '';
+    if (clr) clr.style.display = 'none';
+    if (disc) disc.style.display = 'block';
+    window._renderBusqueda && window._renderBusqueda();
+    window.renderDescubrimiento && window.renderDescubrimiento('busqueda-discover-list');
+    // NO hacer focus automático — evita que el teclado virtual rompa el layout
+  };
+})();
+// ── FIN M2-G lógica de v-busqueda ────────────────────────────
+</script>
+
+<!-- ══ M2-F: VISTAS COMERCIALES ════════════════════════════════
+  v-mi-negocio    → perfil comercial negocio/plaza
+  v-mi-restaurante → perfil comercial restaurante
+  Back: v-home en ambas.
+  Stats: localStorage dcBizStats / dcRestStats (mock).
+════════════════════════════════════════════════════════════ -->
+
+<div class="view go-right" id="v-mi-negocio">
+  <div style="background:linear-gradient(135deg,#4A1A70,#7B3FA0);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;" onclick="go('v-home','left')">‹</button>
+      <div><div class="si13">🏪 Mi Negocio</div><div class="si21" id="vbn-subtitle">Plaza Digital</div></div>
+    </div>
+  </div>
+
+  <div class="scroll" style="padding:0 0 14px;" id="vbn-scroll">
+
+    <!-- Resumen analítico -->
+    <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:16px 18px 8px;">Hoy</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 14px;margin-bottom:16px;" id="vbn-stats">
+      <div style="background:#fff;border-radius:12px;padding:12px 8px;text-align:center;border:.5px solid #e8e8e8;">
+        <div style="font-size:22px;font-weight:700;color:#7B3FA0;" id="vbn-visitas">0</div>
+        <div style="font-size:9px;color:#999;margin-top:2px;">Visitas</div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:12px 8px;text-align:center;border:.5px solid #e8e8e8;">
+        <div style="font-size:22px;font-weight:700;color:#7B3FA0;" id="vbn-clics">0</div>
+        <div style="font-size:9px;color:#999;margin-top:2px;">Clics</div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:12px 8px;text-align:center;border:.5px solid #e8e8e8;">
+        <div style="font-size:22px;font-weight:700;color:#7B3FA0;" id="vbn-promos">0</div>
+        <div style="font-size:9px;color:#999;margin-top:2px;">Promos activas</div>
+      </div>
+    </div>
+
+    <!-- Acciones rápidas -->
+    <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:0 18px;margin-bottom:10px;">Acciones</div>
+    <div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 16px;overflow:hidden;">
+      <div onclick="go('v-mipanel','right')" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
+        <span style="font-size:13px;font-weight:600;color:#111;">✏️ Editar negocio</span>
+        <span style="color:#ccc;font-size:16px;">›</span>
+      </div>
+      <div onclick="window.irACrearPromo&&window.irACrearPromo()" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
+        <span style="font-size:13px;font-weight:600;color:#111;">📣 Ver promociones</span>
+        <span style="color:#ccc;font-size:16px;">›</span>
+      </div>
+      <div onclick="go('v-mipanel','right')" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+        <span style="font-size:13px;font-weight:600;color:#111;">📊 Estadísticas</span>
+        <span style="color:#ccc;font-size:16px;">›</span>
+      </div>
+    </div>
+
+    <!-- Estado vacío elegante -->
+    <div style="margin:0 14px;background:#F8F5FC;border-radius:14px;padding:16px 14px;border:.5px solid #d0b8e8;">
+      <div style="font-size:11px;font-weight:700;color:#7B3FA0;margin-bottom:4px;">📭 Todavía no hay datos disponibles</div>
+      <div style="font-size:11px;color:#888;line-height:1.5;">Cuando tu negocio reciba visitas y clics, la analítica aparecerá aquí.</div>
+    </div>
+
+    <div style="height:14px;"></div>
+  </div>
+
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni"><div class="ni-ic">🏪</div><div class="ni-lb" style="color:#7B3FA0;">Mi Negocio</div></div>
+    <div class="ni" onclick="go('v-mipanel','right')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
+  </div>
+</div>
+
+<div class="view go-right" id="v-mi-restaurante">
+  <div style="background:linear-gradient(135deg,#7A1810,#D63A2A);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;" onclick="go('v-home','left')">‹</button>
+      <div><div class="si13">🍽️ Mi Restaurante</div><div class="si21" id="vmr-subtitle">Panel de operación</div></div>
+    </div>
+  </div>
+
+  <div class="scroll" style="padding:0 0 14px;" id="vmr-scroll">
+
+    <!-- Resumen del día -->
+    <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:16px 18px 8px;">Hoy</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 14px;margin-bottom:16px;">
+      <div style="background:#fff;border-radius:12px;padding:12px 8px;text-align:center;border:.5px solid #e8e8e8;">
+        <div style="font-size:22px;font-weight:700;color:#D63A2A;" id="vmr-pedidos">0</div>
+        <div style="font-size:9px;color:#999;margin-top:2px;">Pedidos</div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:12px 8px;text-align:center;border:.5px solid #e8e8e8;">
+        <div style="font-size:18px;font-weight:700;color:#D63A2A;" id="vmr-ventas">$0</div>
+        <div style="font-size:9px;color:#999;margin-top:2px;">Ventas</div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:12px 8px;text-align:center;border:.5px solid #e8e8e8;">
+        <div style="font-size:22px;font-weight:700;color:#D63A2A;" id="vmr-visitas">0</div>
+        <div style="font-size:9px;color:#999;margin-top:2px;">Visitas</div>
+      </div>
+    </div>
+
+    <!-- Acciones rápidas -->
+    <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:0 18px;margin-bottom:10px;">Acciones</div>
+    <div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 16px;overflow:hidden;">
+      <div onclick="go('v-mipanel','right')" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
+        <span style="font-size:13px;font-weight:600;color:#111;">✏️ Editar menú</span>
+        <span style="color:#ccc;font-size:16px;">›</span>
+      </div>
+      <div onclick="window.marcarModuloVisto('pedidos');go('v-mis-pedidos-rest','right')" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
+        <span style="font-size:13px;font-weight:600;color:#111;">📦 Ver pedidos</span>
+        <span style="color:#ccc;font-size:16px;">›</span>
+      </div>
+      <div onclick="window.irACrearPromo&&window.irACrearPromo()" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+        <span style="font-size:13px;font-weight:600;color:#111;">📣 Promociones</span>
+        <span style="color:#ccc;font-size:16px;">›</span>
+      </div>
+    </div>
+
+    <!-- Estado vacío elegante -->
+    <div style="margin:0 14px;background:#FDF5F5;border-radius:14px;padding:16px 14px;border:.5px solid #f0c8c8;">
+      <div style="font-size:11px;font-weight:700;color:#D63A2A;margin-bottom:4px;">📭 Todavía no hay datos disponibles</div>
+      <div style="font-size:11px;color:#888;line-height:1.5;">Cuando recibas pedidos y visitas, la analítica aparecerá aquí.</div>
+    </div>
+
+    <div style="height:14px;"></div>
+  </div>
+
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="window.marcarModuloVisto('pedidos');go('v-mis-pedidos-rest','right')"><div class="ni-ic">📦</div><div class="ni-lb" style="color:#D63A2A;">Pedidos</div></div>
+    <div class="ni" onclick="go('v-mipanel','right')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
+  </div>
+</div>
+
+<!-- ══ M2-J: VISTA RESERVAR ════════════════════════════════════
+  v-reservar → vecino selecciona horario y confirma reserva.
+  Back: v-serv-det.
+════════════════════════════════════════════════════════════ -->
+<div class="view go-right" id="v-reservar">
+  <div style="background:linear-gradient(135deg,#0A3A18,#1FC26A);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button onclick="go('v-serv-det','left')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;">‹</button>
+      <div><div class="si13">📅 Reservar</div><div class="si21" id="reservar-subtitle">Selecciona un horario</div></div>
+    </div>
+  </div>
+  <div class="scroll" style="padding:14px 14px 14px;" id="reservar-scroll">
+    <div style="text-align:center;padding:30px;color:#999;">Cargando…</div>
+  </div>
+</div>
+
+<script>
+// ── M2-J: Lógica de v-reservar ───────────────────────────────
+(function() {
+  var _diaSel  = null; // índice de día (0=Lun…6=Dom)
+  var _horaSel = null; // string "HH:MM"
+
+  // Genera slots de 60 min entre inicio y fin ("09:00","18:00") → ["09:00","10:00",…,"18:00"]
+  function _slots(inicio, fin) {
+    var out = [];
+    var toMin = function(t) { var p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); };
+    var toStr = function(m) { return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); };
+    var s = toMin(inicio), e = toMin(fin);
+    for (var m = s; m <= e; m += 60) out.push(toStr(m));
+    return out;
+  }
+
+  window._renderReservar = function() {
+    var scroll = document.getElementById('reservar-scroll');
+    var sub    = document.getElementById('reservar-subtitle');
+    if (!scroll) return;
+    _diaSel = null; _horaSel = null;
+
+    var p  = window._proveedorActual;
+    var ag = window._agendaProveedorActual;
+
+    if (!p || !ag) {
+      scroll.innerHTML = '<div style="text-align:center;padding:30px;"><div style="font-size:32px;margin-bottom:10px;">📅</div><div style="font-size:13px;color:#888;">No hay disponibilidad cargada.</div></div>';
+      return;
+    }
+    if (sub) sub.textContent = p.nombre || 'Proveedor';
+
+    var DIAS_LBL = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+    var DIAS_COR = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    var html = '';
+
+    // Tarjeta proveedor
+    html += '<div style="background:#fff;border-radius:14px;padding:13px 14px;border:.5px solid #e8e8e8;margin-bottom:16px;display:flex;align-items:center;gap:12px;">'
+      + '<div style="width:40px;height:40px;border-radius:11px;background:#E8F5EE;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🔧</div>'
+      + '<div><div style="font-size:13px;font-weight:700;color:#111;">' + (p.nombre||'—') + '</div>'
+      + '<div style="font-size:11px;color:#888;">' + (p.categoria||'Proveedor') + '</div></div>'
+      + '</div>';
+
+    // Sin horarios
+    if (!ag.horarios || !ag.horarios.length || ag.estado === 'pausado') {
+      html += '<div style="background:#F5F6F0;border-radius:14px;padding:20px;text-align:center;">'
+        + '<div style="font-size:28px;margin-bottom:8px;">📅</div>'
+        + '<div style="font-size:13px;font-weight:700;color:#444;margin-bottom:4px;">No hay horarios disponibles</div>'
+        + '<div style="font-size:11px;color:#888;">' + (ag.estado==='pausado' ? 'El proveedor está temporalmente no disponible.' : 'Este proveedor aún no configuró su agenda.') + '</div>'
+        + '</div>';
+      scroll.innerHTML = html; return;
+    }
+
+    // ── PASO 1: Elegir día ──────────────────────────────────────
+    html += '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">1. Elige un día</div>'
+      + '<div id="res-dias-grid" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px;">';
+    if (ag.dias && ag.dias.length) {
+      ag.dias.forEach(function(i) {
+        html += '<button onclick="window._resDiaSelect(' + i + ',this)"'
+          + ' style="padding:7px 13px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;font-size:12px;font-weight:600;color:#555;cursor:pointer;font-family:\'Inter\',sans-serif;">'
+          + DIAS_COR[i] + '</button>';
+      });
+    } else {
+      // Proveedor no marcó días → mostrar todos
+      DIAS_COR.forEach(function(d, i) {
+        html += '<button onclick="window._resDiaSelect(' + i + ',this)"'
+          + ' style="padding:7px 13px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;font-size:12px;font-weight:600;color:#555;cursor:pointer;font-family:\'Inter\',sans-serif;">'
+          + d + '</button>';
+      });
+    }
+    html += '</div>';
+
+    // ── PASO 2: Elegir hora (se rellena al seleccionar día) ─────
+    html += '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">2. Elige una hora</div>'
+      + '<div id="res-horas-empty" style="background:#f8f8f8;border-radius:12px;padding:12px;text-align:center;font-size:12px;color:#bbb;margin-bottom:16px;">Primero elige un día</div>'
+      + '<div id="res-horas-grid" style="display:none;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>';
+
+    // ── PASO 3: Nota y confirmar ────────────────────────────────
+    html += '<div id="res-confirm-wrap" style="display:none;">'
+      + '<div style="background:#fff;border-radius:14px;border:.5px solid #e8e8e8;padding:13px 14px;margin-bottom:12px;">'
+      + '<label style="font-size:11px;font-weight:600;color:#666;display:block;margin-bottom:6px;">Nota para el proveedor (opcional)</label>'
+      + '<input id="reservar-nota" type="text" maxlength="60" placeholder="Ej. Fuga en cocina, piso 2"'
+      + ' style="width:100%;box-sizing:border-box;border:1px solid #e0e0e0;border-radius:10px;padding:9px 10px;font-size:13px;font-family:\'Inter\',sans-serif;color:#111;outline:none;-webkit-appearance:none;">'
+      + '</div>'
+      + '<div id="reservar-err" style="display:none;font-size:11px;color:#D63A2A;margin-bottom:8px;text-align:center;"></div>'
+      + '<button id="reservar-confirm-btn" onclick="window._confirmarReserva()" style="width:100%;background:#1FC26A;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;">Confirmar reserva →</button>'
+      + '</div>';
+
+    html += '<div style="height:14px;"></div>';
+    scroll.innerHTML = html;
+  };
+
+  window._resDiaSelect = function(idx, el) {
+    _diaSel  = idx;
+    _horaSel = null;
+    // Resaltar día
+    document.querySelectorAll('#res-dias-grid > button').forEach(function(b) {
+      b.style.border = '1.5px solid #e0e0e0'; b.style.background = '#fff'; b.style.color = '#555';
+    });
+    el.style.border = '1.5px solid #1FC26A'; el.style.background = '#e8f5e1'; el.style.color = '#1FC26A';
+
+    // Generar slots para cada rango del proveedor
+    var ag = window._agendaProveedorActual;
+    var grid = document.getElementById('res-horas-grid');
+    var empty = document.getElementById('res-horas-empty');
+    var confirmWrap = document.getElementById('res-confirm-wrap');
+    if (!grid || !ag) return;
+
+    var slots = [];
+    ag.horarios.forEach(function(h) {
+      _slots(h.inicio, h.fin).forEach(function(s) {
+        if (slots.indexOf(s) === -1) slots.push(s);
+      });
+    });
+    slots.sort();
+
+    empty.style.display = 'none';
+    grid.style.display = 'flex';
+    if (confirmWrap) confirmWrap.style.display = 'none';
+
+    grid.innerHTML = slots.map(function(s) {
+      return '<button onclick="window._resHoraSelect(\'' + s + '\',this)"'
+        + ' style="padding:8px 14px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;font-size:13px;font-weight:600;color:#333;cursor:pointer;font-family:\'Inter\',sans-serif;">'
+        + s + '</button>';
+    }).join('');
+  };
+
+  window._resHoraSelect = function(hora, el) {
+    _horaSel = hora;
+    document.querySelectorAll('#res-horas-grid > button').forEach(function(b) {
+      b.style.border = '1.5px solid #e0e0e0'; b.style.background = '#fff'; b.style.color = '#333';
+    });
+    el.style.border = '1.5px solid #1FC26A'; el.style.background = '#e8f5e1'; el.style.color = '#1FC26A';
+    var w = document.getElementById('res-confirm-wrap');
+    if (w) w.style.display = 'block';
+  };
+
+  window._confirmarReserva = async function() {
+    var err  = document.getElementById('reservar-err');
+    var confirmBtn = document.getElementById('reservar-confirm-btn');
+    var p    = window._proveedorActual;
+    var ag   = window._agendaProveedorActual;
+    var DIAS_LBL = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+
+    if (_diaSel === null) {
+      if (err) { err.textContent = 'Elige un día.'; err.style.display = 'block'; } return;
+    }
+    if (!_horaSel) {
+      if (err) { err.textContent = 'Elige una hora.'; err.style.display = 'block'; } return;
+    }
+    if (!p || !ag || ag.estado === 'pausado') {
+      if (err) { err.textContent = 'El proveedor no está disponible.'; err.style.display = 'block'; } return;
+    }
+    if (err) err.style.display = 'none';
+    // Indicar que está guardando sin deshabilitar el botón permanentemente
+    if (confirmBtn) confirmBtn.textContent = 'Guardando…';
+
+    var nota    = (document.getElementById('reservar-nota') || {}).value || '';
+    var nombre  = localStorage.getItem('dcuser') || 'Vecino';
+    var diaLbl  = DIAS_LBL[_diaSel] || String(_diaSel);
+    var provUid = p._id || p.uid || p.id || p.nombre || '';
+
+    var reserva = {
+      proveedorUid:    provUid,
+      proveedorNombre: p.nombre || '—',
+      vecinoNombre:    nombre,
+      dia:             diaLbl,
+      hora:            _horaSel,
+      nota:            nota.trim()
+    };
+
+    var result = await (window.guardarReserva && window.guardarReserva(reserva));
+
+    // Siempre restaurar el botón
+    if (confirmBtn) confirmBtn.textContent = 'Confirmar reserva →';
+
+    if (!result || !result.ok) {
+      if (err) { err.textContent = (result && result.msg) || 'No se pudo guardar la reserva.'; err.style.display = 'block'; }
+      return;
+    }
+
+    // Éxito — mostrar confirmación
+    var scroll = document.getElementById('reservar-scroll');
+    if (scroll) {
+      scroll.innerHTML = '<div style="text-align:center;padding:40px 20px;">'
+        + '<div style="font-size:48px;margin-bottom:14px;">✅</div>'
+        + '<div style="font-size:18px;font-weight:700;color:#111;margin-bottom:6px;">¡Reserva enviada!</div>'
+        + '<div style="font-size:13px;color:#555;line-height:1.6;margin-bottom:24px;">'
+        + '<b>' + (p.nombre||'El proveedor') + '</b> recibirá tu solicitud:<br>'
+        + '<b>' + diaLbl + ' a las ' + _horaSel + '</b>'
+        + (nota ? '<br><span style="color:#888;">Nota: ' + nota + '</span>' : '')
+        + '<br><br><span style="font-size:11px;color:#1FC26A;font-weight:700;">Pendiente de confirmación</span>'
+        + '</div>'
+        + '<button onclick="go(\'v-home\',\'left\')" style="width:100%;background:#1FC26A;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;margin-bottom:10px;">Ir al inicio</button>'
+        + '<button onclick="go(\'v-serv-det\',\'left\')" style="width:100%;background:#f0f0f0;border:none;border-radius:14px;padding:12px;font-size:13px;font-weight:600;color:#555;cursor:pointer;font-family:\'Inter\',sans-serif;">Volver al proveedor</button>'
+        + '</div>';
+    }
+    _diaSel = null; _horaSel = null;
+  };
+})();
+// ── FIN M2-J lógica reservar ─────────────────────────────────
+</script>
+
+<!-- ══ M2-J: AGENDA / RESERVAS ════════════════════════════════
+  v-agenda → disponibilidad, horarios, reservas pendientes.
+  Visible: proveedor / restaurante / negocio / transporte.
+  Datos: localStorage dcAgenda_[uid]. Preparado para Firestore.
+  Back: v-mipanel.
+════════════════════════════════════════════════════════════ -->
+<div class="view go-right" id="v-agenda">
+  <div style="background:linear-gradient(135deg,#0A3A18,#1FC26A);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button onclick="go('v-mipanel','left')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;">‹</button>
+      <div><div class="si13">📅 Agenda / Reservas</div><div class="si21" id="agenda-subtitle">Tu disponibilidad</div></div>
+    </div>
+  </div>
+
+  <div class="scroll" style="padding:0 0 14px;" id="agenda-scroll">
+    <div style="text-align:center;padding:30px;color:#999;font-size:13px;">Cargando…</div>
+  </div>
+
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni"><div class="ni-ic">📅</div><div class="ni-lb" style="color:#1FC26A;">Agenda</div></div>
+    <div class="ni" onclick="go('v-mipanel','left')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
+  </div>
+</div>
+
+<script>
+// ── M2-J: Lógica de v-agenda ─────────────────────────────────
+(function() {
+
+  var DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+  function _pad(n){ return String(n).padStart(2,'0'); }
+
+  function _validarHorario(inicio, fin) {
+    if (!inicio || !fin) return 'Completa ambos campos de horario.';
+    if (fin <= inicio) return 'La hora de fin debe ser mayor que la de inicio.';
+    return null;
+  }
+
+  window._renderAgenda = function() {
+    var scroll = document.getElementById('agenda-scroll');
+    var sub    = document.getElementById('agenda-subtitle');
+    if (!scroll) return;
+
+    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    var ag = window.getAgenda ? window.getAgenda() : { dias:[], horarios:[], estado:'activo', reservas:[] };
+
+    var pausado = ag.estado === 'pausado';
+    if (sub) sub.textContent = pausado ? 'Disponibilidad pausada' : 'Tu disponibilidad';
+
+    var html = '';
+
+    // ── Estado de disponibilidad ──────────────────────────────
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px;">'
+      + '<div>'
+      + '<div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;">Disponibilidad</div>'
+      + '<div style="font-size:11px;color:' + (pausado ? '#D63A2A' : '#1FC26A') + ';">' + (pausado ? '⏸ Pausada' : '✅ Activa') + '</div>'
+      + '</div>'
+      + '<button onclick="window._togglePausaAgenda()" style="background:' + (pausado ? '#e8f5e1' : '#FDECEA') + ';border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;color:' + (pausado ? '#1FC26A' : '#D63A2A') + ';cursor:pointer;font-family:\'Inter\',sans-serif;">'
+      + (pausado ? '▶ Reactivar' : '⏸ Pausar') + '</button>'
+      + '</div>';
+
+    // ── Días activos ──────────────────────────────────────────
+    html += '<div style="padding:0 18px;margin-bottom:12px;">'
+      + '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">Días disponibles</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;" id="agenda-dias-grid">'
+      + DIAS.map(function(d, i) {
+          var activo = ag.dias.indexOf(i) !== -1;
+          return '<button onclick="window._toggleDia('+i+')" style="padding:6px 12px;border-radius:20px;border:1.5px solid ' + (activo ? '#1FC26A' : '#e0e0e0') + ';background:' + (activo ? '#e8f5e1' : '#fff') + ';font-size:12px;font-weight:' + (activo ? '700' : '500') + ';color:' + (activo ? '#1FC26A' : '#888') + ';cursor:pointer;font-family:\'Inter\',sans-serif;">' + d + '</button>';
+        }).join('')
+      + '</div>'
+      + '</div>';
+
+    // ── Horarios guardados ────────────────────────────────────
+    html += '<div style="padding:0 18px;margin-bottom:16px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+      + '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;">Horarios</div>'
+      + '</div>';
+
+    if (!ag.horarios.length) {
+      html += '<div style="background:#F5F6F0;border-radius:12px;padding:16px;text-align:center;">'
+        + '<div style="font-size:24px;margin-bottom:6px;">📅</div>'
+        + '<div style="font-size:12px;font-weight:700;color:#444;margin-bottom:4px;">Aún no tienes horarios configurados</div>'
+        + '<div style="font-size:11px;color:#888;line-height:1.5;">Agrega tus horarios para que los vecinos<br>sepan cuándo estás disponible.</div>'
+        + '</div>';
+    } else {
+      html += '<div style="background:#fff;border-radius:14px;border:.5px solid #e8e8e8;overflow:hidden;">';
+      ag.horarios.forEach(function(h, idx) {
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:.5px solid #f5f5f5;">'
+          + '<div>'
+          + '<div style="font-size:13px;font-weight:600;color:#111;">🕐 ' + h.inicio + ' – ' + h.fin + '</div>'
+          + (h.nota ? '<div style="font-size:10px;color:#888;margin-top:2px;">' + h.nota + '</div>' : '')
+          + '</div>'
+          + '<button onclick="window._quitarHorario(' + idx + ')" style="background:none;border:none;font-size:16px;cursor:pointer;color:#ccc;padding:4px;">✕</button>'
+          + '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    // ── Agregar horario ───────────────────────────────────────
+    html += '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 16px;padding:14px 16px;">'
+      + '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">Agregar horario</div>'
+      + '<div style="display:flex;gap:10px;margin-bottom:10px;">'
+      + '<div style="flex:1;">'
+      + '<label style="font-size:11px;font-weight:600;color:#666;display:block;margin-bottom:4px;">Inicio</label>'
+      + '<input id="agenda-inicio" type="time" style="width:100%;box-sizing:border-box;border:1px solid #e0e0e0;border-radius:10px;padding:9px 10px;font-size:13px;font-family:\'Inter\',sans-serif;color:#111;outline:none;-webkit-appearance:none;">'
+      + '</div>'
+      + '<div style="flex:1;">'
+      + '<label style="font-size:11px;font-weight:600;color:#666;display:block;margin-bottom:4px;">Fin</label>'
+      + '<input id="agenda-fin" type="time" style="width:100%;box-sizing:border-box;border:1px solid #e0e0e0;border-radius:10px;padding:9px 10px;font-size:13px;font-family:\'Inter\',sans-serif;color:#111;outline:none;-webkit-appearance:none;">'
+      + '</div>'
+      + '</div>'
+      + '<input id="agenda-nota" type="text" maxlength="40" placeholder="Nota opcional (ej. Solo urgencias)"'
+      + ' style="width:100%;box-sizing:border-box;border:1px solid #e0e0e0;border-radius:10px;padding:9px 10px;font-size:13px;font-family:\'Inter\',sans-serif;color:#111;outline:none;margin-bottom:10px;">'
+      + '<div id="agenda-err" style="display:none;font-size:11px;color:#D63A2A;margin-bottom:8px;"></div>'
+      + '<button onclick="window._agregarHorario()" style="width:100%;background:#1FC26A;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;">+ Agregar horario</button>'
+      + '</div>';
+
+    // ── Reservas pendientes ───────────────────────────────────
+    html += '<div style="padding:0 18px;">'
+      + '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">Reservas pendientes</div>'
+      + '<div id="agenda-reservas-lista" style="background:#F5F6F0;border-radius:12px;padding:14px;text-align:center;">'
+      + '<div style="font-size:12px;color:#888;">Cargando reservas…</div>'
+      + '</div>'
+      + '</div>';
+    html += '<div style="height:14px;"></div>';
+
+    scroll.innerHTML = html;
+
+    // M2-J: cargar reservas reales de Firestore (async, no bloquea el render)
+    if (uid) {
+      (async function() {
+        var lista = document.getElementById('agenda-reservas-lista');
+        if (!lista) return;
+        try {
+          var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+          var q = _fb.query(
+            _fb.collection(db, 'reservas'),
+            _fb.where('proveedorUid', '==', uid),
+            _fb.orderBy('creada', 'desc'),
+            _fb.limit(30)
+          );
+          var snap = await _fb.getDocs(q);
+          if (snap.empty) {
+            lista.innerHTML = '<div style="font-size:12px;color:#888;text-align:center;padding:14px;">Sin reservas todavía</div>';
+            return;
+          }
+          var rows = '';
+          snap.forEach(function(d) {
+            var r = d.data(); r._fbid = d.id;
+            var col = r.estado === 'aceptada' ? '#1FC26A' : r.estado === 'rechazada' ? '#D63A2A' : '#d97706';
+            var lbl = r.estado === 'aceptada' ? 'Aceptada' : r.estado === 'rechazada' ? 'Rechazada' : 'Pendiente';
+            rows += '<div style="padding:12px 14px;border-bottom:.5px solid #f5f5f5;">'
+              + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
+              + '<div style="font-size:12px;font-weight:700;color:#111;">' + (r.vecinoNombre||'Vecino') + '</div>'
+              + '<span style="font-size:10px;font-weight:700;color:'+col+';background:'+col+'18;padding:2px 8px;border-radius:20px;">' + lbl + '</span>'
+              + '</div>'
+              + '<div style="font-size:11px;color:#888;margin-bottom:' + (r.estado === 'pendiente' ? '8' : '0') + 'px;">'
+              + (r.dia||'') + (r.hora ? ' · ' + r.hora : '') + (r.nota ? ' · ' + r.nota : '')
+              + '</div>';
+            if (r.estado === 'pendiente') {
+              rows += '<div style="display:flex;gap:8px;">'
+                + '<button onclick="window._actualizarEstadoReserva(\'' + r._fbid + '\',\'aceptada\')" style="flex:1;background:#e8f5e1;border:none;border-radius:9px;padding:7px;font-size:11px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:\'Inter\',sans-serif;">✓ Aceptar</button>'
+                + '<button onclick="window._actualizarEstadoReserva(\'' + r._fbid + '\',\'rechazada\')" style="flex:1;background:#fdecea;border:none;border-radius:9px;padding:7px;font-size:11px;font-weight:700;color:#D63A2A;cursor:pointer;font-family:\'Inter\',sans-serif;">✕ Rechazar</button>'
+                + '</div>';
+            }
+            rows += '</div>';
+          });
+          lista.style.cssText = 'background:#fff;border-radius:12px;border:.5px solid #e8e8e8;overflow:hidden;';
+          lista.innerHTML = rows;
+        } catch(e) {
+          lista.innerHTML = '<div style="font-size:11px;color:#D63A2A;text-align:center;padding:12px;">Error: ' + e.message + '</div>';
+        }
+      })();
+    }
+  };
+
+  window._togglePausaAgenda = function() {
+    var ag = window.getAgenda();
+    ag.estado = ag.estado === 'pausado' ? 'activo' : 'pausado';
+    window.saveAgenda(ag);
+    window._renderAgenda();
+  };
+
+  window._toggleDia = function(idx) {
+    var ag = window.getAgenda();
+    var pos = ag.dias.indexOf(idx);
+    if (pos !== -1) ag.dias.splice(pos, 1);
+    else ag.dias.push(idx);
+    window.saveAgenda(ag);
+    window._renderAgenda();
+  };
+
+  window._agregarHorario = function() {
+    var inicio = (document.getElementById('agenda-inicio') || {}).value || '';
+    var fin    = (document.getElementById('agenda-fin')    || {}).value || '';
+    var nota   = (document.getElementById('agenda-nota')   || {}).value || '';
+    var err    = document.getElementById('agenda-err');
+
+    var msg = (function() {
+      if (!inicio || !fin) return 'Completa ambos campos de horario.';
+      if (fin <= inicio) return 'La hora de fin debe ser mayor que la de inicio.';
+      return null;
+    })();
+
+    if (msg) {
+      if (err) { err.textContent = msg; err.style.display = 'block'; }
+      return;
+    }
+    if (err) err.style.display = 'none';
+
+    var ag = window.getAgenda();
+    // Evitar duplicados exactos
+    var dup = ag.horarios.some(function(h){ return h.inicio === inicio && h.fin === fin; });
+    if (dup) {
+      if (err) { err.textContent = 'Ya existe ese horario.'; err.style.display = 'block'; }
+      return;
+    }
+    ag.horarios.push({ inicio: inicio, fin: fin, nota: nota.trim() });
+    window.saveAgenda(ag);
+    window._renderAgenda();
+  };
+
+  window._quitarHorario = function(idx) {
+    var ag = window.getAgenda();
+    ag.horarios.splice(idx, 1);
+    window.saveAgenda(ag);
+    window._renderAgenda();
+  };
+
+})();
+// ── FIN M2-J lógica ──────────────────────────────────────────
+</script>
+
+<!-- ══ M2-I: VISTA DE NOTIFICACIONES ══════════════════════════
+  v-notificaciones → lista real de Firestore, marcar leídas,
+  routing por módulo. Back: v-home.
+════════════════════════════════════════════════════════════ -->
+<div class="view go-right" id="v-notificaciones">
+  <div style="background:#fff;border-bottom:.5px solid #ebebeb;flex-shrink:0;">
+    <div class="sbar dk" style="background:#fff;padding:10px 18px 0;display:flex;justify-content:space-between;">
+      <span style="color:#111;font-size:11px;font-weight:600;">9:41</span>
+      <span style="color:#111;font-size:11px;">▲ ■ ■</span>
+    </div>
+    <div style="padding:10px 18px 12px;display:flex;align-items:center;gap:10px;">
+      <button onclick="go('v-home','left')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:#F3F4F6;border:1.5px solid #D1D5DB;color:#111;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;line-height:1;">‹</button>
+      <div style="flex:1;">
+        <div style="font-size:16px;font-weight:700;color:#111;">Notificaciones</div>
+        <div style="font-size:11px;color:#888;" id="vn-subtitle">Cargando…</div>
+      </div>
+      <button onclick="window._marcarTodasLeidasYRecargar()" style="background:none;border:none;font-size:11px;font-weight:700;color:#1f7a38;cursor:pointer;padding:4px 8px;font-family:'Inter',sans-serif;">Todas leídas</button>
+    </div>
+  </div>
+
+  <div class="scroll" style="padding:0 0 14px;" id="vn-lista">
+    <div style="text-align:center;padding:40px 20px;">
+      <div style="font-size:36px;margin-bottom:12px;">🔔</div>
+      <div style="font-size:14px;font-weight:700;color:#222;margin-bottom:6px;">Cargando…</div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni"><div class="notif-w"><div class="ni-ic">🔔</div><span class="notif-dot" style="display:none;"></span></div><div class="ni-lb" style="color:#1f7a38;">Alertas</div></div>
+    <div class="ni" onclick="go('v-mipanel','right')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
+  </div>
+</div>
+
+<script>
+// ── M2-I: Lógica de v-notificaciones ────────────────────────
+(function() {
+  var TIPO_IC = {
+    solicitud:  { ic:'📋', col:'#d97706', bg:'#FFF8DC' },
+    pedido:     { ic:'📦', col:'#D63A2A', bg:'#FDECEA' },
+    chat:       { ic:'💬', col:'#1FC26A', bg:'#e8f5e1' },
+    sistema:    { ic:'⚙️', col:'#666',    bg:'#f5f5f5' },
+    promocion:  { ic:'📣', col:'#7B3FA0', bg:'#F0EBF8' },
+  };
+
+  window.renderNotificaciones = async function() {
+    var lista   = document.getElementById('vn-lista');
+    var sub     = document.getElementById('vn-subtitle');
+    if (!lista) return;
+
+    lista.innerHTML = '<div style="text-align:center;padding:30px;color:#999;font-size:12px;">Cargando…</div>';
+
+    var notifs = await (window.cargarNotificaciones ? window.cargarNotificaciones() : Promise.resolve([]));
+
+    if (!notifs || notifs.length === 0) {
+      if (sub) sub.textContent = 'Sin notificaciones';
+      lista.innerHTML = '<div style="text-align:center;padding:50px 20px;">'
+        + '<div style="font-size:40px;margin-bottom:12px;">🔔</div>'
+        + '<div style="font-size:14px;font-weight:700;color:#222;margin-bottom:6px;">Todavía no tienes notificaciones</div>'
+        + '<div style="font-size:12px;color:#888;line-height:1.5;">Cuando haya actividad en tu cuenta<br>aparecerá aquí.</div>'
+        + '</div>';
+      return;
+    }
+
+    var noLeidas = notifs.filter(function(n){ return !n.leida; }).length;
+    if (sub) sub.textContent = noLeidas > 0
+      ? noLeidas + ' sin leer · ' + notifs.length + ' total'
+      : notifs.length + ' notificacion' + (notifs.length !== 1 ? 'es' : '');
+
+    lista.innerHTML = '';
+    notifs.forEach(function(n) {
+      var cfg = TIPO_IC[n.tipo] || TIPO_IC.sistema;
+      var div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border-bottom:.5px solid #f5f5f5;cursor:pointer;'
+        + (n.leida ? '' : 'background:#fafcff;');
+
+      var fecha = '';
+      try {
+        var d = n.fecha && n.fecha.toDate ? n.fecha.toDate() : new Date(n.fecha);
+        fecha = d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      } catch(e) {}
+
+      div.innerHTML = '<div style="width:40px;height:40px;border-radius:12px;background:'+cfg.bg+';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">'+cfg.ic+'</div>'
+        + '<div style="flex:1;min-width:0;">'
+        + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
+        + '<span style="font-size:13px;font-weight:'+(n.leida?'600':'700')+';color:#111;">'+(n.titulo||n.tipo||'Notificación')+'</span>'
+        + (n.leida ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:#D63A2A;flex-shrink:0;display:inline-block;"></span>')
+        + '</div>'
+        + '<div style="font-size:11px;color:#666;line-height:1.45;margin-bottom:3px;">'+(n.mensaje||'')+'</div>'
+        + '<div style="font-size:10px;color:#bbb;">'+fecha+'</div>'
+        + '</div>';
+
+      div.onclick = function() {
+        // Marcar leída
+        if (!n.leida) {
+          window.marcarNotifLeida && window.marcarNotifLeida(n._id);
+          n.leida = true;
+          div.style.background = '';
+          var dot = div.querySelector('.notif-new-dot');
+          if (dot) dot.style.display = 'none';
+        }
+        // Navegar al módulo
+        var ruta = window._notifRuta && window._notifRuta(n);
+        if (ruta) ruta();
+      };
+
+      lista.appendChild(div);
+    });
+  };
+
+  window._marcarTodasLeidasYRecargar = async function() {
+    await (window.marcarTodasLeidas ? window.marcarTodasLeidas() : Promise.resolve());
+    await window.renderNotificaciones();
+    window.actualizarBadgesReales && window.actualizarBadgesReales();
+  };
+})();
+// ── FIN M2-I lógica ──────────────────────────────────────────
+</script>
+
 <div class="view go-right" id="v-mis-chats">
       <div class="chats-hdr">
         <div class="sbar dk"><span>9:41</span><span>▲</span></div>
@@ -5413,6 +7623,12 @@ function _goCore(id,dir){
     if(id==='v-home')setTimeout(()=>{window.renderHomePersonalizado&&window.renderHomePersonalizado();},50);
     if(id==='v-mipanel')setTimeout(()=>{window.cargarMiPerfil&&window.cargarMiPerfil();window.verificarChatsProveedor&&window.verificarChatsProveedor();},300);
     if(id==='v-mi-perfil')setTimeout(()=>{window.cargarMiPerfilDetalle&&window.cargarMiPerfilDetalle();},300);
+    if(id==='v-mi-negocio')setTimeout(()=>{window._cargarBizStats&&window._cargarBizStats();},100);
+    if(id==='v-mi-restaurante')setTimeout(()=>{window._cargarRestStats&&window._cargarRestStats();},100);
+    if(id==='v-busqueda')setTimeout(()=>{window._initBusqueda&&window._initBusqueda();},80);
+    if(id==='v-notificaciones')setTimeout(()=>{window.renderNotificaciones&&window.renderNotificaciones();},100);
+    if(id==='v-agenda')setTimeout(()=>{window._renderAgenda&&window._renderAgenda();},100);
+    if(id==='v-reservar')setTimeout(()=>{window._renderReservar&&window._renderReservar();},100);
     if(id==='v-favoritos')setTimeout(cargarFavoritos,400);
     if(id==='v-mis-chats')setTimeout(()=>window.cargarMisChats&&window.cargarMisChats(),300);
     if(id==='v-carrito')renderCarrito();
@@ -5486,36 +7702,83 @@ function checkLogin(){
 /* FAVORITOS */
 function cargarFavoritos() {
   const lista = document.getElementById('favs-lista');
-  if(!lista) return;
-  const favs = [];
-  for(let i=0; i<localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if(key && key.startsWith('fav_prov_')) {
-      try { 
-        const val = localStorage.getItem(key);
-        const obj = JSON.parse(val);
-        obj._storageKey = key;
-        favs.push(obj); 
-      } catch(e){}
+  if (!lista) return;
+
+  // M2-H: usar clave por usuario (con retrocompatibilidad a fav_prov_*)
+  let favs = [];
+  // Nueva clave por usuario
+  try {
+    const uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    const key = uid ? 'dcFavoritos_' + uid : 'dcFavoritos_t_' + (localStorage.getItem('dcuserTipo')||'u');
+    favs = JSON.parse(localStorage.getItem(key) || '[]');
+  } catch(e) { favs = []; }
+
+  // Retrocompatibilidad: incluir favs guardados con el sistema anterior (fav_prov_*)
+  const legacy = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('fav_prov_')) {
+      try {
+        const obj = JSON.parse(localStorage.getItem(k));
+        if (obj && obj.nombre && !favs.some(f => f.id === (obj._id||obj.nombre))) {
+          legacy.push({ id: obj._id||obj.nombre, tipo:'proveedor',
+                        nombre: obj.nombre||'—', categoria: obj.categoria||'',
+                        datos: obj, _legacyKey: k, fecha: 0 });
+        }
+      } catch(e) {}
     }
   }
-  if(favs.length === 0) {
-    lista.innerHTML = '<div style="padding:20px 14px;text-align:center;"><div class="si56">❤️</div><div class="si57">Sin favoritos aún</div><div class="si39">Toca ❤️ en cualquier proveedor para guardarlo aquí</div></div>';
+  const all = favs.concat(legacy);
+
+  if (all.length === 0) {
+    lista.innerHTML = '<div style="padding:30px 14px;text-align:center;">'
+      + '<div style="font-size:40px;margin-bottom:10px;">❤️</div>'
+      + '<div style="font-size:14px;font-weight:700;color:#222;margin-bottom:6px;">Todavía no tienes favoritos</div>'
+      + '<div style="font-size:12px;color:#888;line-height:1.5;">Toca 🤍 en cualquier proveedor<br>para guardarlo aquí.</div>'
+      + '</div>';
     return;
   }
-  lista.innerHTML = '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:12px 14px 6px;">🔧 Proveedores guardados</div>';
-  favs.forEach(f => {
+
+  const ICONOS = {plomero:'💧',electricista:'⚡',jardinero:'🌿',limpieza:'🧹',pintura:'🎨',ac:'❄️',cerrajero:'🔒',mascotas:'🐾',tecnologia:'🖥️',belleza:'💆',otro:'🔧'};
+
+  lista.innerHTML = '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:12px 14px 6px;">'
+    + all.length + ' guardado' + (all.length !== 1 ? 's' : '') + '</div>';
+
+  all.forEach((f, idx) => {
+    const cat = (f.categoria||'otro').toLowerCase();
+    const ic  = ICONOS[cat] || '🔧';
     const div = document.createElement('div');
-    div.className = 'fav-card';
-    const key = f._storageKey;
+    div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:.5px solid #f5f5f5;cursor:pointer;';
+
     div.innerHTML = `
-      <div style="width:44px;height:44px;border-radius:14px;background:#E8F5EE;display:flex;align-items:center;justify-content:center;font-size:22px;">🔧</div>
-      <div class="si03"><div class="si33">${f.nombre||'—'}</div><div class="si01">${f.categoria||'Proveedor'}</div></div>`;
-    const quitarBtn = document.createElement('button');
-    quitarBtn.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;';
-    quitarBtn.textContent = '❤️';
-    quitarBtn.onclick = () => { localStorage.removeItem(key); cargarFavoritos(); };
-    div.appendChild(quitarBtn);
+      <div style="width:44px;height:44px;border-radius:14px;background:#E8F5EE;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">${ic}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;">${f.nombre||'—'}</div>
+        <div style="font-size:11px;color:#888;">${f.categoria||'Proveedor'}</div>
+      </div>`;
+
+    // Botón quitar
+    const qBtn = document.createElement('button');
+    qBtn.textContent = '❤️';
+    qBtn.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;flex-shrink:0;padding:4px;';
+    qBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (f._legacyKey) localStorage.removeItem(f._legacyKey);
+      else window.toggleFav && window.toggleFav(f.datos || f);
+      cargarFavoritos();
+    };
+    div.appendChild(qBtn);
+
+    // Tap → abrir detalle si hay datos reales
+    div.onclick = () => {
+      if (f.datos && window.abrirDetalleProveedor) {
+        window.abrirDetalleProveedor(f.datos);
+      } else {
+        // Datos no disponibles
+        alert(f.nombre + '\nDetalle no disponible todavía.');
+      }
+    };
+
     lista.appendChild(div);
   });
 }
