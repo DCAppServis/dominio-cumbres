@@ -1,7 +1,15 @@
 <!DOCTYPE html>
+<!-- VERSION_BUILD: M2-Agenda-Reservas-20250527-v1 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+  window.VERSION_APP = "M2-Agenda-Reservas-20250527-v1";
+  console.log("%cDOMINIO CUMBRES VERSION: " + window.VERSION_APP, "background:#0f2b14;color:#1FC26A;padding:4px 10px;border-radius:4px;font-weight:700;");
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Dominio Cumbres App Servis</title>
 
@@ -763,7 +771,8 @@
       }
     }
     if (['proveedor','restaurante','negocio','transporte','repartidor','ambos'].indexOf(tipo) !== -1) {
-      html += ACCION('📅','Agenda / Reservas',"go('v-agenda','right');setTimeout(window._initAgenda,200)");
+      html += ACCION('🗓','Mis horarios',"go('v-agenda','right');setTimeout(window._initAgenda,200)");
+      html += ACCION('📋','Agenda y Reservas',"go('v-agenda-reservas','right');setTimeout(window._initAgendaReservas,200)");
     }
     html += ACCION_LAST('🚪','Cerrar sesión','cerrarSesion()','#D63A2A');
     html += '</div>';
@@ -2165,6 +2174,8 @@
         if (!dupSnap.empty) return { ok: false, msg: 'Ya tienes una reserva con este proveedor ese día y hora.' };
       }
 
+      // LOG DIAGNÓSTICO
+      console.log('[RESERVA WRITE] proveedorUid:', reserva.proveedorUid, '| vecinoUid:', vecinoUid, '| dia:', reserva.dia, '| hora:', reserva.hora);
       // Guardar reserva en Firestore
       var docRef = await _fb.addDoc(_fb.collection(db, 'reservas'), {
         proveedorUid:    reserva.proveedorUid,
@@ -2180,6 +2191,7 @@
 
       // Notificación para el proveedor
       try {
+        console.log('[NOTIF WRITE] uid proveedor:', reserva.proveedorUid);
         await _fb.addDoc(_fb.collection(db, 'notificaciones'), {
           uid:       reserva.proveedorUid,
           tipo:      'reserva',
@@ -2194,12 +2206,13 @@
         });
       } catch(ne) {
         // Notificación es secundaria — no bloquear si falla
-        console.log('notificacion error:', ne.message);
+        console.error('[NOTIF ERROR]', ne.code || '', ne.message);
       }
 
+      console.log('[RESERVA OK] docId:', docRef.id, '| proveedorUid guardado:', reserva.proveedorUid);
       return { ok: true, id: docRef.id };
     } catch(e) {
-      console.log('guardarReserva error:', e.message);
+      console.error('[RESERVA ERROR]', e.code || '', e.message);
       return { ok: false, msg: 'No se pudo guardar: ' + e.message };
     }
   };
@@ -6473,7 +6486,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     <div class="sbar dk"><span>9:41</span><span>▲</span></div>
     <div class="si07">
       <button onclick="go('v-mipanel','left')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;">‹</button>
-      <div><div class="si13">📅 Agenda / Reservas</div><div class="si21" id="agenda-subtitle">Tu disponibilidad</div></div>
+      <div><div class="si13">🗓 Mis horarios</div><div class="si21" id="agenda-subtitle">Tu disponibilidad</div></div>
     </div>
   </div>
 
@@ -6583,63 +6596,8 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       + '<button onclick="window._agregarHorario()" style="width:100%;background:#1FC26A;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;">+ Agregar horario</button>'
       + '</div>';
 
-    // ── Reservas pendientes ───────────────────────────────────
-    html += '<div style="padding:0 18px;">'
-      + '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">Reservas pendientes</div>'
-      + '<div id="agenda-reservas-lista" style="background:#F5F6F0;border-radius:12px;padding:14px;text-align:center;">'
-      + '<div style="font-size:12px;color:#888;">Cargando reservas…</div>'
-      + '</div>'
-      + '</div>';
     html += '<div style="height:14px;"></div>';
-
     scroll.innerHTML = html;
-
-    // M2-J: cargar reservas reales de Firestore (async, no bloquea el render)
-    if (uid) {
-      (async function() {
-        var lista = document.getElementById('agenda-reservas-lista');
-        if (!lista) return;
-        try {
-          var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-          var q = _fb.query(
-            _fb.collection(db, 'reservas'),
-            _fb.where('proveedorUid', '==', uid),
-            _fb.orderBy('creada', 'desc'),
-            _fb.limit(30)
-          );
-          var snap = await _fb.getDocs(q);
-          if (snap.empty) {
-            lista.innerHTML = '<div style="font-size:12px;color:#888;text-align:center;padding:14px;">Sin reservas todavía</div>';
-            return;
-          }
-          var rows = '';
-          snap.forEach(function(d) {
-            var r = d.data(); r._fbid = d.id;
-            var col = r.estado === 'aceptada' ? '#1FC26A' : r.estado === 'rechazada' ? '#D63A2A' : '#d97706';
-            var lbl = r.estado === 'aceptada' ? 'Aceptada' : r.estado === 'rechazada' ? 'Rechazada' : 'Pendiente';
-            rows += '<div style="padding:12px 14px;border-bottom:.5px solid #f5f5f5;">'
-              + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
-              + '<div style="font-size:12px;font-weight:700;color:#111;">' + (r.vecinoNombre||'Vecino') + '</div>'
-              + '<span style="font-size:10px;font-weight:700;color:'+col+';background:'+col+'18;padding:2px 8px;border-radius:20px;">' + lbl + '</span>'
-              + '</div>'
-              + '<div style="font-size:11px;color:#888;margin-bottom:' + (r.estado === 'pendiente' ? '8' : '0') + 'px;">'
-              + (r.dia||'') + (r.hora ? ' · ' + r.hora : '') + (r.nota ? ' · ' + r.nota : '')
-              + '</div>';
-            if (r.estado === 'pendiente') {
-              rows += '<div style="display:flex;gap:8px;">'
-                + '<button onclick="window._actualizarEstadoReserva(\'' + r._fbid + '\',\'aceptada\')" style="flex:1;background:#e8f5e1;border:none;border-radius:9px;padding:7px;font-size:11px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:\'Inter\',sans-serif;">✓ Aceptar</button>'
-                + '<button onclick="window._actualizarEstadoReserva(\'' + r._fbid + '\',\'rechazada\')" style="flex:1;background:#fdecea;border:none;border-radius:9px;padding:7px;font-size:11px;font-weight:700;color:#D63A2A;cursor:pointer;font-family:\'Inter\',sans-serif;">✕ Rechazar</button>'
-                + '</div>';
-            }
-            rows += '</div>';
-          });
-          lista.style.cssText = 'background:#fff;border-radius:12px;border:.5px solid #e8e8e8;overflow:hidden;';
-          lista.innerHTML = rows;
-        } catch(e) {
-          lista.innerHTML = '<div style="font-size:11px;color:#D63A2A;text-align:center;padding:12px;">Error: ' + e.message + '</div>';
-        }
-      })();
-    }
   };
 
   window._togglePausaAgenda = function() {
@@ -6817,6 +6775,155 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
   };
 })();
 // ── FIN M2-I lógica ──────────────────────────────────────────
+</script>
+
+<!-- ══ M2-J: AGENDA Y RESERVAS (proveedor) ═══════════════════
+  Muestra reservas reales de Firestore para el proveedor.
+  Fuente: colección 'reservas' where proveedorUid == currentUser.uid
+  Acciones: Aceptar / Rechazar → updateDoc estado
+════════════════════════════════════════════════════════════ -->
+<div class="view go-right" id="v-agenda-reservas">
+  <div style="background:linear-gradient(135deg,#0A3A18,#1FC26A);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button onclick="go('v-mipanel','left')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;">‹</button>
+      <div>
+        <div class="si13">📋 Agenda y Reservas</div>
+        <div class="si21" id="ar-subtitle">Cargando…</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll" style="padding:0 0 14px;" id="ar-scroll">
+    <div style="text-align:center;padding:40px 20px;color:#999;font-size:13px;">Cargando reservas…</div>
+  </div>
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni"><div class="ni-ic">📋</div><div class="ni-lb" style="color:#1FC26A;">Reservas</div></div>
+    <div class="ni" onclick="go('v-mipanel','left')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
+  </div>
+</div>
+
+<script>
+// ── M2-J: v-agenda-reservas — reservas Firestore del proveedor ─
+(function() {
+
+  // Resolver uid del proveedor (mismo patrón que guardarReserva)
+  async function _resolverUid() {
+    if (window.auth && window.auth.currentUser) return window.auth.currentUser.uid;
+    var uid = await new Promise(function(resolve) {
+      var done = false;
+      var t = setTimeout(function(){ if(!done){done=true;resolve('');} }, 3000);
+      if (window.auth && window.auth.onAuthStateChanged) {
+        window.auth.onAuthStateChanged(function(u){
+          if(!done){done=true;clearTimeout(t);resolve(u?u.uid:'');}
+        });
+      } else { clearTimeout(t); resolve(''); }
+    });
+    return uid || localStorage.getItem('dcuserUid') || '';
+  }
+
+  window._initAgendaReservas = function() {
+    window._renderAgendaReservas && window._renderAgendaReservas();
+  };
+
+  window._renderAgendaReservas = async function() {
+    var scroll = document.getElementById('ar-scroll');
+    var sub    = document.getElementById('ar-subtitle');
+    if (!scroll) return;
+
+    var provUid = await _resolverUid();
+    if (!provUid) {
+      if (sub) sub.textContent = 'Sin sesión';
+      scroll.innerHTML = '<div style="text-align:center;padding:40px 20px;">'
+        + '<div style="font-size:28px;margin-bottom:10px;">🔒</div>'
+        + '<div style="font-size:13px;color:#888;">Sesión no disponible.<br>Vuelve a iniciar sesión.</div>'
+        + '</div>';
+      return;
+    }
+
+    try {
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      // Sin orderBy — sin índice compuesto requerido
+      var q = _fb.query(
+        _fb.collection(db, 'reservas'),
+        _fb.where('proveedorUid', '==', provUid),
+        _fb.limit(50)
+      );
+      var snap = await _fb.getDocs(q);
+
+      if (sub) sub.textContent = snap.size + ' reserva' + (snap.size !== 1 ? 's' : '');
+
+      if (snap.empty) {
+        scroll.innerHTML = '<div style="text-align:center;padding:50px 20px;">'
+          + '<div style="font-size:40px;margin-bottom:12px;">📋</div>'
+          + '<div style="font-size:14px;font-weight:700;color:#222;margin-bottom:6px;">Aún no tienes reservas</div>'
+          + '<div style="font-size:12px;color:#888;line-height:1.5;">Cuando los vecinos reserven<br>tu servicio, aparecerán aquí.</div>'
+          + '</div>';
+        return;
+      }
+
+      // Ordenar en JS: pendientes primero, luego por fecha
+      var docs = [];
+      snap.forEach(function(d){ var r = d.data(); r._fbid = d.id; docs.push(r); });
+      var orden = {pendiente:0, aceptada:1, rechazada:2};
+      docs.sort(function(a,b){
+        var oa = orden[a.estado]||0, ob = orden[b.estado]||0;
+        if (oa !== ob) return oa - ob;
+        var ta = a.creada && a.creada.toMillis ? a.creada.toMillis() : (a.creada||0);
+        var tb = b.creada && b.creada.toMillis ? b.creada.toMillis() : (b.creada||0);
+        return tb - ta;
+      });
+
+      var html = '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:14px 18px 8px;">Todas las reservas</div>'
+        + '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px;overflow:hidden;">';
+
+      docs.forEach(function(r) {
+        var col = r.estado === 'aceptada' ? '#1FC26A' : r.estado === 'rechazada' ? '#D63A2A' : '#d97706';
+        var lbl = r.estado === 'aceptada' ? 'Aceptada' : r.estado === 'rechazada' ? 'Rechazada' : 'Pendiente';
+        html += '<div style="padding:13px 14px;border-bottom:.5px solid #f5f5f5;">'
+          + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
+          + '<div style="font-size:13px;font-weight:700;color:#111;">' + (r.vecinoNombre||'Vecino') + '</div>'
+          + '<span style="font-size:10px;font-weight:700;color:'+col+';background:'+col+'18;padding:3px 9px;border-radius:20px;">' + lbl + '</span>'
+          + '</div>'
+          + '<div style="font-size:11px;color:#666;margin-bottom:' + (r.estado==='pendiente'?'10':'0') + 'px;">'
+          + (r.dia||'') + (r.hora ? ' · ' + r.hora : '') + (r.nota ? '<br><span style="color:#999;">📝 ' + r.nota + '</span>' : '')
+          + '</div>';
+        if (r.estado === 'pendiente') {
+          html += '<div style="display:flex;gap:8px;">'
+            + '<button onclick="window._arActualizar(\'' + r._fbid + '\',\'aceptada\')" '
+            + 'style="flex:1;background:#e8f5e1;border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:\'Inter\',sans-serif;">✓ Confirmar</button>'
+            + '<button onclick="window._arActualizar(\'' + r._fbid + '\',\'rechazada\')" '
+            + 'style="flex:1;background:#fdecea;border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:700;color:#D63A2A;cursor:pointer;font-family:\'Inter\',sans-serif;">✕ Rechazar</button>'
+            + '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div><div style="height:14px;"></div>';
+      scroll.innerHTML = html;
+
+    } catch(e) {
+      console.error('[AR ERROR]', e.code||'', e.message);
+      if (sub) sub.textContent = 'Error al cargar';
+      scroll.innerHTML = '<div style="text-align:center;padding:30px;font-size:12px;color:#D63A2A;">No pudimos cargar las reservas.<br>' + e.message + '</div>';
+    }
+  };
+
+  window._arActualizar = async function(reservaId, nuevoEstado) {
+    var btn = event && event.target;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      await _fb.updateDoc(_fb.doc(db, 'reservas', reservaId), { estado: nuevoEstado });
+      window._renderAgendaReservas && window._renderAgendaReservas();
+    } catch(e) {
+      if (btn) { btn.disabled = false; btn.textContent = nuevoEstado === 'aceptada' ? '✓ Confirmar' : '✕ Rechazar'; }
+      alert('No se pudo actualizar: ' + e.message);
+    }
+  };
+
+})();
+// ── FIN M2-J v-agenda-reservas ───────────────────────────────
 </script>
 
 <div class="view go-right" id="v-mis-chats">
@@ -7628,6 +7735,7 @@ function _goCore(id,dir){
     if(id==='v-busqueda')setTimeout(()=>{window._initBusqueda&&window._initBusqueda();},80);
     if(id==='v-notificaciones')setTimeout(()=>{window.renderNotificaciones&&window.renderNotificaciones();},100);
     if(id==='v-agenda')setTimeout(()=>{window._renderAgenda&&window._renderAgenda();},100);
+    if(id==='v-agenda-reservas')setTimeout(()=>{window._renderAgendaReservas&&window._renderAgendaReservas();},100);
     if(id==='v-reservar')setTimeout(()=>{window._renderReservar&&window._renderReservar();},100);
     if(id==='v-favoritos')setTimeout(cargarFavoritos,400);
     if(id==='v-mis-chats')setTimeout(()=>window.cargarMisChats&&window.cargarMisChats(),300);
