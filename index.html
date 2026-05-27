@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- VERSION_BUILD: M2-Agenda-Reservas-20250527-v1 -->
+<!-- VERSION_BUILD: M2-Agenda-Reservas-20250527-v6-miagenda -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
-  window.VERSION_APP = "M2-Agenda-Reservas-20250527-v1";
+  window.VERSION_APP = "M2-Agenda-Reservas-20250527-v6-miagenda";
   console.log("%cDOMINIO CUMBRES VERSION: " + window.VERSION_APP, "background:#0f2b14;color:#1FC26A;padding:4px 10px;border-radius:4px;font-weight:700;");
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -383,7 +383,7 @@
   };
 
   // M2-J: leer agenda del proveedor y mostrar disponibilidad en v-serv-det
-  window._cargarAgendaProveedor = function(p) {
+  window._cargarAgendaProveedor = async function(p) {
     var block   = document.getElementById('det-agenda-block');
     var elEst   = document.getElementById('det-agenda-estado');
     var elDias  = document.getElementById('det-agenda-dias');
@@ -391,14 +391,20 @@
     if (!block) return;
 
     var pid = p._id || p.id || p.uid || p.nombre || '';
-    var key = pid ? 'dcAgenda_' + pid : null;
+
+    // 1. Intentar localStorage primero (mismo dispositivo, sin latencia)
     var ag = null;
-    if (key) {
-      try { ag = JSON.parse(localStorage.getItem(key) || 'null'); } catch(e) {}
+    if (pid) {
+      try { ag = JSON.parse(localStorage.getItem('dcAgenda_' + pid) || 'null'); } catch(e) {}
     }
-    // Fallback: buscar cualquier dcAgenda_t_ del tipo proveedor
-    if (!ag && pid) {
-      try { ag = JSON.parse(localStorage.getItem('dcAgenda_t_proveedor') || 'null'); } catch(e) {}
+
+    // 2. Si no hay en localStorage, leer Firestore agendas/{pid}
+    if ((!ag || !ag.horarios || !ag.horarios.length) && pid && window._fbDb) {
+      try {
+        var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+        var snap = await _fb.getDoc(_fb.doc(window._fbDb, 'agendas', pid));
+        if (snap.exists()) ag = snap.data();
+      } catch(e) { console.warn('[AGENDA READ]', e.message); }
     }
 
     // No mostrar bloque si no hay agenda o no hay horarios
@@ -773,6 +779,9 @@
     if (['proveedor','restaurante','negocio','transporte','repartidor','ambos'].indexOf(tipo) !== -1) {
       html += ACCION('🗓','Mis horarios',"go('v-agenda','right');setTimeout(window._initAgenda,200)");
       html += ACCION('📋','Agenda y Reservas',"go('v-agenda-reservas','right');setTimeout(window._initAgendaReservas,200)");
+    }
+    if (tipo === 'vecino') {
+      html += ACCION('📅','Mi Agenda',"go('v-mi-agenda','right');setTimeout(function(){window._initMiAgenda&&window._initMiAgenda();},200)");
     }
     html += ACCION_LAST('🚪','Cerrar sesión','cerrarSesion()','#D63A2A');
     html += '</div>';
@@ -1978,51 +1987,64 @@
   // Sin seeds. Sin mocks. Vacío elegante si colección vacía o inexistente.
 
   window.cargarNotificaciones = async function() {
-    var user = window.auth && window.auth.currentUser;
+    var user = (window._fbAuth && window._fbAuth.currentUser) || null;
+    if (!user) {
+      user = await new Promise(function(resolve) {
+        var done = false;
+        var t = setTimeout(function(){ if(!done){done=true;resolve(null);} }, 3000);
+        if (window._fbAuth && window._fbAuth.onAuthStateChanged) {
+          window._fbAuth.onAuthStateChanged(function(u){
+            if(!done){done=true;clearTimeout(t);resolve(u||null);}
+          });
+        } else { clearTimeout(t); resolve(null); }
+      });
+    }
     if (!user) return [];
+    var _db = window._fbDb;
+    if (!_db) return [];
     try {
       var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
       var q = _fb.query(
-        _fb.collection(db, 'notificaciones'),
+        _fb.collection(_db, 'notificaciones'),
         _fb.where('uid', '==', user.uid),
-        _fb.orderBy('fecha', 'desc'),
         _fb.limit(50)
       );
       var snap = await _fb.getDocs(q);
       var notifs = [];
-      snap.forEach(function(d) {
-        var n = d.data(); n._id = d.id;
-        if (!n.eliminada) notifs.push(n);
+      snap.forEach(function(d){ var n=d.data(); n._id=d.id; if(!n.eliminada) notifs.push(n); });
+      notifs.sort(function(a,b){
+        var ta=a.fecha&&a.fecha.toMillis?a.fecha.toMillis():0;
+        var tb=b.fecha&&b.fecha.toMillis?b.fecha.toMillis():0;
+        return tb-ta;
       });
       return notifs;
-    } catch(e) {
-      // Colección no existe o sin permisos → vacío elegante
-      console.log('M2-I notificaciones:', e.message);
-      return [];
-    }
+    } catch(e){ console.error('[NOTIF]',e.code||'',e.message); return []; }
   };
 
   window.marcarNotifLeida = async function(id) {
-    var user = window.auth && window.auth.currentUser;
-    if (!user || !id) return;
+    var user = window._fbAuth && window._fbAuth.currentUser;
+    var _db = window._fbDb;
+    if (!user || !id || !_db) return;
     try {
       var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-      await _fb.updateDoc(_fb.doc(db, 'notificaciones', id), { leida: true });
-    } catch(e) { console.log('M2-I marcarLeida:', e.message); }
+      await _fb.updateDoc(_fb.doc(_db, 'notificaciones', id), { leida: true });
+      window.actualizarBadgesReales && window.actualizarBadgesReales();
+    } catch(e){ console.error('[NOTIF]',e.message); }
   };
 
   window.marcarTodasLeidas = async function() {
-    var user = window.auth && window.auth.currentUser;
-    if (!user) return;
+    var user = window._fbAuth && window._fbAuth.currentUser;
+    var _db = window._fbDb;
+    if (!user || !_db) return;
     try {
       var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
       var q = _fb.query(
-        _fb.collection(db, 'notificaciones'),
+        _fb.collection(_db, 'notificaciones'),
         _fb.where('uid', '==', user.uid),
         _fb.where('leida', '==', false)
       );
       var snap = await _fb.getDocs(q);
-      var batch = _fb.writeBatch(db);
+      var batch = _fb.writeBatch(_db);
       snap.forEach(function(d) { batch.update(d.ref, { leida: true }); });
       await batch.commit();
     } catch(e) { console.log('M2-I marcarTodas:', e.message); }
@@ -2050,7 +2072,7 @@
     // Actualizar notif-dot en nav: mostrar si hay cualquier no leída
     var total = notifs.filter(function(n){ return !n.leida; }).length;
     document.querySelectorAll('.notif-dot').forEach(function(el) {
-      el.style.display = total > 0 ? 'block' : 'none';
+      el.style.display = total > 0 ? 'inline-block' : 'none';
     });
     return notifs;
   };
@@ -2062,6 +2084,8 @@
     if (m === 'solicitud')  return function(){ go('v-reportes-disponibles','right'); };
     if (m === 'pedido')     return function(){ go('v-mis-pedidos-rest','right'); };
     if (m === 'promocion')  return function(){ window.irACrearPromo && window.irACrearPromo(); };
+    if (m === 'agenda')     return function(){ go('v-agenda-reservas','right'); setTimeout(function(){ window._initAgendaReservas&&window._initAgendaReservas(); },200); };
+    if (m === 'mi_agenda')  return function(){ go('v-mi-agenda','right'); setTimeout(function(){ window._initMiAgenda&&window._initMiAgenda(); },200); };
     return null; // sin ruta específica
   };
   // ── FIN M2-I helpers ─────────────────────────────────────────
@@ -2071,7 +2095,8 @@
   // Clave: dcAgenda_[uid] o dcAgenda_t_[tipo] como fallback.
 
   function _agendaKey() {
-    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    var _a = window._fbAuth;
+    var uid = (_a && _a.currentUser && _a.currentUser.uid) || localStorage.getItem('dcuserUid') || '';
     return uid ? 'dcAgenda_' + uid : 'dcAgenda_t_' + (localStorage.getItem('dcuserTipo')||'u');
   }
 
@@ -2085,6 +2110,14 @@
 
   window.saveAgenda = function(agenda) {
     try { localStorage.setItem(_agendaKey(), JSON.stringify(agenda)); } catch(e) {}
+    // Sync to Firestore so vecinos on other devices can read it
+    var _a = window._fbAuth;
+    var uid = (_a && _a.currentUser && _a.currentUser.uid) || localStorage.getItem('dcuserUid') || '';
+    if (uid && window._fbDb) {
+      import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js').then(function(_fb) {
+        _fb.setDoc(_fb.doc(window._fbDb, 'agendas', uid), agenda).catch(function(e){ console.warn('[AGENDA SYNC]', e.message); });
+      });
+    }
   };
 
   window._initAgenda = function() {
@@ -2117,8 +2150,8 @@
       var vecinoNombre = reserva.vecinoNombre || localStorage.getItem('dcuser') || 'Vecino';
 
       // Intento 1: currentUser ya disponible
-      if (window.auth && window.auth.currentUser) {
-        vecinoUid = window.auth.currentUser.uid;
+      if (window._fbAuth && window._fbAuth.currentUser) {
+        vecinoUid = window._fbAuth.currentUser.uid;
       } else {
         // Intento 2: esperar onAuthStateChanged hasta 3 segundos
         vecinoUid = await new Promise(function(resolve) {
@@ -2126,8 +2159,8 @@
           var timer = setTimeout(function() {
             if (!resolved) { resolved = true; resolve(''); }
           }, 3000);
-          if (window.auth && window.auth.onAuthStateChanged) {
-            window.auth.onAuthStateChanged(function(u) {
+          if (window._fbAuth && window._fbAuth.onAuthStateChanged) {
+            window._fbAuth.onAuthStateChanged(function(u) {
               if (!resolved) {
                 resolved = true;
                 clearTimeout(timer);
@@ -2186,7 +2219,8 @@
         hora:            reserva.hora,
         nota:            reserva.nota || '',
         estado:          'pendiente',
-        creada:          _fb.serverTimestamp()
+        creada:          _fb.serverTimestamp(),
+        expiresAt:       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)  // 30 días
       });
 
       // Notificación para el proveedor
@@ -2202,7 +2236,8 @@
           eliminada: false,
           prioridad: 'normal',
           reservaId: docRef.id,
-          fecha:     _fb.serverTimestamp()
+          fecha:     _fb.serverTimestamp(),
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)  // 14 días
         });
       } catch(ne) {
         // Notificación es secundaria — no bloquear si falla
@@ -2962,7 +2997,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 .ni-ic{font-size:20px;}
 .ni-lb{font-size:9px;font-weight:700;color:#C0C4BA;}
 .notif-w{position:relative;display:inline-block;}
-.notif-dot{width:7px;height:7px;background:var(--red);border-radius:50%;position:absolute;top:-1px;right:-2px;border:2px solid #fff;}
+.notif-dot{width:10px;height:10px;min-width:10px;background:#E53935;border-radius:50%;position:absolute;top:-3px;right:-3px;border:2px solid #fff;z-index:10;}
 .demo-note{color:var(--white-30);font-size:11px;text-align:center;margin-top:12px;}
 
 /* HOME */
@@ -6454,20 +6489,39 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     }
 
     // Éxito — mostrar confirmación
+    var reservaId = result.id || '';
     var scroll = document.getElementById('reservar-scroll');
     if (scroll) {
       scroll.innerHTML = '<div style="text-align:center;padding:40px 20px;">'
         + '<div style="font-size:48px;margin-bottom:14px;">✅</div>'
         + '<div style="font-size:18px;font-weight:700;color:#111;margin-bottom:6px;">¡Reserva enviada!</div>'
-        + '<div style="font-size:13px;color:#555;line-height:1.6;margin-bottom:24px;">'
+        + '<div style="font-size:13px;color:#555;line-height:1.6;margin-bottom:16px;">'
         + '<b>' + (p.nombre||'El proveedor') + '</b> recibirá tu solicitud:<br>'
         + '<b>' + diaLbl + ' a las ' + _horaSel + '</b>'
         + (nota ? '<br><span style="color:#888;">Nota: ' + nota + '</span>' : '')
-        + '<br><br><span style="font-size:11px;color:#1FC26A;font-weight:700;">Pendiente de confirmación</span>'
         + '</div>'
+        + '<div id="reserva-estado-live" style="margin-bottom:20px;padding:10px 16px;border-radius:12px;background:#FFF8DC;font-size:12px;font-weight:700;color:#d97706;">⏳ Pendiente de confirmación</div>'
         + '<button onclick="go(\'v-home\',\'left\')" style="width:100%;background:#1FC26A;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;margin-bottom:10px;">Ir al inicio</button>'
         + '<button onclick="go(\'v-serv-det\',\'left\')" style="width:100%;background:#f0f0f0;border:none;border-radius:14px;padding:12px;font-size:13px;font-weight:600;color:#555;cursor:pointer;font-family:\'Inter\',sans-serif;">Volver al proveedor</button>'
         + '</div>';
+      // Escuchar cambios de estado en tiempo real
+      if (reservaId && window._fbDb) {
+        import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js').then(function(_fb) {
+          var unsub = _fb.onSnapshot(_fb.doc(window._fbDb, 'reservas', reservaId), function(snap) {
+            var liveEl = document.getElementById('reserva-estado-live');
+            if (!liveEl) { unsub(); return; }
+            if (!snap.exists()) return;
+            var est = snap.data().estado;
+            if (est === 'aceptada') {
+              liveEl.style.background = '#e8f5e1'; liveEl.style.color = '#1FC26A';
+              liveEl.textContent = '✅ ¡Tu reserva fue aceptada!';
+            } else if (est === 'rechazada') {
+              liveEl.style.background = '#FDECEA'; liveEl.style.color = '#D63A2A';
+              liveEl.textContent = '✕ Tu reserva fue rechazada.';
+            }
+          });
+        });
+      }
     }
     _diaSel = null; _horaSel = null;
   };
@@ -6521,7 +6575,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     var sub    = document.getElementById('agenda-subtitle');
     if (!scroll) return;
 
-    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    var uid = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid) || localStorage.getItem('dcuserUid') || '';
     var ag = window.getAgenda ? window.getAgenda() : { dias:[], horarios:[], estado:'activo', reservas:[] };
 
     var pausado = ag.estado === 'pausado';
@@ -6808,14 +6862,15 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 // ── M2-J: v-agenda-reservas — reservas Firestore del proveedor ─
 (function() {
 
-  // Resolver uid del proveedor (mismo patrón que guardarReserva)
+  // Resolver uid del proveedor — usa window._fbAuth (nombre correcto expuesto por el módulo Firebase)
   async function _resolverUid() {
-    if (window.auth && window.auth.currentUser) return window.auth.currentUser.uid;
+    var _auth = window._fbAuth;
+    if (_auth && _auth.currentUser) return _auth.currentUser.uid;
     var uid = await new Promise(function(resolve) {
       var done = false;
-      var t = setTimeout(function(){ if(!done){done=true;resolve('');} }, 3000);
-      if (window.auth && window.auth.onAuthStateChanged) {
-        window.auth.onAuthStateChanged(function(u){
+      var t = setTimeout(function(){ if(!done){done=true;resolve('');} }, 4000);
+      if (_auth && _auth.onAuthStateChanged) {
+        _auth.onAuthStateChanged(function(u){
           if(!done){done=true;clearTimeout(t);resolve(u?u.uid:'');}
         });
       } else { clearTimeout(t); resolve(''); }
@@ -6823,7 +6878,16 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     return uid || localStorage.getItem('dcuserUid') || '';
   }
 
+  // Pestaña activa: 'solicitudes' | 'aceptadas' | 'rechazadas'
+  var _arTab = 'solicitudes';
+
   window._initAgendaReservas = function() {
+    _arTab = 'solicitudes';
+    window._renderAgendaReservas && window._renderAgendaReservas();
+  };
+
+  window._arSetTab = function(tab) {
+    _arTab = tab;
     window._renderAgendaReservas && window._renderAgendaReservas();
   };
 
@@ -6842,65 +6906,113 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       return;
     }
 
+    scroll.innerHTML = '<div style="text-align:center;padding:30px;color:#999;font-size:12px;">Cargando…</div>';
+
     try {
+      var _db = window._fbDb;
       var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-      // Sin orderBy — sin índice compuesto requerido
+      if (!_db) throw new Error('Base de datos no lista. Recarga la app.');
       var q = _fb.query(
-        _fb.collection(db, 'reservas'),
+        _fb.collection(_db, 'reservas'),
         _fb.where('proveedorUid', '==', provUid),
-        _fb.limit(50)
+        _fb.limit(100)
       );
       var snap = await _fb.getDocs(q);
 
-      if (sub) sub.textContent = snap.size + ' reserva' + (snap.size !== 1 ? 's' : '');
-
-      if (snap.empty) {
-        scroll.innerHTML = '<div style="text-align:center;padding:50px 20px;">'
-          + '<div style="font-size:40px;margin-bottom:12px;">📋</div>'
-          + '<div style="font-size:14px;font-weight:700;color:#222;margin-bottom:6px;">Aún no tienes reservas</div>'
-          + '<div style="font-size:12px;color:#888;line-height:1.5;">Cuando los vecinos reserven<br>tu servicio, aparecerán aquí.</div>'
-          + '</div>';
-        return;
-      }
-
-      // Ordenar en JS: pendientes primero, luego por fecha
       var docs = [];
       snap.forEach(function(d){ var r = d.data(); r._fbid = d.id; docs.push(r); });
-      var orden = {pendiente:0, aceptada:1, rechazada:2};
+      // Ordenar por fecha desc dentro de cada grupo
       docs.sort(function(a,b){
-        var oa = orden[a.estado]||0, ob = orden[b.estado]||0;
-        if (oa !== ob) return oa - ob;
-        var ta = a.creada && a.creada.toMillis ? a.creada.toMillis() : (a.creada||0);
-        var tb = b.creada && b.creada.toMillis ? b.creada.toMillis() : (b.creada||0);
+        var ta = a.creada && a.creada.toMillis ? a.creada.toMillis() : (typeof a.creada==='number'?a.creada:0);
+        var tb = b.creada && b.creada.toMillis ? b.creada.toMillis() : (typeof b.creada==='number'?b.creada:0);
         return tb - ta;
       });
 
-      var html = '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:14px 18px 8px;">Todas las reservas</div>'
-        + '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px;overflow:hidden;">';
+      var pendientes  = docs.filter(function(r){ return r.estado === 'pendiente'; });
+      var aceptadas   = docs.filter(function(r){ return r.estado === 'aceptada'; });
+      var rechazadas  = docs.filter(function(r){ return r.estado === 'rechazada'; });
 
-      docs.forEach(function(r) {
-        var col = r.estado === 'aceptada' ? '#1FC26A' : r.estado === 'rechazada' ? '#D63A2A' : '#d97706';
-        var lbl = r.estado === 'aceptada' ? 'Aceptada' : r.estado === 'rechazada' ? 'Rechazada' : 'Pendiente';
-        html += '<div style="padding:13px 14px;border-bottom:.5px solid #f5f5f5;">'
-          + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
-          + '<div style="font-size:13px;font-weight:700;color:#111;">' + (r.vecinoNombre||'Vecino') + '</div>'
-          + '<span style="font-size:10px;font-weight:700;color:'+col+';background:'+col+'18;padding:3px 9px;border-radius:20px;">' + lbl + '</span>'
+      var total = docs.length;
+      if (sub) sub.textContent = total + ' reserva' + (total !== 1 ? 's' : '');
+
+      // ── Cabecera de pestañas ──────────────────────────────────
+      function _tabBtn(id, lbl, count, active) {
+        var sel = _arTab === id;
+        return '<button onclick="window._arSetTab(\''+id+'\')" style="flex:1;padding:10px 4px;border:none;background:'+(sel?'#fff':'transparent')+';border-bottom:2.5px solid '+(sel?'#1FC26A':'transparent')+';font-size:12px;font-weight:'+(sel?'700':'500')+';color:'+(sel?'#1FC26A':'#888')+';cursor:pointer;font-family:\'Inter\',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;">'
+          + lbl
+          + (count > 0 ? '<span style="background:'+(sel?'#1FC26A':'#ddd')+';color:'+(sel?'#fff':'#666')+';border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;">'+count+'</span>' : '')
+          + '</button>';
+      }
+
+      var tabsHtml = '<div style="display:flex;background:#F5F6F0;border-bottom:.5px solid #e0e0e0;flex-shrink:0;">'
+        + _tabBtn('solicitudes','Solicitudes',pendientes.length)
+        + _tabBtn('aceptadas','Aceptadas',aceptadas.length)
+        + _tabBtn('rechazadas','Rechazadas',rechazadas.length)
+        + '</div>';
+
+      // ── Renderizar item ───────────────────────────────────────
+      function _item(r, conBotones) {
+        var fecha = '';
+        try {
+          var d = r.creada && r.creada.toDate ? r.creada.toDate() : (r.creada ? new Date(r.creada) : null);
+          if (d) fecha = d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+        } catch(e) {}
+        var col = r.estado==='aceptada'?'#1FC26A':r.estado==='rechazada'?'#D63A2A':'#d97706';
+        var lbl = r.estado==='aceptada'?'Aceptada':r.estado==='rechazada'?'Rechazada':'Pendiente';
+        var h = '<div style="padding:14px 16px;border-bottom:.5px solid #f5f5f5;">'
+          + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">'
+          + '<div style="font-size:13px;font-weight:700;color:#111;">'+(r.vecinoNombre||'Vecino')+'</div>'
+          + '<span style="font-size:10px;font-weight:700;color:'+col+';background:'+col+'18;padding:2px 8px;border-radius:20px;">'+lbl+'</span>'
           + '</div>'
-          + '<div style="font-size:11px;color:#666;margin-bottom:' + (r.estado==='pendiente'?'10':'0') + 'px;">'
-          + (r.dia||'') + (r.hora ? ' · ' + r.hora : '') + (r.nota ? '<br><span style="color:#999;">📝 ' + r.nota + '</span>' : '')
-          + '</div>';
-        if (r.estado === 'pendiente') {
-          html += '<div style="display:flex;gap:8px;">'
-            + '<button onclick="window._arActualizar(\'' + r._fbid + '\',\'aceptada\')" '
-            + 'style="flex:1;background:#e8f5e1;border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:\'Inter\',sans-serif;">✓ Confirmar</button>'
-            + '<button onclick="window._arActualizar(\'' + r._fbid + '\',\'rechazada\')" '
-            + 'style="flex:1;background:#fdecea;border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:700;color:#D63A2A;cursor:pointer;font-family:\'Inter\',sans-serif;">✕ Rechazar</button>'
+          + '<div style="font-size:12px;color:#555;margin-bottom:2px;">📅 '+(r.dia||'—')+' &nbsp;🕐 '+(r.hora||'—')+'</div>'
+          + (r.nota ? '<div style="font-size:11px;color:#888;margin-bottom:2px;">📝 '+r.nota+'</div>' : '')
+          + (fecha ? '<div style="font-size:10px;color:#bbb;margin-bottom:'+(conBotones?'10':'0')+'px;">Solicitada: '+fecha+'</div>' : '');
+        if (conBotones) {
+          h += '<div style="display:flex;gap:8px;">'
+            + '<button onclick="window._arActualizar(\''+r._fbid+'\',\'aceptada\')" style="flex:1;background:#e8f5e1;border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:\'Inter\',sans-serif;">✓ Aceptar</button>'
+            + '<button onclick="window._arActualizar(\''+r._fbid+'\',\'rechazada\')" style="flex:1;background:#fdecea;border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:700;color:#D63A2A;cursor:pointer;font-family:\'Inter\',sans-serif;">✕ Rechazar</button>'
             + '</div>';
         }
-        html += '</div>';
-      });
-      html += '</div><div style="height:14px;"></div>';
-      scroll.innerHTML = html;
+        h += '</div>';
+        return h;
+      }
+
+      function _empty(msg) {
+        return '<div style="text-align:center;padding:50px 20px;">'
+          + '<div style="font-size:36px;margin-bottom:10px;">📋</div>'
+          + '<div style="font-size:13px;font-weight:700;color:#aaa;">'+msg+'</div>'
+          + '</div>';
+      }
+
+      // ── Contenido según pestaña activa ────────────────────────
+      var lista = '';
+      if (_arTab === 'solicitudes') {
+        if (pendientes.length === 0) {
+          lista = _empty('Sin solicitudes pendientes');
+        } else {
+          lista = '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:12px 14px;overflow:hidden;">';
+          pendientes.forEach(function(r){ lista += _item(r, true); });
+          lista += '</div>';
+        }
+      } else if (_arTab === 'aceptadas') {
+        if (aceptadas.length === 0) {
+          lista = _empty('Sin reservas aceptadas');
+        } else {
+          lista = '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:12px 14px;overflow:hidden;">';
+          aceptadas.forEach(function(r){ lista += _item(r, false); });
+          lista += '</div>';
+        }
+      } else {
+        if (rechazadas.length === 0) {
+          lista = _empty('Sin reservas rechazadas');
+        } else {
+          lista = '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:12px 14px;overflow:hidden;">';
+          rechazadas.forEach(function(r){ lista += _item(r, false); });
+          lista += '</div>';
+        }
+      }
+
+      scroll.innerHTML = tabsHtml + '<div style="overflow-y:auto;flex:1;">' + lista + '<div style="height:14px;"></div></div>';
 
     } catch(e) {
       console.error('[AR ERROR]', e.code||'', e.message);
@@ -6913,11 +7025,41 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     var btn = event && event.target;
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     try {
+      var _db = window._fbDb;
       var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-      await _fb.updateDoc(_fb.doc(db, 'reservas', reservaId), { estado: nuevoEstado });
+      // 1. Actualizar estado reserva
+      await _fb.updateDoc(_fb.doc(_db, 'reservas', reservaId), { estado: nuevoEstado });
+      // 2. Notificar al vecino
+      try {
+        var rSnap = await _fb.getDoc(_fb.doc(_db, 'reservas', reservaId));
+        if (rSnap.exists()) {
+          var rData = rSnap.data();
+          var vecinoUid = rData.vecinoUid || '';
+          if (vecinoUid && !vecinoUid.startsWith('local_')) {
+            var titulo = nuevoEstado === 'aceptada' ? 'Reserva aceptada ✅' : 'Reserva rechazada';
+            var mensaje = nuevoEstado === 'aceptada'
+              ? 'Tu reserva con ' + (rData.proveedorNombre||'el proveedor') + ' para el ' + (rData.dia||'') + ' a las ' + (rData.hora||'') + ' fue aceptada.'
+              : 'Tu reserva con ' + (rData.proveedorNombre||'el proveedor') + ' para el ' + (rData.dia||'') + ' fue rechazada.';
+            await _fb.addDoc(_fb.collection(_db, 'notificaciones'), {
+              uid:       vecinoUid,
+              tipo:      'reserva',
+              modulo:    'mi_agenda',
+              titulo:    titulo,
+              mensaje:   mensaje,
+              leida:     false,
+              eliminada: false,
+              reservaId: reservaId,
+              fecha:     _fb.serverTimestamp(),
+              expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)  // 14 días
+            });
+          }
+        }
+      } catch(ne) { console.warn('[NOTIF VECINO]', ne.message); }
+      // 3. Refrescar vista
+      _arTab = nuevoEstado === 'aceptada' ? 'aceptadas' : 'rechazadas';
       window._renderAgendaReservas && window._renderAgendaReservas();
     } catch(e) {
-      if (btn) { btn.disabled = false; btn.textContent = nuevoEstado === 'aceptada' ? '✓ Confirmar' : '✕ Rechazar'; }
+      if (btn) { btn.disabled = false; btn.textContent = nuevoEstado === 'aceptada' ? '✓ Aceptar' : '✕ Rechazar'; }
       alert('No se pudo actualizar: ' + e.message);
     }
   };
@@ -6926,6 +7068,182 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 // ── FIN M2-J v-agenda-reservas ───────────────────────────────
 </script>
 
+<div class="view go-right" id="v-mi-agenda">
+  <div style="background:linear-gradient(135deg,#0A3A18,#1FC26A);padding:12px 18px 14px;flex-shrink:0;">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si07">
+      <button onclick="go('v-mipanel','left')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;">&#8249;</button>
+      <div>
+        <div class="si13">&#x1F4C5; Mi Agenda</div>
+        <div class="si21" id="ma-subtitle">Tus reservas</div>
+      </div>
+    </div>
+  </div>
+  <!-- tabs fijos, fuera del .scroll -->
+  <div id="ma-tabs" style="display:flex;background:#F5F6F0;border-bottom:.5px solid #e0e0e0;flex-shrink:0;"></div>
+  <!-- lista scrolleable -->
+  <div class="scroll" id="ma-lista" style="padding:0 0 14px;">
+    <div style="text-align:center;padding:40px 20px;color:#999;font-size:13px;">Cargando&#x2026;</div>
+  </div>
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">&#x1F3E0;</div><div class="ni-lb">Inicio</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">&#x1F4AC;</div><div class="ni-lb">Chats</div></div>
+    <div class="ni"><div class="ni-ic">&#x1F4C5;</div><div class="ni-lb" style="color:#1FC26A;">Mi Agenda</div></div>
+    <div class="ni" onclick="go('v-mipanel','left')"><div class="ni-ic">&#x1F464;</div><div class="ni-lb">Mi Panel</div></div>
+  </div>
+</div>
+
+<script>
+// ── Mi Agenda (vecino) ───────────────────────────────────────
+(function() {
+  var _maTab = 'pendientes';
+
+  window._initMiAgenda = function() {
+    _maTab = 'pendientes';
+    _renderTabs();
+    _renderLista();
+    window._renderMiAgenda();
+  };
+
+  window._maSetTab = function(tab) {
+    _maTab = tab;
+    _renderTabs();
+    _renderLista();
+  };
+
+  // Renderiza solo la barra de pestañas (no toca #ma-lista)
+  function _renderTabs(pendN, confN, rechN) {
+    var tabs = document.getElementById('ma-tabs');
+    if (!tabs) return;
+    var counts = window._maCounts || {p:0,c:0,r:0};
+    function _btn(id, lbl, n) {
+      var sel = _maTab === id;
+      var badge = n > 0
+        ? '<span style="background:' + (sel ? '#1FC26A' : '#ccc') + ';color:' + (sel ? '#fff' : '#666') + ';border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:4px;">' + n + '</span>'
+        : '';
+      return '<button onclick="window._maSetTab(\'' + id + '\')" style="flex:1;padding:10px 4px;border:none;border-bottom:2.5px solid ' + (sel ? '#1FC26A' : 'transparent') + ';background:' + (sel ? '#fff' : 'transparent') + ';font-size:12px;font-weight:' + (sel ? '700' : '500') + ';color:' + (sel ? '#1FC26A' : '#888') + ';cursor:pointer;font-family:\'Inter\',sans-serif;display:flex;align-items:center;justify-content:center;">' + lbl + badge + '</button>';
+    }
+    tabs.innerHTML = _btn('pendientes','Pendientes', counts.p) + _btn('confirmadas','Confirmadas', counts.c) + _btn('rechazadas','Rechazadas', counts.r);
+  }
+
+  // Renderiza el contenido de la lista según _maTab
+  function _renderLista() {
+    var lista = document.getElementById('ma-lista');
+    if (!lista) return;
+    var all = window._maDocs || null;
+    if (all === null) {
+      lista.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#999;font-size:13px;">Cargando&#x2026;</div>';
+      return;
+    }
+    var grupo;
+    var emptyMsg;
+    if (_maTab === 'pendientes') {
+      grupo = all.filter(function(r){ return r.estado === 'pendiente'; });
+      emptyMsg = 'Sin reservas pendientes';
+    } else if (_maTab === 'confirmadas') {
+      grupo = all.filter(function(r){ return r.estado === 'aceptada'; });
+      emptyMsg = 'Sin reservas confirmadas';
+    } else {
+      grupo = all.filter(function(r){ return r.estado === 'rechazada'; });
+      emptyMsg = 'Sin reservas rechazadas';
+    }
+    if (grupo.length === 0) {
+      lista.innerHTML = '<div style="text-align:center;padding:50px 20px;"><div style="font-size:36px;margin-bottom:10px;">&#x1F4C5;</div><div style="font-size:13px;font-weight:700;color:#aaa;">' + emptyMsg + '</div></div>';
+      return;
+    }
+    var html = '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:12px 14px;overflow:hidden;">';
+    grupo.forEach(function(r) {
+      var fecha = '';
+      try {
+        var d = r.creada && r.creada.toDate ? r.creada.toDate() : (r.creada ? new Date(r.creada) : null);
+        if (d && !isNaN(d)) fecha = d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      } catch(e2) {}
+      var col = r.estado === 'aceptada' ? '#1FC26A' : r.estado === 'rechazada' ? '#D63A2A' : '#d97706';
+      var lbl = r.estado === 'aceptada' ? 'Confirmada' : r.estado === 'rechazada' ? 'Rechazada' : 'Pendiente';
+      html += '<div style="padding:14px 16px;border-bottom:.5px solid #f5f5f5;">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">'
+        + '<div style="font-size:13px;font-weight:700;color:#111;">' + (r.proveedorNombre || 'Proveedor') + '</div>'
+        + '<span style="font-size:10px;font-weight:700;color:' + col + ';background:' + col + '18;padding:2px 8px;border-radius:20px;">' + lbl + '</span>'
+        + '</div>'
+        + '<div style="font-size:12px;color:#555;margin-bottom:2px;">&#x1F4C5; ' + (r.dia || '&#x2014;') + ' &nbsp;&#x1F550; ' + (r.hora || '&#x2014;') + '</div>'
+        + (r.nota ? '<div style="font-size:11px;color:#888;margin-bottom:2px;">&#x1F4DD; ' + r.nota + '</div>' : '')
+        + (fecha ? '<div style="font-size:10px;color:#bbb;">Solicitada: ' + fecha + '</div>' : '')
+        + '</div>';
+    });
+    html += '</div><div style="height:14px;"></div>';
+    lista.innerHTML = html;
+  }
+
+  window._renderMiAgenda = async function() {
+    var sub = document.getElementById('ma-subtitle');
+    var lista = document.getElementById('ma-lista');
+    if (!lista) return;
+
+    // Reset cache
+    window._maDocs = null;
+    window._maCounts = {p:0,c:0,r:0};
+    _renderTabs();
+    _renderLista(); // muestra "Cargando…"
+
+    // Resolver user — sin esperar más de 3s
+    var user = (window._fbAuth && window._fbAuth.currentUser) || null;
+    if (!user) {
+      user = await new Promise(function(resolve) {
+        var done = false;
+        var t = setTimeout(function(){ if(!done){done=true;resolve(null);} }, 3000);
+        if (window._fbAuth && window._fbAuth.onAuthStateChanged) {
+          var unsub = window._fbAuth.onAuthStateChanged(function(u) {
+            if (!done) { done = true; clearTimeout(t); unsub(); resolve(u || null); }
+          });
+        } else { clearTimeout(t); resolve(null); }
+      });
+    }
+
+    if (!user) {
+      if (sub) sub.textContent = 'Sin sesión';
+      if (lista) lista.innerHTML = '<div style="text-align:center;padding:40px 20px;"><div style="font-size:28px;margin-bottom:10px;">&#x1F512;</div><div style="font-size:13px;color:#888;">Sesión no disponible.</div></div>';
+      return;
+    }
+
+    try {
+      var _db = window._fbDb;
+      if (!_db) throw new Error('Base de datos no lista.');
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      var q = _fb.query(
+        _fb.collection(_db, 'reservas'),
+        _fb.where('vecinoUid', '==', user.uid),
+        _fb.limit(100)
+      );
+      var snap = await _fb.getDocs(q);
+
+      var docs = [];
+      snap.forEach(function(d){ var r = d.data(); r._fbid = d.id; docs.push(r); });
+      docs.sort(function(a, b) {
+        var ta = a.creada && a.creada.toMillis ? a.creada.toMillis() : 0;
+        var tb = b.creada && b.creada.toMillis ? b.creada.toMillis() : 0;
+        return tb - ta;
+      });
+
+      window._maDocs = docs;
+      window._maCounts = {
+        p: docs.filter(function(r){ return r.estado === 'pendiente'; }).length,
+        c: docs.filter(function(r){ return r.estado === 'aceptada'; }).length,
+        r: docs.filter(function(r){ return r.estado === 'rechazada'; }).length
+      };
+
+      if (sub) sub.textContent = docs.length + ' reserva' + (docs.length !== 1 ? 's' : '');
+      _renderTabs();
+      _renderLista();
+
+    } catch(e) {
+      console.error('[MI-AGENDA]', e.message);
+      if (sub) sub.textContent = 'Error';
+      if (lista) lista.innerHTML = '<div style="text-align:center;padding:30px;font-size:12px;color:#D63A2A;">No se pudieron cargar tus reservas.<br>' + e.message + '</div>';
+    }
+  };
+})();
+// ── FIN Mi Agenda (vecino) ───────────────────────────────────
+</script>
 <div class="view go-right" id="v-mis-chats">
       <div class="chats-hdr">
         <div class="sbar dk"><span>9:41</span><span>▲</span></div>
@@ -7738,6 +8056,7 @@ function _goCore(id,dir){
     if(id==='v-agenda-reservas')setTimeout(()=>{window._renderAgendaReservas&&window._renderAgendaReservas();},100);
     if(id==='v-reservar')setTimeout(()=>{window._renderReservar&&window._renderReservar();},100);
     if(id==='v-favoritos')setTimeout(cargarFavoritos,400);
+    if(id==='v-mi-agenda')setTimeout(()=>window._initMiAgenda&&window._initMiAgenda(),200);
     if(id==='v-mis-chats')setTimeout(()=>window.cargarMisChats&&window.cargarMisChats(),300);
     if(id==='v-carrito')renderCarrito();
     // Al entrar a cualquier vista de registro, limpiar checkboxes y formulario
@@ -9124,6 +9443,12 @@ function showAdminTab(i,btn){
     go('v-home', 'right');
   };
 </script>
+
+
+<!-- ══ MI AGENDA (vecino) ══════════════════════════════════════
+  v-mi-agenda: reservas del vecino en Firestore.
+  Acceso: Mi Panel → Mi Agenda
+════════════════════════════════════════════════════════════ -->
 
 </body>
 </html>
