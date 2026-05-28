@@ -2099,11 +2099,12 @@
       var myUid = _auth && _auth.currentUser && _auth.currentUser.uid;
       if (myUid && _db && window._fs) {
         var { getDocs: _gd, collection: _col, query: _q, where: _w } = window._fs;
+        var _lastVisit = parseInt(localStorage.getItem('dcChatsVisto_'+myUid)||'0');
         var cSnap = await _gd(_q(_col(_db,'chats'), _w('participantes','array-contains',myUid)));
         var pendientes = 0;
         cSnap.forEach(function(d){
           var c = d.data();
-          if (c.ultimoEmisor && c.ultimoEmisor !== myUid) pendientes++;
+          if (c.ultimoEmisor && c.ultimoEmisor !== myUid && (!_lastVisit || (c.fecha||0) > _lastVisit)) pendientes++;
         });
         counts['chats'] = pendientes;
       }
@@ -7865,6 +7866,8 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 window.cargarMisChats = async function() {
   window.setBadge&&window.setBadge('chats',0,'normal');
   document.querySelectorAll('.nav-chats-badge').forEach(function(el){el.textContent='';el.style.display='none';});
+  var _vistoUid = window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid;
+  if(_vistoUid) localStorage.setItem('dcChatsVisto_'+_vistoUid, Date.now());
   const container = document.getElementById('lista-mis-chats');
   if(!container) return;
   container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Cargando tus mensajes...</div>';
