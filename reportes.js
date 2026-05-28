@@ -277,7 +277,7 @@ function _mrRenderLista() {
       + _badgePostulantes(r.totalPostulantes || 0)
       + (r.referencia ? '<span style="font-size:10px;color:var(--text-muted);">📍 ' + r.referencia + '</span>' : '')
       + '</div>';
-    card.onclick = function(){ window.verDetalleReporte(r.id, r); };
+    card.onclick = function(){ window._reporteBackView='v-mis-reportes'; window.verDetalleReporte(r.id, r); };
     contenedor.appendChild(card);
   });
 }
@@ -462,7 +462,7 @@ window.cargarReportesDisponibles = async function() {
           }
         </div>`;
       if (!lleno && !yaPostulado) {
-        card.onclick = () => window.verDetalleReporte(r.id, r);
+        card.onclick = () => { window._reporteBackView='v-reportes-disponibles'; window.verDetalleReporte(r.id, r); };
       }
       contenedor.appendChild(card);
     });
