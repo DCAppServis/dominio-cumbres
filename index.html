@@ -7884,6 +7884,7 @@ window.cargarMisChats = async function() {
   try {
     const { collection, getDocs, query, orderBy, limit } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
     const myUid = window._fbAuth.currentUser.uid;
+    const lastVisitTs = parseInt(localStorage.getItem('dcChatsVisto_' + myUid) || '0');
     const chatsSnap = await getDocs(collection(window._fbDb, 'chats'));
     const resultados = [];
     const promises = [];
@@ -7906,7 +7907,7 @@ window.cargarMisChats = async function() {
           nombre: (d.nombres && d.nombres[myUid]) || d.nombreContacto || d.ultimoNombre || 'Usuario',
           ultimo: d.ultimoMsg,
           hora, ts,
-          noRespondido: d.ultimoEmisor !== myUid
+          noRespondido: d.ultimoEmisor !== myUid && ((d.fecha || 0) > lastVisitTs)
         });
       } else {
         // Fallback: leer último mensaje de la subcolección (mensajes viejos)
@@ -7923,7 +7924,7 @@ window.cargarMisChats = async function() {
             nombre: last.remitenteNombre || 'Usuario',
             ultimo: last.texto || '',
             hora, ts,
-            noRespondido: last.remitenteId !== myUid
+            noRespondido: last.remitenteId !== myUid && (((last.timestamp && last.timestamp.seconds ? last.timestamp.seconds * 1000 : 0)) > lastVisitTs)
           });
         })());
       }
