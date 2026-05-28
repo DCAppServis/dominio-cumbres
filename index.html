@@ -2065,6 +2065,11 @@
     document.querySelectorAll('.notif-dot').forEach(function(el) {
       el.style.display = total > 0 ? 'inline-block' : 'none';
     });
+    // Re-renderizar home si está activo para reflejar badges actualizados
+    var vh = document.getElementById('v-home');
+    if (vh && vh.classList.contains('active')) {
+      window.renderHomeM2 && window.renderHomeM2();
+    }
     return notifs;
   };
 
