@@ -91,17 +91,20 @@ function _esProveedor(tipo) {
 // Soporta: categorias[] (nuevo) o categoria (legado)
 function _categoriasDeProveedor(perfil) {
   if (!perfil) return [];
-  // Preferir categorias[] si existe y tiene datos
-  if (Array.isArray(perfil.categorias) && perfil.categorias.length > 0) {
-    return perfil.categorias
-      .map(c => String(c).toLowerCase().trim())
-      .filter(c => c.length > 0);
+  const set = new Set();
+  // categorias[]
+  if (Array.isArray(perfil.categorias)) {
+    perfil.categorias.forEach(c => { const v = String(c).toLowerCase().trim(); if (v) set.add(v); });
   }
-  // Fallback a campo categoria (string)
-  if (perfil.categoria && String(perfil.categoria).trim().length > 0) {
-    return [String(perfil.categoria).toLowerCase().trim()];
+  // campo categoria (string)
+  if (perfil.categoria) {
+    const v = String(perfil.categoria).toLowerCase().trim(); if (v) set.add(v);
   }
-  return [];
+  // oficio1, oficio2, oficio3
+  ['oficio1','oficio2','oficio3'].forEach(k => {
+    if (perfil[k]) { const v = String(perfil[k]).toLowerCase().trim(); if (v) set.add(v); }
+  });
+  return [...set];
 }
 
 // ── Redirigir si el rol no corresponde ──────────────────────
