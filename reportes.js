@@ -499,12 +499,103 @@ function _renderDetalleReporte(id, r) {
         </div>`;
     } else {
       elAccion.innerHTML = `
-        <div style="background:#E8F0F8;border-radius:12px;padding:10px 12px;font-size:11px;color:#1A7AB5;margin-top:8px;">
-          ℹ️ La función de cotizar estará disponible en la próxima actualización.
-        </div>`;
+        <button
+          onclick="window._postularEnReporte('${id}')"
+          style="width:100%;padding:12px;background:var(--green,#1FC26A);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;">
+          💬 Me interesa / Contactar vecino
+        </button>`;
     }
   }
 }
+
+// ── Postular proveedor en reporte y abrir chat con vecino ────
+window._postularEnReporte = async function(reporteId) {
+  const listo = await _esperarFirebase();
+  if (!listo || !window._fbAuth?.currentUser) { alert('Sesión no disponible.'); return; }
+
+  const uid    = window._fbAuth.currentUser.uid;
+  const perfil = await _leerPerfil(uid);
+  if (!perfil) { alert('No se pudo leer tu perfil.'); return; }
+
+  const { getDoc, doc, updateDoc, arrayUnion, increment, setDoc, addDoc, collection, serverTimestamp } =
+    await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+
+  const db      = window._fbDb;
+  const repRef  = doc(db, 'reportes', reporteId);
+  const repSnap = await getDoc(repRef);
+
+  if (!repSnap.exists()) { alert('Solicitud no encontrada.'); return; }
+
+  const r = repSnap.data();
+
+  // Validar estado activo
+  if (r.estado !== 'publicado' && r.estado !== 'en_cotizacion') {
+    alert('Esta solicitud ya no está disponible.'); return;
+  }
+
+  // Validar cupo
+  const _maxPost = (typeof DC_MAX_POSTULANTES !== 'undefined') ? DC_MAX_POSTULANTES : 4;
+  if ((r.totalPostulantes || 0) >= _maxPost) {
+    alert('Esta solicitud ya tiene el máximo de proveedores.'); return;
+  }
+
+  // Validar no duplicado
+  if (Array.isArray(r.postulantes) && r.postulantes.includes(uid)) {
+    alert('Ya te postulaste a esta solicitud.'); return;
+  }
+
+  // Registrar postulante en Firestore
+  await updateDoc(repRef, {
+    postulantes:      arrayUnion(uid),
+    totalPostulantes: increment(1),
+    estado:           'en_cotizacion'
+  });
+
+  // Construir mensaje automático
+  const catLabel  = (DC_CATEGORIAS[r.categoria] || DC_CATEGORIAS.otro).label;
+  const nombreProv = perfil.nombre || localStorage.getItem('dcuser') || 'Proveedor';
+  const msgTexto  = `Hola, vi tu solicitud de ${catLabel}. Soy ${nombreProv} y puedo ayudarte.`;
+
+  // Abrir/crear chat con el vecino (misma lógica que enviarMensaje en index.html)
+  const vecinoId  = r.vecinoId;
+  if (!vecinoId) { console.error('_postularEnReporte: reporte sin vecinoId', reporteId); return; }
+  const idsOrden  = [uid, vecinoId].sort().join('_');
+  const chatId    = 'chat_' + idsOrden;
+
+  await setDoc(doc(db, 'chats', chatId), {
+    participantes:  [uid, vecinoId],
+    ultimoMsg:      msgTexto,
+    ultimoNombre:   nombreProv,
+    nombreContacto: r.vecinoNombre || 'Vecino',
+    ultimoEmisor:   uid,
+    respondido:     false,
+    fecha:          Date.now()
+  }, { merge: true });
+
+  await addDoc(collection(db, 'chats', chatId, 'mensajes'), {
+    texto:           msgTexto,
+    remitenteId:     uid,
+    remitenteNombre: nombreProv,
+    destinatarioId:  vecinoId,
+    timestamp:       serverTimestamp()
+  });
+
+  // Actualizar render del detalle (sin recargar vista)
+  const elAccion = document.getElementById('det-rep-accion');
+  if (elAccion) {
+    elAccion.innerHTML = `
+      <div style="background:#E8F5EE;border-radius:12px;padding:10px 12px;font-size:12px;color:#0A4220;font-weight:700;margin-top:8px;">
+        ✓ Ya enviaste tu cotización para esta solicitud.
+      </div>`;
+  }
+  const elPost = document.getElementById('det-rep-postulantes');
+  if (elPost) elPost.innerHTML = _badgePostulantes((r.totalPostulantes || 0) + 1);
+
+  // Abrir chat para continuar conversación
+  if (typeof window.abrirChatExacto === 'function') {
+    window.abrirChatExacto(chatId, vecinoId, r.vecinoNombre || 'Vecino');
+  }
+};
 
 // ── Inicialización al cargar el formulario ───────────────────
 // Cuando el usuario entra a v-solicitud-nueva, precarga su zona del perfil
