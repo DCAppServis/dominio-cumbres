@@ -7994,6 +7994,24 @@ window.activarNotificacionesProveedor = async function() {
         if(document.visibilityState === 'hidden' && Notification.permission === 'granted') {
           new Notification('Dominio Cumbres 🏡', { body: '¡Tienes un nuevo mensaje de un cliente!' });
         }
+        // Badge y notificación Firestore — guard 60s por chatId
+        const _cid = chatDoc.id;
+        const _now = Date.now();
+        if(!window._provChatNotifTs) window._provChatNotifTs = {};
+        if(!window._provChatNotifTs[_cid] || _now - window._provChatNotifTs[_cid] > 60000) {
+          window._provChatNotifTs[_cid] = _now;
+          try {
+            const { addDoc: _add, collection: _col, serverTimestamp: _st } =
+              await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+            await _add(_col(db, 'notificaciones'), {
+              uid: myUid, tipo: 'chat', modulo: 'chats',
+              titulo: 'Nuevo mensaje', mensaje: m.remitenteNombre || 'Un cliente te escribió.',
+              leida: false, eliminada: false, prioridad: 'normal',
+              chatId: _cid, fecha: _st()
+            });
+            window.actualizarBadgesReales && window.actualizarBadgesReales();
+          } catch(_ne) { console.warn('[NOTIF chat prov]', _ne.message); }
+        }
         window.verificarChatsProveedor && window.verificarChatsProveedor();
       });
       unsubs.push(unsub);
