@@ -70,9 +70,41 @@
     go('v-serv-det','right');
   };
 
-  window.contactarProveedor = function() {
+  window.contactarProveedor = async function() {
     const p = window._proveedorActual || {};
-    abrirChat(p.uid || p.id || p._id || 'demo', p.nombre||'Proveedor', '🔧');
+    const provId = p.uid || p.id || p._id || 'demo';
+    const nombre = p.nombre || 'Proveedor';
+
+    // Buscar chat existente antes de abrir
+    const _auth = window._fbAuth;
+    const _db   = window._fbDb;
+    const myUid = _auth && _auth.currentUser && _auth.currentUser.uid;
+
+    if (myUid && _db && provId !== 'demo') {
+      try {
+        const { collection, getDocs, query, where } = window._fs;
+        const q = query(
+          collection(_db, 'chats'),
+          where('participantes', 'array-contains', myUid)
+        );
+        const snap = await getDocs(q);
+        let chatExistente = null;
+        snap.forEach(doc => {
+          const d = doc.data();
+          if (Array.isArray(d.participantes) && d.participantes.includes(provId)) {
+            chatExistente = { id: doc.id, nombre: (d.nombres && d.nombres[myUid]) || nombre };
+          }
+        });
+        if (chatExistente) {
+          window.abrirChatExacto(chatExistente.id, provId, chatExistente.nombre, 'v-serv-det');
+          return;
+        }
+      } catch(e) {
+        console.warn('[contactarProveedor] búsqueda fallida, abriendo nuevo:', e.message);
+      }
+    }
+
+    abrirChat(provId, nombre, '🔧');
   };
 
   // ============ CARGAR RESTAURANTES DESDE FIREBASE ============
