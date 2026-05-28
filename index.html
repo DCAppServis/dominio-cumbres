@@ -74,11 +74,13 @@
     const p = window._proveedorActual || {};
     const provId = p.uid || p.id || p._id || 'demo';
     const nombre = p.nombre || 'Proveedor';
+    console.log('[DIAG] contactarProveedor — provId:', provId, '| nombre:', nombre);
 
     // Buscar chat existente antes de abrir
     const _auth = window._fbAuth;
     const _db   = window._fbDb;
     const myUid = _auth && _auth.currentUser && _auth.currentUser.uid;
+    console.log('[DIAG] myUid:', myUid);
 
     if (myUid && _db && provId !== 'demo') {
       try {
@@ -88,22 +90,29 @@
           where('participantes', 'array-contains', myUid)
         );
         const snap = await getDocs(q);
+        console.log('[DIAG] chats encontrados por query:', snap.size);
         let chatExistente = null;
         snap.forEach(doc => {
           const d = doc.data();
+          console.log('[DIAG] chat.id:', doc.id, '| participantes:', d.participantes);
           if (Array.isArray(d.participantes) && d.participantes.includes(provId)) {
             chatExistente = { id: doc.id, nombre: (d.nombres && d.nombres[myUid]) || nombre };
+            console.log('[DIAG] coincidencia encontrada — chatId:', doc.id);
           }
         });
         if (chatExistente) {
           window.abrirChatExacto(chatExistente.id, provId, chatExistente.nombre, 'v-serv-det');
           return;
         }
+        console.log('[DIAG] sin coincidencia — cayendo a abrirChat');
       } catch(e) {
         console.warn('[contactarProveedor] búsqueda fallida, abriendo nuevo:', e.message);
       }
+    } else {
+      console.log('[DIAG] saltando query — myUid:', myUid, '| provId:', provId, '| _db:', !!_db);
     }
 
+    console.log('[DIAG] fallback abrirChat — provId:', provId);
     abrirChat(provId, nombre, '🔧');
   };
 
