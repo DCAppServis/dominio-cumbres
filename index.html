@@ -7822,7 +7822,7 @@ window.cargarMisChats = async function() {
         const hora = ts.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
         resultados.push({
           cId, otroId,
-          nombre: d.nombreContacto || d.ultimoNombre || 'Usuario',
+          nombre: (d.nombres && d.nombres[myUid]) || d.nombreContacto || d.ultimoNombre || 'Usuario',
           ultimo: d.ultimoMsg,
           hora, ts,
           noRespondido: d.ultimoEmisor !== myUid
@@ -7969,7 +7969,6 @@ window.verificarChatsProveedor = async function() {
 
 // ============ NOTIFICACIONES WEB v32 ============
 window.activarNotificacionesProveedor = async function() {
-  if(window._provNotifUnsub){window._provNotifUnsub();window._provNotifUnsub=null;}
   if(!window._fbAuth || !window._fbAuth.currentUser) return;
   if(!window._fbDb || !window._fs) return;
   const myUid = window._fbAuth.currentUser.uid;

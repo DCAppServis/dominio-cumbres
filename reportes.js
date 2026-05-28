@@ -567,6 +567,8 @@ window._postularEnReporte = async function(reporteId) {
     ultimoMsg:      msgTexto,
     ultimoNombre:   nombreProv,
     nombreContacto: r.vecinoNombre || 'Vecino',
+    nombres:        { [vecinoId]: nombreProv + ' · ' + catLabel, [uid]: r.vecinoNombre || 'Vecino' },
+    reporteId:      reporteId,
     ultimoEmisor:   uid,
     respondido:     false,
     fecha:          Date.now()
