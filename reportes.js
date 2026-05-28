@@ -595,6 +595,24 @@ window._postularEnReporte = async function(reporteId) {
 
   const vecinoId = r.vecinoId;
   if (!vecinoId) { console.error('_postularEnReporte: reporte sin vecinoId', reporteId); return; }
+
+  // Notificacion al vecino — try/catch independiente, no bloquea postulacion ni chat
+  try {
+    await addDoc(collection(db, 'notificaciones'), {
+      uid:       vecinoId,
+      tipo:      'postulacion',
+      modulo:    'solicitudes_vecino',
+      titulo:    'Nuevo proveedor interesado',
+      mensaje:   nombreProv + ' quiere ayudarte con tu solicitud de ' + catLabel + '.',
+      leida:     false,
+      eliminada: false,
+      prioridad: 'normal',
+      reporteId: reporteId,
+      fecha:     serverTimestamp()
+    });
+  } catch(ne) {
+    console.warn('[NOTIF postulacion]', ne.message);
+  }
   const idsOrden = [uid, vecinoId].sort().join('_');
   const chatId   = 'chat_' + idsOrden;
 

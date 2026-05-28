@@ -2071,12 +2071,13 @@
   // Ruta de módulo para notificación
   window._notifRuta = function(n) {
     var m = n.modulo || n.tipo || '';
-    if (m === 'chat')       return function(){ go('v-mis-chats','right'); setTimeout(cargarMisChats,200); };
-    if (m === 'solicitud')  return function(){ go('v-reportes-disponibles','right'); };
-    if (m === 'pedido')     return function(){ go('v-mis-pedidos-rest','right'); };
-    if (m === 'promocion')  return function(){ window.irACrearPromo && window.irACrearPromo(); };
-    if (m === 'agenda')     return function(){ go('v-agenda-reservas','right'); setTimeout(function(){ window._initAgendaReservas&&window._initAgendaReservas(); },200); };
-    if (m === 'mi_agenda')  return function(){ go('v-mi-agenda','right'); setTimeout(function(){ window._initMiAgenda&&window._initMiAgenda(); },200); };
+    if (m === 'chat')               return function(){ go('v-mis-chats','right'); setTimeout(cargarMisChats,200); };
+    if (m === 'solicitud')          return function(){ go('v-reportes-disponibles','right'); };
+    if (m === 'solicitudes_vecino') return function(){ go('v-mis-reportes','right'); setTimeout(function(){ window.cargarMisReportes&&window.cargarMisReportes(); },300); };
+    if (m === 'pedido')             return function(){ go('v-mis-pedidos-rest','right'); };
+    if (m === 'promocion')          return function(){ window.irACrearPromo && window.irACrearPromo(); };
+    if (m === 'agenda')             return function(){ go('v-agenda-reservas','right'); setTimeout(function(){ window._initAgendaReservas&&window._initAgendaReservas(); },200); };
+    if (m === 'mi_agenda')          return function(){ go('v-mi-agenda','right'); setTimeout(function(){ window._initMiAgenda&&window._initMiAgenda(); },200); };
     return null; // sin ruta específica
   };
   // ── FIN M2-I helpers ─────────────────────────────────────────
@@ -2375,7 +2376,7 @@
     (function limpiarBadgesExpirados() {
       // Módulos válidos por rol
       var modulosPorRol = {
-        vecino:      ['informa'],
+        vecino:      ['informa', 'solicitudes_vecino'],
         proveedor:   ['solicitudes','chats'],
         transporte:  ['solicitudes','chats'],
         repartidor:  ['solicitudes','chats'],
