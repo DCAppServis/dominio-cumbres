@@ -5128,7 +5128,9 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
           <button onclick="window._irAReservar()" style="width:100%;background:#1FC26A;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;">📅 Reservar</button>
         </div>
 
-        <button class="btn btn-green" onclick="go('v-chat','right')">💬 Contactar y agendar →</button>
+        <!-- BOTÓN MODERNO — usa _contactarProveedorModerno -->
+        <button class="btn btn-green" onclick="window._contactarProveedorModerno&&window._contactarProveedorModerno(this)">💬 Contactar proveedor →</button>
+        <!-- LEGACY DESACTIVADO: <button class="btn btn-green" onclick="go('v-chat','right')">💬 Contactar y agendar →</button> -->
         <div style="height:10px;"></div>
       </div>
     </div>
@@ -8061,6 +8063,84 @@ window.activarNotificacionesProveedor = async function() {
   } catch(e) { console.log('Notif error:', e.message); }
 };
 // ============ FIN NOTIFICACIONES ============
+
+// ── Contactar proveedor moderno — busca chat existente antes de abrir ──
+window._contactarProveedorModerno = async function(btn) {
+  const p = window._proveedorActual || {};
+  const provId = p.uid || p.id || p._id || '';
+  const nombre = p.nombre || 'Proveedor';
+
+  if (!provId) { console.warn('[contactar] sin provId'); return; }
+
+  const _auth = window._fbAuth;
+  const _db   = window._fbDb;
+  const myUid = _auth && _auth.currentUser && _auth.currentUser.uid;
+
+  if (!myUid || !_db) {
+    // Fallback seguro: abrir chat con configuración manual
+    window._chatProveedorId      = provId;
+    window._chatIdExacto         = null;
+    window._chatProveedorNombre  = nombre;
+    const nom = document.getElementById('chat-prov-nombre');
+    const ic  = document.getElementById('chat-prov-ic');
+    const bk  = document.querySelector('#v-chat .btn-back');
+    if (nom) nom.textContent = nombre;
+    if (ic)  ic.textContent  = '🔧';
+    if (bk)  bk.onclick = function(){ go('v-serv-det','left'); window.cerrarChat&&window.cerrarChat(); };
+    go('v-chat','right');
+    window.cargarMensajes && window.cargarMensajes();
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
+
+  try {
+    const { collection, getDocs, query, where } = window._fs;
+    const q    = query(collection(_db, 'chats'), where('participantes', 'array-contains', myUid));
+    const snap = await getDocs(q);
+
+    let chatExistente = null;
+    snap.forEach(function(doc) {
+      const d = doc.data();
+      if (Array.isArray(d.participantes) && d.participantes.includes(provId)) {
+        chatExistente = { id: doc.id, nombre: (d.nombres && d.nombres[myUid]) || nombre };
+      }
+    });
+
+    if (chatExistente) {
+      window.abrirChatExacto(chatExistente.id, provId, chatExistente.nombre, 'v-serv-det');
+    } else {
+      window._chatProveedorId      = provId;
+      window._chatIdExacto         = null;
+      window._chatProveedorNombre  = nombre;
+      const nom = document.getElementById('chat-prov-nombre');
+      const ic  = document.getElementById('chat-prov-ic');
+      const bk  = document.querySelector('#v-chat .btn-back');
+      if (nom) nom.textContent = nombre;
+      if (ic)  ic.textContent  = '🔧';
+      if (bk)  bk.onclick = function(){ go('v-serv-det','left'); window.cerrarChat&&window.cerrarChat(); };
+      go('v-chat','right');
+      window.cargarMensajes && window.cargarMensajes();
+    }
+  } catch(e) {
+    console.warn('[contactarModerno] error:', e.message);
+    // Fallback: abrir chat directamente
+    window._chatProveedorId      = provId;
+    window._chatIdExacto         = null;
+    window._chatProveedorNombre  = nombre;
+    const nom = document.getElementById('chat-prov-nombre');
+    const ic  = document.getElementById('chat-prov-ic');
+    const bk  = document.querySelector('#v-chat .btn-back');
+    if (nom) nom.textContent = nombre;
+    if (ic)  ic.textContent  = '🔧';
+    if (bk)  bk.onclick = function(){ go('v-serv-det','left'); window.cerrarChat&&window.cerrarChat(); };
+    go('v-chat','right');
+    window.cargarMensajes && window.cargarMensajes();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💬 Contactar proveedor →'; }
+  }
+};
+// ── FIN contactar proveedor moderno ──────────────────────────
 
 /* NAVIGATION — v23: History API + botón Atrás nativo */
 function _goCore(id,dir){
