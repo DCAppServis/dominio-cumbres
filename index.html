@@ -112,14 +112,8 @@
     }
   };
 
-  // ============ AUTO-CARGAR AL ENTRAR A MODULOS ============
-  const _goOriginal = window.go;
-  window.go = function(id, dir) {
-    _goOriginal(id, dir);
-    if(id === 'v-servicios') cargarProveedores && cargarProveedores();
-    if(id === 'v-food')      cargarRestaurantes();
-  };
   // ============ FIN FIREBASE LOADERS ============
+  // NOTA: auto-carga de v-servicios y v-food está en _goCore (línea ~8035 y 8043)
 </script>
 <script>
   // ── CONFIGURACIÓN EMAILJS ────────────────────────────────
@@ -352,9 +346,6 @@
     }
   };
   
-  // Hacer que cargarProveedores apunte a diagFirebase (que sí funciona)
-  window.cargarProveedores = window.diagFirebase;
-
   // Abrir detalle de proveedor con datos reales
   window.abrirDetalleProveedor = function(p) {
     window._proveedorActual = p;
@@ -1733,7 +1724,7 @@
   // Usa uid de Firebase si está disponible (nunca cambia).
   // Fallback: dcuserTipo, que también es estable por sesión.
   function _estadoKey() {
-    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    var uid = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid) || '';
     if (uid) return 'dcuserEstadoOp_' + uid;
     var tipo = localStorage.getItem('dcuserTipo') || 'u';
     return 'dcuserEstadoOp_t_' + tipo;
@@ -1934,12 +1925,12 @@
   // Clave por usuario: usa uid de Firebase si está disponible.
   // Fallback: dcuserTipo. Mismo patrón que _estadoKey() en M2-D.
   function _favKey() {
-    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    var uid = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid) || '';
     return uid ? 'dcFavoritos_' + uid : 'dcFavoritos_t_' + (localStorage.getItem('dcuserTipo')||'u');
   }
 
   function _recKey() {
-    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    var uid = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid) || '';
     return uid ? 'dcRecientes_' + uid : 'dcRecientes_t_' + (localStorage.getItem('dcuserTipo')||'u');
   }
 
@@ -2127,7 +2118,7 @@
 
   // ── M2-J: RESERVAS (vecino → proveedor) ──────────────────────
   function _reservasKey() {
-    var uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    var uid = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid) || '';
     return uid ? 'dcReservas_' + uid : 'dcReservas_t_' + (localStorage.getItem('dcuserTipo')||'u');
   }
 
@@ -2760,8 +2751,8 @@
         localStorage.setItem('dcuserTipo', datos.tipo || 'vecino');
         localStorage.setItem('dcuserEstado', estado);
         // Guardar uid de Firebase para uso como fallback en funciones async
-        if (window.auth && window.auth.currentUser) {
-          localStorage.setItem('dcuserUid', window.auth.currentUser.uid);
+        if (auth && auth.currentUser) {
+          localStorage.setItem('dcuserUid', auth.currentUser.uid);
         }
 
         if (datos.tipo === 'vecino') {
@@ -4207,14 +4198,6 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
           </a>
         </div>
         <button class="btn btn-yellow-ol" onclick="go('v-splash','left')">← Regresar al inicio</button>
-      </div>
-    </div>
-<div class="view go-right" id="v-home-redirect">
-      <div class="success-wrap">
-        <div class="success-ic" style="border-color:var(--green);">✅</div>
-        <div style="font-size:18px;font-weight:700;color:#fff;text-align:center;margin-bottom:8px;">¡Sesión iniciada!</div>
-        <div style="font-size:12px;color:var(--white-50);text-align:center;line-height:1.7;margin-bottom:24px;">Bienvenido de vuelta,<br><strong class="si04" id="login-nombre-bienvenido">vecino</strong></div>
-        <button class="btn btn-green" onclick="go('v-home','right')">Entrar a la app →</button>
       </div>
     </div>
 <!-- ====== HOME MULTIROL MOCK — visual only, zero functional changes ====== -->
@@ -8117,15 +8100,6 @@ window.addEventListener('popstate',function(e){
   if(e.state&&e.state.viewId){_goCore(e.state.viewId,'left');}
 });
 
-/* LOGIN */
-function checkLogin(){
-  const u=document.getElementById('login-user').value.trim();
-  const p=document.getElementById('login-pass').value;
-  const err=document.getElementById('login-err');
-  if(u&&p){go('v-home-redirect','right');err.style.display='none';}
-  else{err.style.display='block';}
-}
-
 /* FAVORITOS */
 function cargarFavoritos() {
   const lista = document.getElementById('favs-lista');
@@ -8135,7 +8109,7 @@ function cargarFavoritos() {
   let favs = [];
   // Nueva clave por usuario
   try {
-    const uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || '';
+    const uid = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid) || '';
     const key = uid ? 'dcFavoritos_' + uid : 'dcFavoritos_t_' + (localStorage.getItem('dcuserTipo')||'u');
     favs = JSON.parse(localStorage.getItem(key) || '[]');
   } catch(e) { favs = []; }
@@ -8807,7 +8781,6 @@ function setCatS(btn){
   const cat = mapa[nombre] || nombre;
   if(window.diagFirebase) window.diagFirebase(cat);
 }
-function toggleFav(id){const b=document.getElementById(id);b.textContent=b.textContent==='🤍'?'❤️':'🤍';}
 function setStars(n){
   const stars=document.querySelectorAll('#ride-stars .rate-star');
   stars.forEach((s,i)=>s.textContent=i<n?'⭐':'☆');
