@@ -2092,6 +2092,22 @@
         counts[n.modulo] = (counts[n.modulo] || 0) + 1;
       }
     });
+    // Contar chats sin responder directamente desde colección chats
+    try {
+      var _auth = window._fbAuth;
+      var _db   = window._fbDb;
+      var myUid = _auth && _auth.currentUser && _auth.currentUser.uid;
+      if (myUid && _db && window._fs) {
+        var { getDocs: _gd, collection: _col, query: _q, where: _w } = window._fs;
+        var cSnap = await _gd(_q(_col(_db,'chats'), _w('participantes','array-contains',myUid)));
+        var pendientes = 0;
+        cSnap.forEach(function(d){
+          var c = d.data();
+          if (c.ultimoEmisor && c.ultimoEmisor !== myUid) pendientes++;
+        });
+        counts['chats'] = pendientes;
+      }
+    } catch(_ce) { /* silencioso — no bloquear badges de agenda */ }
     // Actualizar badge de cada módulo
     var MODULOS = ['chats','solicitudes','pedidos','promocion','sistema'];
     MODULOS.forEach(function(m) {
