@@ -2106,6 +2106,16 @@
     document.querySelectorAll('.notif-dot').forEach(function(el) {
       el.style.display = total > 0 ? 'inline-block' : 'none';
     });
+    // Actualizar badge rojo de Chats en nav — sin rerenderizar el home
+    var chatCount = counts['chats'] || 0;
+    document.querySelectorAll('.nav-chats-badge').forEach(function(el) {
+      if (chatCount > 0) {
+        el.textContent = chatCount > 9 ? '9+' : String(chatCount);
+        el.style.display = 'inline-flex';
+      } else {
+        el.style.display = 'none';
+      }
+    });
     return notifs;
   };
 
@@ -3031,6 +3041,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 .ni-lb{font-size:9px;font-weight:700;color:#C0C4BA;}
 .notif-w{position:relative;display:inline-block;}
 .notif-dot{width:10px;height:10px;min-width:10px;background:#E53935;border-radius:50%;position:absolute;top:-3px;right:-3px;border:2px solid #fff;z-index:10;}
+.nav-chats-badge{min-width:16px;height:16px;background:#D63A2A;color:#fff;font-size:9px;font-weight:700;border-radius:9px;position:absolute;top:-4px;right:-4px;border:2px solid #fff;z-index:10;display:none;align-items:center;justify-content:center;padding:0 3px;line-height:1;white-space:nowrap;}
 .demo-note{color:var(--white-30);font-size:11px;text-align:center;margin-top:12px;}
 
 /* HOME */
@@ -4750,7 +4761,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
   <!-- ── BOTTOM NAV (igual que antes) ── -->
   <div class="nav">
     <div class="ni"><div class="ni-ic">🏠</div><div class="si04 ni-lb">Inicio</div></div>
-    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div></div>
     <div class="ni" onclick="go('v-notificaciones','right');setTimeout(window.renderNotificaciones,300);"><div class="notif-w"><div class="ni-ic">🔔</div><span class="notif-dot" style="display:none;"></span></div><div class="ni-lb">Alertas</div></div>
     <div class="ni" onclick="go('v-mipanel','right')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
   </div>
@@ -4945,7 +4956,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 
   <div class="nav">
     <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
-    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div></div>
     <div class="ni" onclick="go('v-notificaciones','right');setTimeout(window.renderNotificaciones,300);"><div class="notif-w"><div class="ni-ic">🔔</div><span class="notif-dot" style="display:none;"></span></div><div class="ni-lb">Alertas</div></div>
     <div class="ni"><div class="ni-ic">👤</div><div class="si04 ni-lb">Mi Panel</div></div>
   </div>
@@ -5433,7 +5444,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       <div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div>
     </div>
     <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)">
-      <div class="ni-ic">💬</div><div class="ni-lb">Chats</div>
+      <div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div>
     </div>
     <div class="ni" onclick="go('v-mis-reportes','right');setTimeout(()=>window.cargarMisReportes&&window.cargarMisReportes(),300)">
       <div class="ni-ic">📋</div><div class="ni-lb" style="color:var(--green);">Solicitudes</div>
@@ -5483,7 +5494,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       <div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div>
     </div>
     <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)">
-      <div class="ni-ic">💬</div><div class="ni-lb">Chats</div>
+      <div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div>
     </div>
     <div class="ni" onclick="window.irASolicitudes&&window.irASolicitudes()">
       <div class="ni-ic">📋</div><div class="ni-lb" style="color:var(--green);">Solicitudes</div>
@@ -5530,7 +5541,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       <div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div>
     </div>
     <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)">
-      <div class="ni-ic">💬</div><div class="ni-lb">Chats</div>
+      <div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div>
     </div>
     <div class="ni">
       <div class="ni-ic">📦</div><div class="ni-lb" style="color:#D63A2A;">Pedidos</div>
@@ -6253,7 +6264,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 
   <div class="nav">
     <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
-    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div></div>
     <div class="ni"><div class="ni-ic">🏪</div><div class="ni-lb" style="color:#7B3FA0;">Mi Negocio</div></div>
     <div class="ni" onclick="go('v-mipanel','right')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
   </div>
@@ -6315,7 +6326,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 
   <div class="nav">
     <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
-    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div></div>
     <div class="ni" onclick="window.marcarModuloVisto('pedidos');go('v-mis-pedidos-rest','right')"><div class="ni-ic">📦</div><div class="ni-lb" style="color:#D63A2A;">Pedidos</div></div>
     <div class="ni" onclick="go('v-mipanel','right')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
   </div>
@@ -6580,7 +6591,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 
   <div class="nav">
     <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
-    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div></div>
     <div class="ni"><div class="ni-ic">📅</div><div class="ni-lb" style="color:#1FC26A;">Agenda</div></div>
     <div class="ni" onclick="go('v-mipanel','left')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
   </div>
@@ -6770,7 +6781,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 
   <div class="nav">
     <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
-    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div></div>
     <div class="ni"><div class="notif-w"><div class="ni-ic">🔔</div><span class="notif-dot" style="display:none;"></span></div><div class="ni-lb" style="color:#1f7a38;">Alertas</div></div>
     <div class="ni" onclick="go('v-mipanel','right')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
   </div>
@@ -6882,7 +6893,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
   </div>
   <div class="nav">
     <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
-    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div></div>
     <div class="ni"><div class="ni-ic">📋</div><div class="ni-lb" style="color:#1FC26A;">Reservas</div></div>
     <div class="ni" onclick="go('v-mipanel','left')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>
   </div>
@@ -7117,7 +7128,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
   </div>
   <div class="nav">
     <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">&#x1F3E0;</div><div class="ni-lb">Inicio</div></div>
-    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">&#x1F4AC;</div><div class="ni-lb">Chats</div></div>
+    <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="notif-w"><div class="ni-ic">&#x1F4AC;</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb">Chats</div></div>
     <div class="ni"><div class="ni-ic">&#x1F4C5;</div><div class="ni-lb" style="color:#1FC26A;">Mi Agenda</div></div>
     <div class="ni" onclick="go('v-mipanel','left')"><div class="ni-ic">&#x1F464;</div><div class="ni-lb">Mi Panel</div></div>
   </div>
@@ -7289,7 +7300,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       </div>
       <div class="nav">
         <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
-        <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="ni-ic">💬</div><div class="ni-lb" style="color:var(--green);">Chats</div></div>
+        <div class="ni" onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)"><div class="notif-w"><div class="ni-ic">💬</div><span class="nav-chats-badge" style="display:none;"></span></div><div class="ni-lb" style="color:var(--green);">Chats</div></div>
         <div class="ni"><div class="ni-ic">🔔</div><div class="ni-lb">Alertas</div></div>
         <div class="ni" onclick="go('v-mipanel','right')"><div class="ni-ic">👤</div><div class="ni-lb">Perfil</div></div>
       </div>
