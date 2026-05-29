@@ -263,6 +263,7 @@
         ultimoMsg: texto,
         ultimoNombre: userName,
         nombreContacto: window._chatProveedorNombre || 'Usuario',
+        nombres: { [userId]: window._chatProveedorNombre || 'Proveedor', [provId]: localStorage.getItem('dcuser') || 'Vecino' },
         ultimoEmisor: userId,
         respondido: false,
         fecha: Date.now()
