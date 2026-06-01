@@ -9976,7 +9976,7 @@ function _foodRenderLista(docs) {
                : '🛵 Entrega disponible';
     var badge = r.estado === 'aprobado_pendiente_pago' ? '⏳ Pend. pago' : '✅ Activo';
     var id    = r._id;
-    return '<div class="rest-card" onclick="dcFood_abrirRest('\'' + id + '\'')">'
+    return '<div class="rest-card" onclick="dcFood_abrirRest(&#39;' + id + '&#39;)">'
       + '<div class="rest-banner" style="background:' + bg + ';">' + emoji
       + '<span class="si32">' + badge + '</span>'
       + '</div>'
