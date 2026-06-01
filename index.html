@@ -9735,9 +9735,9 @@ function _foodRenderMenu(el, prods) {
             +     '<div class="menu-price">$' + (p.precio || 0) + '</div>'
             +   '</div>'
             +   '<div class="qty-wrap">'
-            +     '<button class="qty-btn" onclick="dcFood_qtyChange('' + p._id + '',-1,' + p.precio + ','' + n + '','' + c + '')">−</button>'
+            +     '<button class="qty-btn" onclick="dcFood_qtyChange(\'' + p._id + '\',-1,' + p.precio + ',\'' + n + '\',\'' + c + '\')">−</button>'
             +     '<span class="qty-num" id="q-' + p._id + '">' + qty + '</span>'
-            +     '<button class="qty-btn" onclick="dcFood_qtyChange('' + p._id + '',1,' + p.precio + ','' + n + '','' + c + '')">+</button>'
+            +     '<button class="qty-btn" onclick="dcFood_qtyChange(\'' + p._id + '\',1,' + p.precio + ',\'' + n + '\',\'' + c + '\')">+</button>'
             +   '</div>'
             + '</div>';
     });
@@ -9885,10 +9885,10 @@ window.dcFood_renderCarrito = function() {
       '<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-right:8px;">$' + (v.cantidad * v.precio) + '</div>' +
       '<div style="display:flex;align-items:center;gap:4px;">' +
         '<button class="qty-btn" style="width:24px;height:24px;font-size:14px;" ' +
-          'onclick="dcFood_qtyChange('' + id + '',-1,' + v.precio + ','' + nEsc + '','' + cEsc + '');dcFood_renderCarrito();">−</button>' +
+          'onclick="dcFood_qtyChange(\'' + id + '\',-1,' + v.precio + ',\'' + nEsc + '\',\'' + cEsc + '\');dcFood_renderCarrito();">−</button>' +
         '<span style="font-size:13px;font-weight:700;min-width:16px;text-align:center;">' + v.cantidad + '</span>' +
         '<button class="qty-btn" style="width:24px;height:24px;font-size:14px;" ' +
-          'onclick="dcFood_qtyChange('' + id + '',1,' + v.precio + ','' + nEsc + '','' + cEsc + '');dcFood_renderCarrito();">+</button>' +
+          'onclick="dcFood_qtyChange(\'' + id + '\',1,' + v.precio + ',\'' + nEsc + '\',\'' + cEsc + '\');dcFood_renderCarrito();">+</button>' +
       '</div>' +
     '</div>';
   }).join('');
