@@ -631,6 +631,7 @@
     var tipo   = (localStorage.getItem('dcuserTipo')   || 'vecino').toLowerCase();
     var nombre = localStorage.getItem('dcuser') || 'Usuario';
 
+    
     // Mostrar estado operativo en badge del header inmediatamente (no esperar Firebase)
     if (tipo !== 'vecino' && estadoBadge) {
       var _estNow = window.getEstadoOperativo();
