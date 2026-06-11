@@ -7,11 +7,11 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
-  window.VERSION_APP = "M2-Agenda-Reservas-20250527-v7-ajustes7";
+  window.VERSION_APP = "UNIV12-descartar-de-verdad-20260610";
   console.log("%cDOMINIO CUMBRES VERSION: " + window.VERSION_APP, "background:#0f2b14;color:#1FC26A;padding:4px 10px;border-radius:4px;font-weight:700;");
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dominio Cumbres App Servis</title>
+<title>✅ UNIV12 — Dominio Cumbres</title>
 
 <!-- ====== EMAILJS ====== -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -631,7 +631,6 @@
     var tipo   = (localStorage.getItem('dcuserTipo')   || 'vecino').toLowerCase();
     var nombre = localStorage.getItem('dcuser') || 'Usuario';
 
-    
     // Mostrar estado operativo en badge del header inmediatamente (no esperar Firebase)
     if (tipo !== 'vecino' && estadoBadge) {
       var _estNow = window.getEstadoOperativo();
@@ -779,32 +778,7 @@
       );
     }
 
-    // ── M2-D: ESTADO OPERATIVO en Mi Panel (solo no-vecino) ───
-    if (tipo !== 'vecino') {
-      var estActual = window.getEstadoOperativo();
-      var estCfgAct = DC_ESTADOS[estActual] || DC_ESTADOS.activo;
-      html += SEC('Estado de operación');
-      html += '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 12px;padding:14px 16px;">';
-      // Label del estado actual
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
-        + '<div>'
-        + '<div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;" id="mp2-estado-lbl-title">'
-        + estCfgAct.ic + ' ' + estCfgAct.lbl + '</div>'
-        + '<div style="font-size:11px;color:'+estCfgAct.col+';" id="mp2-estado-lbl">' + estCfgAct.desc + '</div>'
-        + '</div>'
-        + '<div style="width:10px;height:10px;border-radius:50%;background:'+estCfgAct.col+';flex-shrink:0;" id="mp2-estado-dot"></div>'
-        + '</div>';
-      // Selector de estado
-      html += '<select id="mp2-estado-sel" onchange="window.setEstadoOperativo(this.value)" '
-        + 'style="width:100%;border:1px solid #e0e0e0;border-radius:10px;padding:9px 12px;font-size:13px;font-family:\'Inter\',sans-serif;color:#111;background:#f8f8f8;cursor:pointer;appearance:none;-webkit-appearance:none;">';
-      Object.keys(DC_ESTADOS).forEach(function(k) {
-        var s = DC_ESTADOS[k];
-        html += '<option value="' + k + '"' + (k === estActual ? ' selected' : '') + '>'
-          + s.ic + ' ' + s.lbl + ' — ' + s.desc + '</option>';
-      });
-      html += '</select>';
-      html += '</div>';
-    }
+    // Estado de operación: se gestiona únicamente desde Configuración del Centro Operativo
 
     html += SEC('Cuenta');
     html += '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 12px;overflow:hidden;">';
@@ -1762,12 +1736,16 @@
   // ── M2-D: ESTADO OPERATIVO ──────────────────────────────────
   // Persiste en localStorage. Preparado para Firestore futuro.
   var DC_ESTADOS = {
-    activo:        { ic:'🟢', lbl:'Activo',           col:'#1FC26A', bg:'#e8f5e1', desc:'Recibiendo solicitudes' },
-    ocupado:       { ic:'🟡', lbl:'Ocupado',           col:'#d97706', bg:'#FFF8DC', desc:'Respuesta lenta' },
-    fuera_horario: { ic:'🕐', lbl:'Fuera de horario',  col:'#666',    bg:'#f0f0f0', desc:'Sin SLA activo' },
-    vacaciones:    { ic:'✈️', lbl:'Vacaciones',        col:'#1A7AB5', bg:'#E8F0F8', desc:'Sin nuevas solicitudes' },
-    invisible:     { ic:'👁',  lbl:'Invisible',         col:'#666',    bg:'#f5f5f5', desc:'No aparece en búsquedas' },
-    cerrado:       { ic:'🔴', lbl:'Cerrado',            col:'#D63A2A', bg:'#FDECEA', desc:'Sin nuevas solicitudes' },
+    activo:  { ic:'🟢', lbl:'Activo',  col:'#1FC26A', bg:'#e8f5e1', desc:'Recibiendo pedidos y solicitudes' },
+    ocupado: { ic:'🟡', lbl:'Ocupado', col:'#d97706', bg:'#FFF8DC', desc:'Respuesta más lenta' },
+    pausado: { ic:'⏸️', lbl:'Pausado', col:'#888',    bg:'#f0f0f0', desc:'Sin nuevos pedidos por ahora' },
+    cerrado: { ic:'🔴', lbl:'Cerrado', col:'#D63A2A', bg:'#FDECEA', desc:'No disponible hoy' },
+  };
+  // REGLA UNIVERSAL DE ESTADO: catálogo unificado (Mi Panel = Configuración).
+  // Estados antiguos guardados (vacaciones/invisible/fuera_horario) se tratan como Pausado.
+  window._normEstadoOp = function(v){
+    if (v==='vacaciones'||v==='invisible'||v==='fuera_horario') return 'pausado';
+    return v;
   };
 
   // Devuelve la clave estable para el estado operativo.
@@ -1781,16 +1759,32 @@
   }
 
   window.getEstadoOperativo = function() {
-    // Usar helper con cálculo por horario si está disponible (Centro Operativo cargado)
-    if (typeof window._estadoEfectivo === 'function') return window._estadoEfectivo();
-    return localStorage.getItem(_estadoKey()) || 'activo';
+    var v = localStorage.getItem(_estadoKey()) || localStorage.getItem('dcRestOpV2') || 'activo';
+    if (window._normEstadoOp) v = window._normEstadoOp(v);
+    var ts = parseInt(localStorage.getItem('dcRestOpV2Ts')||'0',10);
+    if (window._estadoEfectivoDe) { try { return window._estadoEfectivoDe(v, ts, undefined); } catch(e){} }
+    return v;
   };
 
   window.setEstadoOperativo = function(estado) {
+    estado = window._normEstadoOp ? window._normEstadoOp(estado) : estado;
     localStorage.setItem(_estadoKey(), estado);
     // Sincronizar con módulo Centro Operativo
     if (typeof _rEstadoOp !== 'undefined') { _rEstadoOp = estado; }
     localStorage.setItem('dcRestOpV2', estado);
+    // REGLA UNIVERSAL DE ESTADO: todo cambio se guarda SIEMPRE en Firebase con marca de tiempo
+    try{
+      var _tsE = Date.now();
+      localStorage.setItem('dcRestOpV2Ts', String(_tsE));
+      if (typeof _rEstadoOpTs !== 'undefined') { _rEstadoOpTs = _tsE; }
+      var _uidE = localStorage.getItem('dcuid');
+      if (_uidE && window._fbDb) {
+        import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js").then(function(F){
+          return F.setDoc(F.doc(window._fbDb,'usuarios',_uidE),{estadoOp:estado,estadoOpTs:_tsE},{merge:true});
+        }).catch(function(e){ console.warn('[estadoOp] Firestore:', e.message); });
+      }
+    }catch(e){}
+    if (window.dcPintarEstado) { try{ window.dcPintarEstado(); }catch(e){} }
     var cfg = DC_ESTADOS[estado] || DC_ESTADOS.activo;
     // Home label
     var el = document.getElementById('home-estado-op');
@@ -7735,7 +7729,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
             <div>
               <div class="hdr-biz-name" id="hdr-biz-name">Taquería El Paisa</div>
               <div class="hdr-biz-sub">DOMINIO CUMBRES · MONTERREY</div>
-              <div class="hdr-turno-badge">⚡ TURNO ACTIVO</div>
+              
             </div>
           </div>
           <div class="hdr-estado-row">
@@ -7964,7 +7958,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
             </div>
             <div style="flex:1;background:#fff;border-radius:14px;padding:14px;border:.5px solid #ececec;">
               <div style="font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Estado</div>
-              <select id="cmv-estado" class="inp" style="appearance:auto;-webkit-appearance:auto;font-size:12px;padding:10px 10px;" onchange="cmvSyncEstado(this.value);cmvRenderPreview()">
+              <select id="cmv-estado" class="inp" style="appearance:auto;-webkit-appearance:auto;font-size:12px;padding:10px 10px;" onchange="cmvPreviewEstado(this.value);cmvRenderPreview()">
                 <option value="activo">&#128994; Abierto</option>
                 <option value="ocupado">&#128993; Ocupado</option>
                 <option value="pausado">&#9208;&#65039; Pausado</option>
@@ -8286,7 +8280,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
             <div style="width:10px;height:10px;border-radius:50%;background:var(--green);" id="cfg-est-dot"></div>
           </div>
           <div class="estado-cfg-body">
-            <select class="inp-sel" id="cfg-est-sel" onchange="cambiarEstadoOp(this.value)">
+            <select class="inp-sel" id="cfg-est-sel" onchange="cfgPreviewEstado(this.value)">
               <option value="activo">🟢 Activo — Recibiendo pedidos</option>
               <option value="ocupado">🟡 Ocupado — Respuesta más lenta</option>
               <option value="pausado">⏸️ Pausado — Sin nuevos pedidos por ahora</option>
@@ -10219,6 +10213,9 @@ function _goCore(id,dir){
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     tgt.classList.remove('go-right','go-left');
     tgt.classList.add('active');
+    // REGLA UNIVERSAL: toda pantalla inicia desde arriba
+    try{tgt.scrollTop=0;tgt.querySelectorAll('*').forEach(function(el){if(el.scrollTop)el.scrollTop=0;});}catch(e){}
+    if(window._dcDirtyV&&window._dcDirtyV!==tgt.id)window._dcDirtyV=null;
     // Auto-trigger data-onenter
     const fn=tgt.getAttribute('data-onenter');
     if(fn&&window[fn])setTimeout(()=>window[fn](),200);
@@ -10306,6 +10303,7 @@ function go(id,dir){
     if(_bv2){_bv2.textContent='Crear mi cuenta →';_bv2.disabled=false;}
   }
   if(!id||!document.getElementById(id)||(cur&&cur.id===id))return;
+  if(dir==='left'&&cur&&typeof window._dcConfirmarSalida==='function'&&!window._dcConfirmarSalida(cur.id))return;
   history.pushState({viewId:id},'','');
   _goCore(id,dir);
 }
@@ -10318,6 +10316,48 @@ function go(id,dir){
 window.addEventListener('popstate',function(e){
   if(e.state&&e.state.viewId){_goCore(e.state.viewId,'left');}
 });
+// ===== REGLA UNIVERSAL DE REGRESO =====
+// Todo botón ‹ regresa a la pantalla inmediata anterior (historial real),
+// el mismo mecanismo del botón atrás del celular que ya funciona.
+// Excepción: el Centro Operativo (vr-*) conserva su propio historial interno.
+document.addEventListener('click',function(ev){
+  var b=ev.target&&ev.target.closest?ev.target.closest('.btn-back'):null;
+  if(!b)return;
+  if(b.closest('#vr-shell'))return;
+  var oc=(b.getAttribute('onclick')||'');
+  if(oc.indexOf('navTo')!==-1||oc.indexOf('navBack')!==-1)return;
+  ev.preventDefault();ev.stopImmediatePropagation();ev.stopPropagation();
+  var cur=document.querySelector('.view.active');
+  if(cur&&typeof window._dcConfirmarSalida==='function'&&!window._dcConfirmarSalida(cur.id))return;
+  if(cur&&cur.id==='v-chat'&&typeof cerrarChat==='function'){try{cerrarChat();}catch(e){}}
+  if(cur&&cur.id==='v-reg-vecino'){var _b=document.getElementById('btn-reg-vecino');if(_b){_b.textContent='Crear mi cuenta \u2192';_b.disabled=false;}}
+  history.back();
+},true);
+// ===== REGLA UNIVERSAL: CAMBIOS SIN GUARDAR (toda la app) =====
+// Cualquier captura en cualquier pantalla marca la pantalla como "con cambios".
+// Al intentar REGRESAR de esa pantalla, se pide confirmación.
+// Excepciones: búsquedas, chat y login (no son capturas que se "guarden").
+window._dcDirtyV = null;
+var _DC_DIRTY_VISTAS_EXCL = ['v-login','v-admin-login','v-busqueda','v-chat'];
+var _DC_DIRTY_IDS_EXCL = ['busqueda-input','chat-input','menu-search-inp'];
+document.addEventListener('change', _dcDirtyUniv, true);
+document.addEventListener('input',  _dcDirtyUniv, true);
+function _dcDirtyUniv(ev){
+  var t=ev.target; if(!t||!t.closest) return;
+  if(_DC_DIRTY_IDS_EXCL.indexOf(t.id)!==-1) return;
+  var ph=(t.getAttribute&&t.getAttribute('placeholder'))||'';
+  if(ph.toLowerCase().indexOf('buscar')!==-1) return;
+  var v=t.closest('.view'); if(!v||!v.id) return;
+  if(v.closest('#vr-shell')) return; // el Centro Operativo tiene su propio aviso
+  if(_DC_DIRTY_VISTAS_EXCL.indexOf(v.id)!==-1) return;
+  window._dcDirtyV=v.id;
+}
+window._dcConfirmarSalida=function(curId){
+  if(!window._dcDirtyV||window._dcDirtyV!==curId) return true;
+  var ok=window.confirm('\u26A0\uFE0F Tienes cambios sin guardar.\n\nPresiona CANCELAR para quedarte,\no ACEPTAR para salir sin guardar.');
+  if(ok) window._dcDirtyV=null;
+  return ok;
+};
 
 /* FAVORITOS */
 function cargarFavoritos() {
@@ -11861,20 +11901,10 @@ function _dcfRenderLista(docs) {
     // Estado efectivo — usa el helper canónico window._calcEstadoHorario
     // Misma fuente que "Cómo me ve el cliente" (cmvRenderPreview → _estadoEfectivo → _calcEstadoHorario)
     // Recibe r.horarios del DOC de este restaurante — no variables globales, no localStorage
-    var manualOp = r.estadoOp; // undefined si nunca se guardó en Firestore
-    var estOp;
-    if (manualOp === 'ocupado' || manualOp === 'pausado' || manualOp === 'cerrado') {
-      estOp = manualOp; // estado manual especial — máxima prioridad
-    } else {
-      var _porHorario = (typeof window._calcEstadoHorario === 'function')
-        ? window._calcEstadoHorario(r.horarios && r.horarios.length ? r.horarios : null)
-        : null;
-      if (_porHorario !== null) {
-        estOp = _porHorario; // 'activo' o 'cerrado' calculado por horario de este restaurante
-      } else {
-        estOp = manualOp || 'activo'; // sin horarios → estado manual o fallback activo
-      }
-    }
+    // REGLA UNIVERSAL DE ESTADO — mismo helper canónico para todos los usuarios
+    var estOp = (typeof window._estadoEfectivoDe === 'function')
+      ? window._estadoEfectivoDe(r.estadoOp, r.estadoOpTs || 0, r.horarios && r.horarios.length ? r.horarios : null)
+      : (r.estadoOp || 'activo');
 
     var estLabel, estStyle;
     if (estOp === 'cerrado') {
@@ -11916,16 +11946,9 @@ window.dcFood_abrirRest = async function(restId) {
   if (!r) return;
 
   // ── Calcular estado efectivo — mismo helper canónico que cmvRenderPreview
-  var manualOp = r.estadoOp;
-  var estEfect;
-  if (manualOp === 'ocupado' || manualOp === 'pausado' || manualOp === 'cerrado') {
-    estEfect = manualOp;
-  } else {
-    var _ph2 = (typeof window._calcEstadoHorario === 'function')
-      ? window._calcEstadoHorario(r.horarios && r.horarios.length ? r.horarios : null)
-      : null;
-    estEfect = (_ph2 !== null) ? _ph2 : (manualOp || 'activo');
-  }
+  var estEfect = (typeof window._estadoEfectivoDe === 'function')
+    ? window._estadoEfectivoDe(r.estadoOp, r.estadoOpTs || 0, r.horarios && r.horarios.length ? r.horarios : null)
+    : (r.estadoOp || 'activo');
 
   // ── Bloquear entrada si cerrado — mostrar modal propio
   if (estEfect === 'cerrado') {
@@ -13035,14 +13058,59 @@ function _calcEstadoHorario(horariosArr) {
 }
 window._calcEstadoHorario = _calcEstadoHorario; // expuesto globalmente
 
-function _estadoEfectivo(horariosArr) {
-  var manual = _rEstadoOp || 'activo';
-  if (manual === 'ocupado' || manual === 'pausado' || manual === 'cerrado') return manual;
+// REGLA UNIVERSAL DE ESTADO — el estado manual se respeta hasta el siguiente
+// cambio de horario (apertura o cierre); a partir de ahí el horario retoma el control.
+function _ultimoLimiteHorario(horariosArr) {
+  var arr = (horariosArr !== undefined && horariosArr !== null)
+    ? horariosArr
+    : (horariosArr === undefined && typeof HORARIOS !== 'undefined' ? HORARIOS : null);
+  if (!arr || !arr.length) return null;
+  var DIAS = ['dom','lun','mar','mie','jue','vie','sab'];
+  var ahora = new Date(); var now = ahora.getTime(); var best = null;
+  var hhmm = function(s){ var p=(s||'').split(':'); return parseInt(p[0]||0,10)*60+parseInt(p[1]||0,10); };
+  for (var back=0; back<8; back++) {
+    var d = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()-back);
+    var key = DIAS[d.getDay()]; var h = null;
+    for (var i=0;i<arr.length;i++){ if(arr[i].id===key){ h=arr[i]; break; } }
+    if (!h || !h.abierto) continue;
+    var abre=hhmm(h.abre), cierra=hhmm(h.cierra);
+    if (cierra<=abre) cierra+=24*60;
+    var tA = new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,abre).getTime();
+    var tC = new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,cierra).getTime();
+    if (tC<=now && (best===null||tC>best)) best=tC;
+    if (tA<=now && (best===null||tA>best)) best=tA;
+    if (best!==null) break;
+  }
+  return best;
+}
+window._estadoEfectivoDe = function(manualOp, manualTs, horariosArr) {
+  if (window._normEstadoOp) manualOp = window._normEstadoOp(manualOp);
   var porHorario = _calcEstadoHorario(horariosArr);
-  if (porHorario === null) return manual;
-  return porHorario;
+  var esManual = (manualOp==='activo'||manualOp==='ocupado'||manualOp==='pausado'||manualOp==='cerrado');
+  if (esManual && manualTs) {
+    var lim = _ultimoLimiteHorario(horariosArr);
+    if (lim === null || manualTs >= lim) return manualOp; // manual vigente hasta el siguiente cambio de horario
+    return (porHorario === null) ? manualOp : porHorario;  // el horario retomó el control
+  }
+  // Datos antiguos sin marca de tiempo: comportamiento previo
+  if (manualOp==='ocupado'||manualOp==='pausado'||manualOp==='cerrado') return manualOp;
+  return (porHorario === null) ? (manualOp || 'activo') : porHorario;
+};
+function _estadoEfectivo(horariosArr) {
+  return window._estadoEfectivoDe(_rEstadoOp || 'activo', _rEstadoOpTs || 0, horariosArr);
 }
 window._estadoEfectivo = _estadoEfectivo; // expuesto globalmente
+// PINTOR UNIVERSAL DE ESTADO: repinta el indicador del home con el estado EFECTIVO
+window.dcPintarEstado = function(){
+  try{
+    var ef  = _estadoEfectivo();
+    var cfg = DC_ESTADOS[ef] || DC_ESTADOS.activo;
+    var dot  = document.getElementById('home-estado-dot');
+    var lbl_ = document.getElementById('home-estado-lbl');
+    if (dot)  dot.className = 'estado-dot ' + cfg.dotEl;
+    if (lbl_) lbl_.textContent = cfg.lbl;
+  }catch(e){}
+};
 
 var GRUPOS = {
   pedidos:    ['nuevo'],
@@ -13080,6 +13148,7 @@ function lbl(e){ return ESTADO_LABELS[e]||e; }
    ESTADO LOCAL
 ═══════════════════════════════════════════════════════ */
 var _rEstadoOp    = localStorage.getItem('dcRestOpV2') || 'activo';
+var _rEstadoOpTs  = parseInt(localStorage.getItem('dcRestOpV2Ts')||'0',10);
 var _rPedTab      = 'pedidos';
 var _rMenuCat     = 'todos';
 var _rPedActivo   = null;
@@ -13134,6 +13203,25 @@ function dcRest_navTo(id, isBack) {
     : document.querySelector('#vr-shell .view.active');
   var nxt = document.getElementById(id);
   if (!cur || !nxt || cur === nxt) return;
+
+  // REGLA: avisar antes de salir con cambios sin guardar (Configuración / Cómo me ve el cliente)
+  if (window._dirtyView && cur.id === window._dirtyView) {
+    var _seguir = window.confirm('\u26A0\uFE0F Tienes cambios sin guardar.\n\nPresiona CANCELAR para quedarte y guardarlos,\no ACEPTAR para salir sin guardar.');
+    if (!_seguir) return;
+    window._dirtyView = null;
+    // DESCARTAR DE VERDAD: nada se guardó; restaurar la pantalla a lo último guardado
+    if (cur.id === 'vr-config') {
+      window._cfgEstadoPend = null;
+      try {
+        if (window._cfgSnapHor) { HORARIOS = JSON.parse(window._cfgSnapHor); }
+        var _selR = document.getElementById('cfg-est-sel');
+        var _efR = _estadoEfectivo();
+        if (_selR) _selR.value = _efR;
+        _syncEstadoCfgUI(_efR);
+        _renderHorarios();
+      } catch(e){}
+    }
+  }
 
   // RESET SCROLL — siempre al inicio en la vista destino
   _resetScroll(id);
@@ -13210,6 +13298,19 @@ function dcRest_navBack() {
 var navBack = dcRest_navBack;
 window.dcRest_navBack = dcRest_navBack;
 
+/* ── CAMBIOS SIN GUARDAR — aviso antes de salir ─────────────── */
+window._dirtyView = null;
+function _marcarSucio(viewId) { window._dirtyView = viewId; }
+// Inputs, selects y textareas dentro de las dos pantallas (el estado NO cuenta: se guarda al instante)
+document.addEventListener('change', _dcDirtyEv, true);
+document.addEventListener('input',  _dcDirtyEv, true);
+function _dcDirtyEv(ev) {
+  var t = ev.target; if (!t || !t.closest) return;
+  if (t.closest('#vr-config')) _marcarSucio('vr-config');
+  else if (t.closest('#vr-cmv')) _marcarSucio('vr-cmv');
+  else if (t.closest('#vr-prod-form')) _marcarSucio('vr-prod-form');
+}
+
 function _resetScroll(id) {
   var SCROLLABLE = {
     'vr-home':'home-scr', 'vr-pedidos':'ped-scr', 'vr-det-pedido':'det-scr',
@@ -13224,6 +13325,7 @@ function _resetScroll(id) {
 }
 
 function _onViewEnter(id) {
+  window._dirtyView = null;
   if (id === 'vr-home') {
     if (!_vrIsD()) {
       _vrCargarPedidos().then(function(){ _renderHome(); });
@@ -13274,6 +13376,7 @@ function _updateHora() {
   var h = String(now.getHours()).padStart(2,'0');
   var m = String(now.getMinutes()).padStart(2,'0');
   el.textContent = h + ':' + m;
+  if (window.dcPintarEstado) window.dcPintarEstado(); // el horario puede retomar el control con el tiempo
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -14341,6 +14444,7 @@ function togglePfDisp() {
 }
 
 function guardarProducto() {
+  window._dirtyView = null;
   var nombre = document.getElementById('pf-nombre').value.trim();
   var cat    = document.getElementById('pf-cat').value.trim();
   var precio = parseFloat(document.getElementById('pf-precio').value)||0;
@@ -14458,6 +14562,9 @@ function _renderNotif() {
    CONFIGURACIÓN
 ═══════════════════════════════════════════════════════ */
 function _initConfig() {
+  window._dirtyView = null;
+  window._cfgEstadoPend = null;
+  try { window._cfgSnapHor = JSON.stringify(HORARIOS); } catch(e){}
   var sel = document.getElementById('cfg-est-sel');
   var estMostrar = _estadoEfectivo(); // usa horario + prioridad manual
   if (sel) sel.value = estMostrar;
@@ -14465,11 +14572,19 @@ function _initConfig() {
   _renderHorarios();
 }
 
+function cfgPreviewEstado(val) {
+  // Solo vista previa — NO guarda nada; el guardado ocurre con el botón Guardar
+  window._cfgEstadoPend = val;
+  _syncEstadoCfgUI(val);
+  _marcarSucio('vr-config');
+}
 function cambiarEstadoOp(val) {
   _rEstadoOp = val;
+  _rEstadoOpTs = Date.now();
   localStorage.setItem('dcRestOpV2', val);
+  localStorage.setItem('dcRestOpV2Ts', String(_rEstadoOpTs));
   // Sincronizar con la llave del index
-  try { localStorage.setItem('dcEstOp_' + (localStorage.getItem('dcuid')||''), val); } catch(e){}
+  try { (function(){ var _uS=_vrUid(); if(_uS){ localStorage.setItem('dcuserEstadoOp_'+_uS, val); } })(); } catch(e){}
   _syncEstadoCfgUI(val);
   toast('Estado: ' + DC_ESTADOS[val].ic + ' ' + DC_ESTADOS[val].lbl.charAt(0) + DC_ESTADOS[val].lbl.slice(1).toLowerCase());
   // Centro Operativo — home estado dot/lbl
@@ -14485,7 +14600,7 @@ function cambiarEstadoOp(val) {
     var uid=_vrUid(); var db=_vrDb(); if(!uid||!db) return;
     try {
       var f=await _vrFb();
-      await f.setDoc(f.doc(db,'usuarios',uid),{estadoOp:val},{merge:true});
+      await f.setDoc(f.doc(db,'usuarios',uid),{estadoOp:val, estadoOpTs:_rEstadoOpTs},{merge:true});
     } catch(e){ console.warn('[estadoOp] No se pudo guardar en Firestore:', e.message); }
   })();
 }
@@ -14543,6 +14658,7 @@ function _renderHorarios() {
 }
 
 function toggleDia(diaId) {
+  _marcarSucio('vr-config');
   var h = HORARIOS.find(function(x){ return x.id===diaId; });
   if (!h) return;
   h.abierto = !h.abierto;
@@ -14566,6 +14682,9 @@ function aplicarHorarioATodos() {
 
 var _rCfgConfirmTimer; // conservado — código muerto desde el cambio a overlay, documentado
 function guardarConfig() {
+  window._dirtyView = null;
+  if (window._cfgEstadoPend) { cambiarEstadoOp(window._cfgEstadoPend); window._cfgEstadoPend = null; }
+  window._cfgSnapHor = JSON.stringify(HORARIOS);
   localStorage.setItem('dcRestOpV2', _rEstadoOp);
   // Persistir horarios y estado en Firestore — fuente para cálculo automático
   if (!_vrIsD()) {
@@ -14577,7 +14696,7 @@ function guardarConfig() {
         var hSer = HORARIOS.map(function(h){
           return {id:h.id, dia:h.dia, abre:h.abre, cierra:h.cierra, abierto:h.abierto};
         });
-        await f.setDoc(f.doc(db,'usuarios',uid),{estadoOp:_rEstadoOp, horarios:hSer},{merge:true});
+        await f.setDoc(f.doc(db,'usuarios',uid),{estadoOp:_rEstadoOp, estadoOpTs:(_rEstadoOpTs||Date.now()), horarios:hSer},{merge:true});
       } catch(e){ console.warn('[guardarConfig] Firestore:', e.message); }
     })();
   }
@@ -14590,6 +14709,7 @@ function guardarConfig() {
   });
 }
 function togglePago(tipo) {
+  _marcarSucio('vr-config');
   _rPagos[tipo] = !_rPagos[tipo];
   var el = document.getElementById('pg-' + tipo);
   if (!el) return;
@@ -14658,13 +14778,22 @@ function cmvRenderPreview() {
 }
 
 function cmvSyncEstado(val) {
+  // COMMIT del estado — SOLO se llama desde el botón Guardar
+  val = window._normEstadoOp ? window._normEstadoOp(val) : val;
   _rEstadoOp = val;
+  _rEstadoOpTs = Date.now();
   localStorage.setItem('dcRestOpV2', val);
-  try { localStorage.setItem('dcEstOp_' + (localStorage.getItem('dcuid')||''), val); } catch(e){}
+  localStorage.setItem('dcRestOpV2Ts', String(_rEstadoOpTs));
+  try { (function(){ var _uS=_vrUid(); if(_uS){ localStorage.setItem('dcuserEstadoOp_'+_uS, val); } })(); } catch(e){}
   if (typeof window.setEstadoOperativo === 'function') window.setEstadoOperativo(val);
+}
+function cmvPreviewEstado(val) {
+  // Solo vista previa — NO guarda nada; el guardado ocurre con el botón Guardar
+  window._dirtyView = 'vr-cmv';
 }
 
 async function cmvCargar() {
+  window._dirtyView = null;
   // SIEMPRE resetear estado visual antes de cargar — evita mezcla entre usuarios
   _cmvFotoData      = null;
   _cmvFotoNueva     = null; // ninguna foto nueva seleccionada aún
@@ -14714,6 +14843,7 @@ async function cmvCargar() {
 }
 
 async function cmvGuardar() {
+  window._dirtyView = null;
   var btn    = document.getElementById('cmv-btn-guardar');
   var nombre = (document.getElementById('cmv-nombre')||{}).value || '';
   var desc   = (document.getElementById('cmv-desc')||{}).value   || '';
@@ -14731,14 +14861,19 @@ async function cmvGuardar() {
   if (btn) { btn.disabled=true; btn.textContent='Guardando...'; }
   try {
     var f = await _vrFb();
-    var data = { estadoOp: estado };
+    var data = { estadoOp: estado, estadoOpTs: (_rEstadoOpTs||Date.now()) };
     if (nombre) data.nombreNegocio = nombre;
     if (desc)   data.descripcion   = desc;
     if (cat)    data.categoria     = cat;
     if (dirRec) data.direccionNegocio = dirRec; // campo principal para dirección del negocio
     var fotoAGuardar = _cmvFotoNueva || _cmvFotoExistente;
     if (fotoAGuardar) data.fotoPerfil = fotoAGuardar;
-    await f.setDoc(f.doc(db, 'usuarios', uid), data, { merge: true });
+    // Esperar la confirmación de Firebase MÁXIMO 8 segundos; el dato ya va en camino
+    // (desde archivo local la confirmación a veces tarda o no llega, pero el guardado sí ocurre)
+    await Promise.race([
+      f.setDoc(f.doc(db, 'usuarios', uid), data, { merge: true }),
+      new Promise(function(res){ setTimeout(res, 8000); })
+    ]);
     // Actualizar encabezado del Centro Operativo con el nuevo nombre
     if (nombre) {
       var hdBiz = document.getElementById('hdr-biz-name');
@@ -14754,6 +14889,9 @@ async function cmvGuardar() {
 function _cmvFinalFeliz() {
   // NO destruir el DOM — solo toast de éxito y regresar al panel
   // El formulario permanece intacto y reconfigurable la próxima vez
+  var _b = document.getElementById('cmv-btn-guardar');
+  if (_b) { _b.disabled = false; _b.textContent = 'Guardar cambios'; }
+  window._dirtyView = null;
   toast('✅ ¡Listo! Tus clientes ya ven tu información actualizada');
   navTo('vr-home', true);
 }
@@ -14784,7 +14922,9 @@ window.dcRest_init = function() {
           var nombre=d.nombreNegocio||d.nombre||'';
           if(nombre){ var hdBiz=document.getElementById('hdr-biz-name'); if(hdBiz) hdBiz.textContent=nombre; }
           // Cargar estado operativo guardado
-          if(d.estadoOp){ _rEstadoOp=d.estadoOp; localStorage.setItem('dcRestOpV2',d.estadoOp); }
+          if(d.estadoOp){ _rEstadoOp=(window._normEstadoOp?window._normEstadoOp(d.estadoOp):d.estadoOp); localStorage.setItem('dcRestOpV2',_rEstadoOp);
+            try{ var _uK=_vrUid(); if(_uK){ localStorage.setItem('dcuserEstadoOp_'+_uK, _rEstadoOp); } }catch(e){} }
+          if(d.estadoOpTs){ _rEstadoOpTs=d.estadoOpTs; localStorage.setItem('dcRestOpV2Ts',String(d.estadoOpTs)); }
           else if(_rEstadoOp && _rEstadoOp !== 'activo') {
             // El doc no tiene estadoOp pero localmente hay uno — sincronizar a Firestore
             (async function(_uid,_db,_est){
