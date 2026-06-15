@@ -141,7 +141,7 @@
             <span class="si32">&#x23F0; ${r.horario||'Ver horario'}</span>
           </div>
           <div class="rest-body">
-            <div class="si05"><div class="rest-name">${r.nombreNegocio||r.nombre||'&#x2014;'}</div><span class="si44">Abierto</span></div>
+            <div class="si05"><div class="rest-name">${r.nombreNegocio||r.nombre||'&#x2014;'}</div><span class="si44" style="${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'background:#FDECEA;color:#D63A2A':_e==='pausado'?'background:#f0f0f0;color:#888':_e==='ocupado'?'background:#FFF8E1;color:#d97706':'background:var(--green-lt);color:var(--green-dk)';})()}">${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'🔴 Cerrado':_e==='pausado'?'⏸ Pausado':_e==='ocupado'?'🟡 Ocupado':'🟢 Abierto';})()}</span></div>
             <div style="font-size:11px;color:var(--text-hint);margin-top:3px;">&#x2B50; Nuevo en la app</div>
             <div class="rest-footer"><span class="si01">${r.descripcion||''}</span><span class="si16">Pedir &#x2192;</span></div>
           </div>`;
@@ -1072,7 +1072,7 @@
           <div class="rest-body">
             <div class="si05">
               <div class="rest-name">${r.nombreNegocio||r.nombre||'—'}</div>
-              <span class="si44">Abierto</span>
+              <span class="si44" style="${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'background:#FDECEA;color:#D63A2A':_e==='pausado'?'background:#f0f0f0;color:#888':_e==='ocupado'?'background:#FFF8E1;color:#d97706':'background:var(--green-lt);color:var(--green-dk)';})()}">${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'🔴 Cerrado':_e==='pausado'?'⏸ Pausado':_e==='ocupado'?'🟡 Ocupado':'🟢 Abierto';})()}</span>
             </div>
             <div style="font-size:11px;color:var(--text-hint);margin-top:3px;">⭐ Nuevo · ${r.descripcion||r.categoria||''}</div>
             <div class="rest-footer"><span class="si01">Envío disponible</span><span class="si16">Pedir →</span></div>
@@ -1086,43 +1086,211 @@
     }
   };
 
-  // ===== CARGAR COMERCIOS (Plaza Digital) con acceso directo a db =====
-  window.cargarPlaza = async function() {
-    const lista = document.getElementById('plaza-lista');
-    if(!lista) return;
-    lista.innerHTML = '<div class="si24">Cargando comercios... ⏳</div>';
-    try {
-      const { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-      const snap = await getDocs(query(collection(db,'usuarios'), where('tipo','==','negocio')));
-      const docs = [];
-      snap.forEach(d => { const r = d.data(); if(r.estado==='activo' && r.tipoNegocio==='plaza') docs.push({_id:d.id,...r}); });
-      if(docs.length === 0) {
-        const pd = document.getElementById('plaza-demo');
-        if(pd) pd.style.display='block';
-        return;
-      }
-      lista.innerHTML = '';
-      docs.forEach(r => {
-        const div = document.createElement('div');
-        div.className = 'plaza-card';
-        div.innerHTML = `
-          <div style="height:80px;background:#E8F0F8;display:flex;align-items:center;justify-content:center;font-size:40px;">🏪</div>
-          <div class="si45">
-            <div class="si05">
-              <div class="si17">${r.nombreNegocio||r.nombre||'—'}</div>
-              <span class="si44">Abierto</span>
-            </div>
-            <div class="si10">${r.descripcion||r.categoria||'Comercio local'}</div>
-            <div class="si46">⭐ Nuevo en la app</div>
-            <div class="si47">
-              <span class="si62">Ver tienda</span>
-              <button class="si48">Contactar →</button>
-            </div>
-          </div>`;
-        lista.appendChild(div);
-      });
-    } catch(e) { console.log('Plaza error:',e.message); }
+  // ===== CARGAR COMERCIOS (Plaza Online) con acceso directo a db =====
+  var _plazaDocsCache = [];
+var _plazaFiltro = 'todos';
+
+function _plazaCatNorm(v) {
+  return String(v || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,'_');
+}
+function _plazaCatLabel(cat) {
+  var MAP = {
+    moda:'👗 Moda', belleza:'✂️ Belleza', salud:'💊 Salud', mascotas:'🐾 Mascotas',
+    tecnologia:'💻 Tecnología', hogar:'🏠 Hogar', ferreteria:'🛠 Ferretería',
+    papeleria:'📚 Papelería', regalos:'🎁 Regalos', servicios:'🔧 Servicios',
+    tienda:'🏪 Tienda', comercio:'🏪 Comercio', otro:'🏪 Comercio'
   };
+  return MAP[_plazaCatNorm(cat)] || (cat ? '🏪 ' + cat : '🏪 Comercio');
+}
+function _plazaCatBase(r) {
+  // Plaza filtra por el concepto público que ve el cliente.
+  // Prioridad CMV: categoriaPublica/giroPublico antes que categoria legacy del registro.
+  // Esto evita que un negocio genérico aparezca en Belleza solo por un dato histórico.
+  return r.categoriaPublica || r.giroPublico || r.giro || r.categoria || r.tipoNegocio || 'otro';
+}
+function _plazaCoincideFiltro(r, filtro) {
+  if (!filtro || filtro === 'todos') return true;
+  var n = _plazaCatNorm(_plazaCatBase(r));
+  if (n === filtro) return true;
+  // "Otros" agrupa comercios cuyo concepto no está en el catálogo principal.
+  var principales = ['moda','belleza','salud','mascotas','tecnologia','hogar','ferreteria','papeleria','regalos','servicios'];
+  return filtro === 'otro' && principales.indexOf(n) === -1;
+}
+function _plazaFiltrarSel(cat) {
+  _plazaFiltro = cat || 'todos';
+  window._plazaRenderLista && window._plazaRenderLista(_plazaDocsCache);
+  var scr = document.getElementById('plaza-scroll'); if (scr) scr.scrollTop = 0;
+  if (window._dcDirtyV === 'v-plaza') window._dcDirtyV = null;
+}
+
+window._plazaRenderLista = function(docs) {
+  var lista = document.getElementById('plaza-lista');
+  var demo  = document.getElementById('plaza-demo');
+  var sub   = document.getElementById('plaza-sub');
+  if (!lista) return;
+  docs = docs || [];
+  var filtrados = docs.filter(function(r){ return _plazaCoincideFiltro(r, _plazaFiltro); });
+  if (sub) sub.textContent = docs.length > 0 ? docs.length + ' comercio' + (docs.length !== 1 ? 's' : '') + ' de tu zona' : 'Comercios de tu zona';
+  if (!filtrados.length) {
+    if (demo) demo.style.display = 'none';
+    lista.innerHTML = '<div style="padding:32px 20px;text-align:center;"><div style="font-size:40px;margin-bottom:12px;">🏪</div><div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Sin comercios en esta categoría</div><div style="font-size:11px;color:var(--text-muted);line-height:1.6;">Prueba con otra categoría de Plaza Online.</div></div>';
+    return;
+  }
+  if (demo) demo.style.display = 'none';
+  lista.innerHTML = filtrados.map(function(r){
+    var estOp = (typeof window._estadoEfectivoDe === 'function')
+      ? window._estadoEfectivoDe(r.estadoOp, r.estadoOpTs || 0, r.horarios && r.horarios.length ? r.horarios : null)
+      : (r.estadoOp || 'activo');
+    var meta = {
+      activo:  { lbl:'🟢 Abierto',  col:'var(--green-dk)', bg:'var(--green-lt)' },
+      ocupado: { lbl:'🟡 Ocupado',  col:'#d97706',         bg:'#FFF8E1'         },
+      pausado: { lbl:'⏸ En pausa', col:'#888',            bg:'#f0f0f0'         },
+      cerrado: { lbl:'🔴 Cerrado',  col:'#D63A2A',         bg:'#FDECEA'         }
+    }[estOp] || { lbl:'🟢 Abierto', col:'var(--green-dk)', bg:'var(--green-lt)' };
+    var foto = r.fotoPerfil || r.fotoPublica || r.logo || '';
+    var cat = _plazaCatBase(r) || 'Comercio local';
+    return '<div class="plaza-card" onclick="window.plazaAbrirComercio(\''+r._id+'\')" style="overflow:hidden;cursor:pointer;'+(estOp==='cerrado'?'opacity:.65;filter:grayscale(.35);':'')+'">'
+      + '<div style="height:118px;background:#E8F0F8;display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;">'
+      + (foto && String(foto).indexOf('data:image')===0 ? '<img src="'+foto+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">' : '🏪')
+      + (estOp==='cerrado' ? '<div style="position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;"><span style="background:#D63A2A;color:#fff;font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;">🔴 CERRADO</span></div>' : '')
+      + '<span style="position:absolute;right:10px;top:10px;background:rgba(255,255,255,.92);color:var(--blue);font-size:10px;font-weight:800;padding:4px 8px;border-radius:10px;">✓ Verificado</span>'
+      + '</div>'
+      + '<div class="si45">'
+      + '<div class="si05"><div class="si17">'+(r.nombrePublico || r.nombreNegocio || r.nombre || '—')+'</div>'
+      + '<span class="si44" style="background:'+meta.bg+';color:'+meta.col+';font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;">'+meta.lbl+'</span></div>'
+      + '<div class="si10">'+(r.descripcionPublica || r.descripcion || cat || 'Comercio local')+'</div>'
+      + '<div class="si46">'+_plazaCatLabel(cat)+' · ⭐ Nuevo en la app</div>'
+      + '<div class="si47"><span class="si62">'+(r.direccionNegocio || 'Comercio de la zona')+'</span><button class="si48" style="background:var(--blue);">Ver productos →</button></div>'
+      + '</div></div>';
+  }).join('');
+};
+
+window.cargarPlaza = async function() {
+  const lista = document.getElementById('plaza-lista');
+  const demo  = document.getElementById('plaza-demo');
+  const sel   = document.getElementById('plaza-cat-select');
+  if(!lista) return;
+  if (sel) sel.value = 'todos';
+  _plazaFiltro = 'todos';
+  lista.innerHTML = '<div class="si24">Cargando comercios... ⏳</div>';
+  try {
+    const { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    const snap = await getDocs(query(collection(db,'usuarios'), where('tipo','==','negocio')));
+    const docs = [];
+    snap.forEach(d => {
+      const r = d.data();
+      const estadoOk = (r.estado === 'activo' || r.estado === 'aprobado_pendiente_pago');
+      const catNorm = _plazaCatNorm(_plazaCatBase(r));
+      const foodCats = ['mexicana','hamburguesas','pizzas','pizza','sushi','cafeteria','cafe','postres','tacos','mariscos','pollo','desayunos','bebidas','otro_rest'];
+      const plazaCats = ['moda','belleza','salud','mascotas','tecnologia','hogar','ferreteria','papeleria','regalos','servicios','otro','plaza','tienda','comercio'];
+      const esFood = foodCats.indexOf(catNorm) !== -1 || r.tipoNegocio === 'food' || r.tipoNegocio === 'restaurante';
+      const esPlaza = r.tipoNegocio === 'plaza' || plazaCats.indexOf(catNorm) !== -1 || !esFood;
+      if(estadoOk && esPlaza && !esFood) docs.push(Object.assign({_id:d.id}, r));
+    });
+    _plazaDocsCache = docs;
+    if(docs.length === 0) {
+      lista.innerHTML = '';
+      if(demo) demo.style.display='block';
+      return;
+    }
+    window._plazaRenderLista(docs);
+  } catch(e) {
+    lista.innerHTML = '<div class="si24">Error al cargar Plaza Online: '+e.message+'</div>';
+    console.log('Plaza error:',e.message);
+  }
+};
+
+window.plazaAbrirComercio = async function(id) {
+  var r = _plazaDocsCache.find(function(x){ return x._id === id; });
+  if (!r) return;
+  var estOp = (typeof window._estadoEfectivoDe === 'function')
+    ? window._estadoEfectivoDe(r.estadoOp, r.estadoOpTs || 0, r.horarios && r.horarios.length ? r.horarios : null)
+    : (r.estadoOp || 'activo');
+  var g = function(id){ return document.getElementById(id); };
+  if (g('plaza-det-nombre')) g('plaza-det-nombre').textContent = '🏪 ' + (r.nombrePublico || r.nombreNegocio || r.nombre || 'Comercio');
+  if (g('plaza-det-desc')) g('plaza-det-desc').textContent = r.descripcionPublica || r.descripcion || 'Productos disponibles';
+  if (g('plaza-det-cat')) g('plaza-det-cat').textContent = _plazaCatLabel(_plazaCatBase(r));
+  if (g('plaza-det-estado')) {
+    var meta = estOp==='cerrado' ? {lbl:'🔴 Cerrado',col:'#D63A2A'} : estOp==='pausado' ? {lbl:'⏸ En pausa',col:'#888'} : estOp==='ocupado' ? {lbl:'🟡 Ocupado',col:'#d97706'} : {lbl:'🟢 Abierto',col:'var(--green-dk)'};
+    g('plaza-det-estado').textContent = meta.lbl;
+    g('plaza-det-estado').style.color = meta.col;
+  }
+  go('v-plaza-det','right');
+  var detScr = document.getElementById('plaza-prod-lista'); if (detScr) detScr.scrollTop = 0;
+  await window.plazaCargarProductos(id, r, estOp);
+};
+
+window.plazaCargarProductos = async function(uidNegocio, negocio, estOp) {
+  var el = document.getElementById('plaza-prod-lista');
+  if (!el) return;
+  el.innerHTML = '<div class="si24">Cargando productos... ⏳</div>';
+  if (estOp === 'cerrado' || estOp === 'pausado') {
+    el.innerHTML = '<div style="padding:32px 20px;text-align:center;"><div style="font-size:40px;margin-bottom:12px;">'+(estOp==='pausado'?'⏸️':'🔴')+'</div><div style="font-size:14px;font-weight:800;color:#111;margin-bottom:6px;">'+(negocio.nombrePublico||negocio.nombreNegocio||'El comercio')+' no está disponible</div><div style="font-size:12px;color:#777;line-height:1.5;">Puedes ver sus productos más tarde cuando esté abierto.</div></div>';
+    return;
+  }
+  try {
+    var f = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    var snap = await f.getDocs(f.query(f.collection(window._fbDb,'menu',uidNegocio,'productos'), f.orderBy('orden','asc')));
+    if (snap.empty) {
+      el.innerHTML = '<div style="padding:32px 20px;text-align:center;"><div style="font-size:40px;margin-bottom:12px;">🛍️</div><div style="font-size:14px;font-weight:800;color:#111;margin-bottom:6px;">Sin productos publicados</div><div style="font-size:12px;color:#777;line-height:1.5;">Este comercio aún no tiene productos disponibles.</div></div>';
+      return;
+    }
+    var items = [];
+    snap.forEach(function(d){ var x=d.data(); if(x.disponible !== false) items.push(Object.assign({_id:d.id},x)); });
+    if (!items.length) {
+      el.innerHTML = '<div style="padding:32px 20px;text-align:center;"><div style="font-size:40px;margin-bottom:12px;">🛍️</div><div style="font-size:14px;font-weight:800;color:#111;margin-bottom:6px;">Productos no disponibles</div><div style="font-size:12px;color:#777;">Vuelve más tarde.</div></div>';
+      return;
+    }
+    el.innerHTML = items.map(function(p){
+      return '<div style="background:#fff;border-radius:16px;margin:0 12px 10px;padding:12px;border:.5px solid #e8e8e8;display:flex;gap:12px;align-items:center;">'
+        + '<div style="width:72px;height:72px;border-radius:14px;background:#E8F0F8;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;flex-shrink:0;">'
+        + (p.foto && String(p.foto).indexOf('data:image')===0 ? '<img src="'+p.foto+'" style="width:100%;height:100%;object-fit:cover;">' : '🛍️') + '</div>'
+        + '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:800;color:#111;margin-bottom:3px;">'+(p.nombre||'Producto')+'</div>'
+        + '<div style="font-size:11px;color:#777;line-height:1.35;margin-bottom:5px;">'+(p.descripcion||p.categoria||'Disponible en tienda')+'</div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;font-weight:900;color:var(--blue);">$'+(Number(p.precio||0)).toFixed(0)+'</span><span style="font-size:11px;font-weight:800;color:var(--blue);">Ver productos</span></div></div>'
+        + '</div>';
+    }).join('') + '<div style="height:76px;"></div>';
+  } catch(e) {
+    el.innerHTML = '<div class="si24">Error al cargar productos: '+e.message+'</div>';
+  }
+};
+
+var _misComprasPlazaTab = 'proceso';
+window.cambiarTabMisComprasPlaza = function(tab) {
+  _misComprasPlazaTab = tab || 'proceso';
+  window.cargarMisComprasPlaza && window.cargarMisComprasPlaza();
+};
+
+window.cargarMisComprasPlaza = async function() {
+  var el = document.getElementById('miscompras-plaza-lista');
+  var sub = document.getElementById('miscompras-plaza-sub');
+  var bProc = document.getElementById('miscompras-tab-proceso');
+  var bAnt  = document.getElementById('miscompras-tab-anteriores');
+  if (!el) return;
+  if (!_misComprasPlazaTab) _misComprasPlazaTab = 'proceso';
+  if (sub) sub.textContent = _misComprasPlazaTab === 'anteriores' ? 'Compras anteriores' : 'Compras en proceso';
+  if (bProc && bAnt) {
+    bProc.style.background = _misComprasPlazaTab === 'proceso' ? 'var(--blue)' : 'rgba(255,255,255,.18)';
+    bProc.style.color = '#fff';
+    bAnt.style.background = _misComprasPlazaTab === 'anteriores' ? 'var(--blue)' : 'rgba(255,255,255,.18)';
+    bAnt.style.color = '#fff';
+  }
+  try {
+    // Por ahora Plaza Online no genera orden de compra cerrada; dejamos ambas pestañas listas para conectar.
+    el.scrollTop = 0;
+    var esAnt = _misComprasPlazaTab === 'anteriores';
+    el.innerHTML = '<div style="padding:36px 20px;text-align:center;">'
+      + '<div style="font-size:42px;margin-bottom:12px;">'+(esAnt?'📦':'🛒')+'</div>'
+      + '<div style="font-size:15px;font-weight:800;color:#111;margin-bottom:6px;">'+(esAnt?'Sin compras anteriores':'Sin compras en proceso')+'</div>'
+      + '<div style="font-size:12px;color:#777;line-height:1.5;">'+(esAnt?'Cuando finalices compras en Plaza Online, aparecerán aquí.':'Cuando compres productos en Plaza Online, aparecerán aquí.')+'</div>'
+      + '</div>';
+  } catch(e) {
+    el.innerHTML = '<div class="si24">Error al cargar Mis compras: '+e.message+'</div>';
+  }
+};
+
 
   // ===== CARGAR REPARTIDORES (Ride) con acceso directo a db =====
   window.cargarRepartidores = async function() {
@@ -1761,7 +1929,10 @@
   window.getEstadoOperativo = function() {
     var v = localStorage.getItem(_estadoKey()) || localStorage.getItem('dcRestOpV2') || 'activo';
     if (window._normEstadoOp) v = window._normEstadoOp(v);
-    var ts = parseInt(localStorage.getItem('dcRestOpV2Ts')||'0',10);
+    // Usar ts por uid para evitar contaminación cruzada entre negocio y restaurante
+    var _uid8 = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid) || localStorage.getItem('dcuserUid') || '';
+    var _tsKey8 = _uid8 ? ('dcuserEstadoOpTs_' + _uid8) : 'dcRestOpV2Ts';
+    var ts = parseInt(localStorage.getItem(_tsKey8) || localStorage.getItem('dcRestOpV2Ts') || '0', 10);
     if (window._estadoEfectivoDe) { try { return window._estadoEfectivoDe(v, ts, undefined); } catch(e){} }
     return v;
   };
@@ -1771,13 +1942,20 @@
     localStorage.setItem(_estadoKey(), estado);
     // Sincronizar con módulo Centro Operativo
     if (typeof _rEstadoOp !== 'undefined') { _rEstadoOp = estado; }
+    // Sincronizar también módulo negocio para evitar desincronía entre roles
+    if (typeof _vnegEstadoOp !== 'undefined') { _vnegEstadoOp = estado; }
     localStorage.setItem('dcRestOpV2', estado);
     // REGLA UNIVERSAL DE ESTADO: todo cambio se guarda SIEMPRE en Firebase con marca de tiempo
     try{
       var _tsE = Date.now();
       localStorage.setItem('dcRestOpV2Ts', String(_tsE));
       if (typeof _rEstadoOpTs !== 'undefined') { _rEstadoOpTs = _tsE; }
-      var _uidE = localStorage.getItem('dcuid');
+      if (typeof _vnegEstadoOpTs !== 'undefined') { _vnegEstadoOpTs = _tsE; }
+      var _uidE = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid)
+                 || localStorage.getItem('dcuserUid')
+                 || localStorage.getItem('dcuid');
+      // Guardar ts por uid para evitar contaminación cruzada entre roles
+      if (_uidE) { try { localStorage.setItem('dcuserEstadoOpTs_' + _uidE, String(_tsE)); } catch(e){} }
       if (_uidE && window._fbDb) {
         import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js").then(function(F){
           return F.setDoc(F.doc(window._fbDb,'usuarios',_uidE),{estadoOp:estado,estadoOpTs:_tsE},{merge:true});
@@ -1809,10 +1987,10 @@
     var coLbl = document.getElementById('home-estado-lbl');
     if (coDot) coDot.className = 'estado-dot ' + (cfg.dotEl || '');
     if (coLbl) coLbl.textContent = cfg.lbl;
-    // CO — selector cfg
+    // CO — selector cfg (solo si no hay cambios sin guardar en config)
     var cfgSel = document.getElementById('cfg-est-sel');
-    if (cfgSel) cfgSel.value = estado;
-    if (typeof _syncEstadoCfgUI === 'function') _syncEstadoCfgUI(estado);
+    if (cfgSel && window._dirtyView !== 'vr-config') cfgSel.value = estado;
+    if (typeof _syncEstadoCfgUI === 'function' && window._dirtyView !== 'vr-config') _syncEstadoCfgUI(estado);
   };
   // ── FIN M2-D helpers ─────────────────────────────────────────
 
@@ -1872,7 +2050,7 @@
       var mPlaza = document.getElementById('hm-mod-plaza');
       var mServ  = document.getElementById('hm-mod-serv');
       if (mFood)  mFood.textContent  = cntFood  > 0 ? cntFood  + ' restaurante' + (cntFood  !== 1 ? 's' : '') : 'Ver menú';
-      if (mPlaza) mPlaza.textContent = cntPlaza > 0 ? cntPlaza + ' comercio'   + (cntPlaza !== 1 ? 's' : '') : 'Ver plaza';
+      if (mPlaza) mPlaza.textContent = cntPlaza > 0 ? cntPlaza + ' comercio'   + (cntPlaza !== 1 ? 's' : '') : 'Plaza Online';
       if (mServ)  mServ.textContent  = cntServ  > 0 ? cntServ  + ' verificado' + (cntServ  !== 1 ? 's' : '') : 'Ver servicios';
 
       // Actualizar banners del carrusel
@@ -1979,7 +2157,7 @@
     // Nombre del negocio
     var nom = localStorage.getItem('dcuser')||'Mi Negocio';
     var sub = document.getElementById('vbn-subtitle');
-    if(sub) sub.textContent = s.categoria || 'Plaza Digital';
+    if(sub) sub.textContent = s.categoria || 'Plaza Online';
   };
 
   // estilo tarjetas home NEGOCIO (LED morado on/off)
@@ -2920,7 +3098,7 @@
     // ── RESTAURANTE ───────────────────────────────────────────
     else if (tipo === 'restaurante') {
       // Estado operativo clicable → abre vr-shell (Centro Operativo) en config
-      var estKey2 = window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo';
+      var estKey2 = window.getEstadoEfectivoActual ? window.getEstadoEfectivoActual() : (window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo');
       var estCfg2 = DC_ESTADOS[estKey2] || DC_ESTADOS.activo;
       html += '<div onclick="go(\'vr-config\',\'right\')" style="margin:0 14px 14px;background:'+estCfg2.bg+';border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;border:1px solid '+estCfg2.col+'22;">'
         + '<div style="width:10px;height:10px;border-radius:50%;background:'+estCfg2.col+';flex-shrink:0;box-shadow:0 0 6px '+estCfg2.col+'88;"></div>'
@@ -2955,12 +3133,17 @@
 
     // ── NEGOCIO ─────────────────────────
   else if (tipo === 'negocio') {
-    var estManN = (window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo') || 'activo';
-    if (window._normEstadoOp) estManN = window._normEstadoOp(estManN);
+    // Usar _vnegEstadoOp directamente — es la variable del módulo negocio, ya cargada
+    // desde Firebase en el login. Evita leer dcRestOpV2 compartido que puede tener
+    // el estado del restaurante u otro usuario anterior.
+    var _vnegMan = (typeof _vnegEstadoOp !== 'undefined' ? _vnegEstadoOp : null)
+                   || (window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo')
+                   || 'activo';
+    var estManN = window._normEstadoOp ? window._normEstadoOp(_vnegMan) : _vnegMan;
     // El horario del negocio manda: calcular efectivo con VNEG_HORARIOS
     var estKeyN = estManN;
     if (window._estadoEfectivoDe && typeof VNEG_HORARIOS !== 'undefined') {
-      try { estKeyN = window._estadoEfectivoDe(estManN, Date.now(), VNEG_HORARIOS); } catch(e){}
+      try { estKeyN = window._estadoEfectivoDe(estManN, (typeof _vnegEstadoOpTs !== 'undefined' ? _vnegEstadoOpTs : 0), VNEG_HORARIOS); } catch(e){}
     }
     var estCfgN = DC_ESTADOS[estKeyN] || DC_ESTADOS.activo;
     html += '<div onclick="go(\'vn-config\',\'right\')" style="margin:0 14px 14px;background:'+(estCfgN.bg||'#F0EBF8')+';border-radius:14px;padding:13px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;">'
@@ -2978,18 +3161,13 @@
       + '<span style="font-size:22px;">\ud83d\ude80</span> CENTRO OPERATIVO'
       + '</button>'
       + '</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 14px;margin-bottom:18px;">'
-      + modulo('\ud83d\udcac','#F0EBF8','Chats','Mensajes',"window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",'chats')
-      + modulo('\ud83d\udccb','#F0EBF8','Solicitudes','Pedidos',"window.marcarModuloVisto('solicitudes');window.irASolicitudes&&window.irASolicitudes()",'solicitudes')
-      + modulo('\ud83d\udcca','#F0EBF8','Ventas','Resumen',"go('vn-ventas','right')")
-      + '</div>';
     html += descubrimiento(tieneActividad);
     html += secLabel('Actividad reciente');
     html += '<div id="home-actividad" style="padding:0 14px;">'
       + '<div style="background:#F8F5FC;border-radius:14px;padding:14px;text-align:center;border:.5px solid #EADDF5;">'
-      + '<div style="font-size:22px;margin-bottom:6px;">\ud83d\udecd\ufe0f</div>'
-      + '<div style="font-size:12px;font-weight:700;color:#4A1A70;margin-bottom:4px;">Sin ventas hoy</div>'
-      + '<div style="font-size:11px;color:#999;">Las ventas y solicitudes aparecerán aquí</div>'
+      + '<div style="font-size:22px;margin-bottom:6px;">📋</div>'
+      + '<div style="font-size:12px;font-weight:700;color:#4A1A70;margin-bottom:4px;">Sin actividad nueva</div>'
+      + '<div style="font-size:11px;color:#999;">Las solicitudes del día aparecerán aquí</div>'
       + '</div></div>';
   }
 
@@ -3012,12 +3190,20 @@
     // 2. Limpiar localStorage de sesión
     localStorage.removeItem('dcuser');
     localStorage.removeItem('dc_badges_v1'); // limpiar badges al cerrar sesión
+    // G1: guardar uid ANTES de eliminarlo para poder limpiar claves por uid
+    var _dcLogoutUid = localStorage.getItem('dcuserUid') || '';
     localStorage.removeItem('dcuserUid');    // limpiar uid guardado
     localStorage.removeItem('dcuserTipo');
     localStorage.removeItem('dcuserEstado');
     // 3. Cancelar subscripciones activas
     if(window._chatUnsubscribe){window._chatUnsubscribe();window._chatUnsubscribe=null;}
     if(window._provNotifUnsub){window._provNotifUnsub();window._provNotifUnsub=null;}
+    // B10: cancelar listener en vivo del restaurante en Food
+    if(window._restEstadoUnsub){window._restEstadoUnsub();window._restEstadoUnsub=null;}
+    // B11: detener timers de estado y badges
+    if(window._rHoraTimer){clearInterval(window._rHoraTimer);window._rHoraTimer=null;}
+    if(window._nHoraTimer){clearInterval(window._nHoraTimer);window._nHoraTimer=null;}
+    if(window._badgeTimer){clearInterval(window._badgeTimer);window._badgeTimer=null;}
     // 4. Limpiar variables globales de sesión
     window._chatProveedorId=null; window._chatProveedorNombre=null;
     window._chatIdExacto=null; window._chatUserId=null;
@@ -3083,6 +3269,19 @@
       if(el)el.innerHTML='';
     });
     // 10. Navegar a splash limpio
+    // B2: limpiar estado operativo de sesión anterior para evitar contaminación
+    try { localStorage.removeItem('dcRestOpV2'); } catch(e){}
+    try { localStorage.removeItem('dcRestOpV2Ts'); } catch(e){}
+    // Limpiar claves por uid para que no contaminen la siguiente sesión
+    try { if(_dcLogoutUid){ localStorage.removeItem('dcuserEstadoOp_'+_dcLogoutUid); localStorage.removeItem('dcuserEstadoOpTs_'+_dcLogoutUid); } } catch(e){}
+    // Resetear variables de estado en memoria
+    if (typeof _rEstadoOp !== 'undefined') { try { _rEstadoOp = 'activo'; } catch(e){} }
+    if (typeof _rEstadoOpTs !== 'undefined') { try { _rEstadoOpTs = 0; } catch(e){} }
+    if (typeof _vnegEstadoOp !== 'undefined') { try { _vnegEstadoOp = 'activo'; } catch(e){} }
+    if (typeof _vnegEstadoOpTs !== 'undefined') { try { _vnegEstadoOpTs = 0; } catch(e){} }
+    // F7: resetear horarios en memoria para que no contaminen la siguiente sesión
+    try { if (typeof HORARIOS !== 'undefined' && Array.isArray(HORARIOS)) { HORARIOS.forEach(function(h){ h.abre='08:00'; h.cierra='22:00'; h.abierto=(h.id!=='dom'); }); } } catch(e){}
+    try { if (typeof VNEG_HORARIOS !== 'undefined' && Array.isArray(VNEG_HORARIOS)) { VNEG_HORARIOS.forEach(function(h){ h.abre='08:00'; h.cierra='22:00'; h.abierto=(h.id!=='dom'); }); } } catch(e){}
     go('v-splash','left');
   };
 
@@ -3141,6 +3340,25 @@
         // Guardar uid de Firebase para uso como fallback en funciones async
         if (auth && auth.currentUser) {
           localStorage.setItem('dcuserUid', auth.currentUser.uid);
+        }
+        // CRÍTICO: cargar el estado real del usuario desde Firebase ANTES de navegar al home
+        // para que _vnegEstadoOp y _rEstadoOp tengan el valor correcto en el primer render.
+        if (datos.tipo === 'restaurante' || datos.tipo === 'negocio') {
+          var _estOp = datos.estadoOp || 'activo';
+          var _estTs = datos.estadoOpTs || 0;
+          var _uid   = auth && auth.currentUser ? auth.currentUser.uid : '';
+          // Escribir localStorage con el valor del usuario actual
+          try { localStorage.setItem('dcRestOpV2',   _estOp); } catch(e) {}
+          try { localStorage.setItem('dcRestOpV2Ts', String(_estTs)); } catch(e) {}
+          if (_uid) { try { localStorage.setItem('dcuserEstadoOp_' + _uid, _estOp); } catch(e) {} }
+          if (_uid && _estTs) { try { localStorage.setItem('dcuserEstadoOpTs_' + _uid, String(_estTs)); } catch(e) {} }
+          if (_uid && !_estTs) { try { localStorage.setItem('dcuserEstadoOpTs_' + _uid, '0'); } catch(e) {} }
+          // Para negocio: llamar vnegCargarConfig que setea _vnegEstadoOp y VNEG_HORARIOS
+          // correctamente antes de que renderHomeM2 pinte la tarjeta de estado.
+          if (datos.tipo === 'negocio' && window.vnegCargarConfig) {
+            await window.vnegCargarConfig();
+          }
+          // Para restaurante: _restCargarHorariosYRepintar se llama al entrar al home (ya funciona)
         }
 
         if (datos.tipo === 'vecino') {
@@ -6709,7 +6927,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       </div>
       <div class="m-card-lbl">Transporte</div>
     </div>
-    <!-- Plaza Digital -->
+    <!-- Plaza Online -->
     <div class="m-card">
       <div class="m-card-ic" style="background:#f0eafc;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5c12a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -6894,13 +7112,13 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <div style="position:absolute;bottom:8px;right:12px;font-size:9px;color:rgba(255,255,255,.35);font-weight:500;letter-spacing:.3px;">Patrocinado</div>
       </div>
 
-      <!-- ANUNCIO 4 — Plaza Digital (categoría: plaza) -->
+      <!-- ANUNCIO 4 — Plaza Online (categoría: plaza) -->
       <div data-ad-category="plaza" style="min-width:100%;height:95px;border-radius:16px;overflow:hidden;position:relative;flex-shrink:0;background:linear-gradient(120deg,#2a1040,#5a1a90);">
         <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.15;" viewBox="0 0 300 95" preserveAspectRatio="xMidYMid slice"><circle cx="260" cy="10" r="70" fill="#fff"/><circle cx="10" cy="85" r="45" fill="#fff"/></svg>
         <div style="position:absolute;inset:0;padding:14px 16px;display:flex;align-items:center;gap:14px;">
           <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">🏪</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:3px;">Plaza Digital</div>
+            <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:3px;">Plaza Online</div>
             <div style="font-size:12px;color:rgba(255,255,255,.75);line-height:1.3;" id="hm-cnt-plaza">18 comercios · ofertas esta semana</div>
           </div>
         </div>
@@ -7015,23 +7233,25 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       </div>
       <button onclick="go('v-mis-pedidos-food','right')" style="background:var(--w12);border:1px solid var(--w30);color:#fff;border-radius:10px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">🛒 Mis pedidos</button>
     </div>
-    <div class="pill-row">
-      <button class="dcf-chip dcf-on" onclick="_dcfFiltrar('todos',this)">Todos</button>
-      <button class="dcf-chip" onclick="_dcfFiltrar('tacos',this)">🌮 Tacos</button>
-      <button class="dcf-chip" onclick="_dcfFiltrar('mexicana',this)">🌮 Mexicana</button>
-      <button class="dcf-chip" onclick="_dcfFiltrar('pizzas',this)">🍕 Pizza</button>
-      <button class="dcf-chip" onclick="_dcfFiltrar('hamburguesas',this)">🍔 Burger</button>
-      <button class="dcf-chip" onclick="_dcfFiltrar('sushi',this)">🍣 Sushi</button>
-      <button class="dcf-chip" onclick="_dcfFiltrar('cafeteria',this)">☕ Café</button>
-      <button class="dcf-chip" onclick="_dcfFiltrar('mariscos',this)">🦞 Mariscos</button>
-      <button class="dcf-chip" onclick="_dcfFiltrar('desayunos',this)">🍳 Desayunos</button>
+    <div style="padding-top:10px;">
+      <select id="dcf-cat-select" data-no-dirty="1" onchange="_dcfFiltrarSel(this.value)" style="width:100%;background:#fff;color:#111;border:none;border-radius:16px;padding:11px 14px;font-size:13px;font-weight:800;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.08);outline:none;">
+        <option value="todos">Todos los restaurantes</option>
+        <option value="tacos">🌮 Tacos</option>
+        <option value="mexicana">🌮 Mexicana</option>
+        <option value="pizzas">🍕 Pizza</option>
+        <option value="hamburguesas">🍔 Hamburguesas</option>
+        <option value="sushi">🍣 Sushi</option>
+        <option value="cafeteria">☕ Café</option>
+        <option value="mariscos">🦞 Mariscos</option>
+        <option value="desayunos">🍳 Desayunos</option>
+      </select>
     </div>
   </div>
   <div class="dcf-scroll" style="padding:10px 0;" id="lista-cont"></div>
   <div class="dcf-nav">
+    <div class="dcf-ni" onclick="go('v-home','left')"><div class="dcf-ni-ic">🏠</div><div class="dcf-ni-lb">Inicio</div></div>
     <div class="dcf-ni"><div class="dcf-ni-ic">🍽️</div><div class="dcf-ni-lb dcf-on">Food</div></div>
     <div class="dcf-ni" onclick="go('v-mis-pedidos-food','right')"><div class="dcf-ni-ic">🛒</div><div class="dcf-ni-lb">Pedidos</div></div>
-    <div class="dcf-ni" onclick="go('v-home','left')"><div class="dcf-ni-ic">🏠</div><div class="dcf-ni-lb">Inicio</div></div>
   </div>
 </div>
 <div class="view go-right" id="v-food-det">
@@ -8178,16 +8398,25 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
 <div class="view go-right" id="v-plaza" style="flex-direction:column;">
       <div class="plaza-hdr">
         <div class="sbar dk"><span>9:41</span><span>▲</span></div>
-        <div class="si69">
+        <div class="si69" style="align-items:flex-start;gap:10px;">
           <button class="btn-back" onclick="go('v-home','left')">‹</button>
-          <div><div class="si13">🏪 Dominio Plaza Digital</div><div class="si21">18 comercios de tu zona</div></div>
+          <div style="flex:1;min-width:0;"><div class="si13">🏪 Plaza Online</div><div class="si21" id="plaza-sub">Comercios de tu zona</div></div>
+          <button onclick="go('v-mis-compras-plaza','right');window._misComprasPlazaTab='proceso';setTimeout(function(){window.cargarMisComprasPlaza&&window.cargarMisComprasPlaza();},120);" style="background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:10px;padding:6px 9px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;">🛒 Mis compras</button>
         </div>
-        <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;">
-          <div style="background:var(--blue);color:#fff;border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;flex-shrink:0;">Todos</div>
-          <div class="si30">👗 Moda</div>
-          <div class="si30">✂️ Belleza</div>
-          <div class="si30">💊 Salud</div>
-          <div class="si30">🐾 Mascotas</div>
+        <div style="padding-top:10px;">
+          <select id="plaza-cat-select" data-no-dirty="1" onchange="_plazaFiltrarSel(this.value)" style="width:100%;background:#fff;color:#111;border:none;border-radius:16px;padding:11px 14px;font-size:13px;font-weight:800;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.08);outline:none;">
+            <option value="todos">Todos los comercios</option>
+            <option value="moda">👗 Moda</option>
+            <option value="belleza">✂️ Belleza</option>
+            <option value="salud">💊 Salud</option>
+            <option value="mascotas">🐾 Mascotas</option>
+            <option value="tecnologia">💻 Tecnología</option>
+            <option value="hogar">🏠 Hogar</option>
+            <option value="ferreteria">🛠 Ferretería</option>
+            <option value="papeleria">📚 Papelería</option>
+            <option value="regalos">🎁 Regalos</option>
+            <option value="otro">🏪 Otros</option>
+          </select>
         </div>
       </div>
       <div class="scroll" style="padding:12px 0;">
@@ -8210,6 +8439,56 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <div class="ni"><div class="ni-ic">👤</div><div class="ni-lb">Perfil</div></div>
       </div>
     </div>
+<div class="view go-right" id="v-plaza-det" style="flex-direction:column;">
+  <div class="plaza-hdr">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si69">
+      <button class="btn-back" onclick="go('v-plaza','left')">‹</button>
+      <div style="flex:1;">
+        <div class="si13" id="plaza-det-nombre">🏪 Comercio</div>
+        <div class="si21" id="plaza-det-desc">Productos disponibles</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;padding-top:8px;flex-wrap:wrap;">
+      <span id="plaza-det-estado" style="background:#fff;color:var(--green-dk);font-size:12px;font-weight:800;padding:5px 12px;border-radius:20px;">🟢 Abierto</span>
+      <span id="plaza-det-cat" style="background:rgba(255,255,255,.22);color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.3);">🏪 Comercio</span>
+    </div>
+  </div>
+  <div class="scroll" id="plaza-prod-lista" style="padding:12px 0;"></div>
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
+    <div class="ni" onclick="go('v-plaza','left')"><div class="ni-ic">🏪</div><div class="ni-lb" style="color:var(--blue);">Plaza</div></div>
+    <div class="ni"><div class="ni-ic">💬</div><div class="ni-lb">Chat</div></div>
+    <div class="ni"><div class="ni-ic">👤</div><div class="ni-lb">Perfil</div></div>
+  </div>
+</div>
+
+<div class="view go-right" id="v-mis-compras-plaza" style="flex-direction:column;">
+  <div class="plaza-hdr">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="si69">
+      <button class="btn-back" onclick="go('v-plaza','left')">‹</button>
+      <div><div class="si13">🛒 Mis compras</div><div class="si21" id="miscompras-plaza-sub">Compras de Plaza Online</div></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;padding:0 14px 10px;background:#0A3055;flex-shrink:0;">
+    <button id="miscompras-tab-proceso" onclick="window.cambiarTabMisComprasPlaza&&window.cambiarTabMisComprasPlaza('proceso')" style="background:var(--blue);color:#fff;border:none;border-radius:18px;padding:8px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;">🛒 En proceso</button>
+    <button id="miscompras-tab-anteriores" onclick="window.cambiarTabMisComprasPlaza&&window.cambiarTabMisComprasPlaza('anteriores')" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:18px;padding:8px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;">📦 Anteriores</button>
+  </div>
+  <div class="scroll" id="miscompras-plaza-lista" style="padding:12px 14px;">
+    <div style="padding:36px 20px;text-align:center;">
+      <div style="font-size:42px;margin-bottom:12px;">🛒</div>
+      <div style="font-size:15px;font-weight:800;color:#111;margin-bottom:6px;">Sin compras en proceso</div>
+      <div style="font-size:12px;color:#777;line-height:1.5;">Tus compras de Plaza Online aparecerán aquí.</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
+    <div class="ni" onclick="go('v-plaza','left')"><div class="ni-ic">🏪</div><div class="ni-lb" style="color:var(--blue);">Plaza</div></div>
+    <div class="ni"><div class="ni-ic">🔔</div><div class="ni-lb">Alertas</div></div>
+    <div class="ni"><div class="ni-ic">👤</div><div class="ni-lb">Perfil</div></div>
+  </div>
+</div>
 <div class="view go-right" id="v-favoritos">
       <div style="background:linear-gradient(135deg,var(--amber-dark),#3a2000);padding:12px 18px 18px;flex-shrink:0;">
         <div class="sbar dk"><span>9:41</span><span>▲</span></div>
@@ -8642,7 +8921,7 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
     <div class="sbar dk"><span>9:41</span><span>▲</span></div>
     <div class="si07">
       <button style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Inter',sans-serif;" onclick="go('v-home','left')">‹</button>
-      <div><div class="si13">🏪 Mi Negocio</div><div class="si21" id="vbn-subtitle">Plaza Digital</div></div>
+      <div><div class="si13">🏪 Mi Negocio</div><div class="si21" id="vbn-subtitle">Plaza Online</div></div>
     </div>
   </div>
 
@@ -9561,6 +9840,61 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
         <div class="qi" onclick="negTo('vn-promos')"><div class="qi-icon" style="background:#F0EBF8;">📣</div><div class="qi-lbl">Promos</div></div>
         <div class="qi" onclick="negTo('vn-ventas')"><div class="qi-icon" style="background:#F0EBF8;">📊</div><div class="qi-lbl">Ventas</div></div>
       </div>
+
+      <!-- VN-ZONA COMUNIDAD — homologado con Restaurante, adaptado a Negocio -->
+      <div style="margin-top:22px;">
+        <div class="sec-lbl">Dominio Cumbres — Comunidad</div>
+        <div class="comunidad-strip" style="background:linear-gradient(120deg,#2f1650,#5B2C8A);">
+          <div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+              <div style="width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 5px rgba(31,194,106,.7);"></div>
+              <div class="comunidad-title" style="margin:0;">Miembro activo de Dominio Cumbres</div>
+            </div>
+            <div class="comunidad-sub"><span id="vn-comunidad-nombre">Tu negocio</span> · Dominio Cumbres<br>Tus vecinos te encuentran aquí todos los días.</div>
+          </div>
+          <div style="margin-left:auto;flex-shrink:0;text-align:center;">
+            <div style="font-size:20px;">🏘️</div>
+            <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,.5);margin-top:2px;letter-spacing:.3px;">DC</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VN-ZONA OPORTUNIDAD — equivalente a Restaurante -->
+      <div>
+        <div class="sec-lbl">Oportunidad de hoy</div>
+        <div onclick="negTo('vn-promos')" style="margin:0 14px 14px;background:#fff;border-radius:16px;border:.5px solid #eadcf4;padding:18px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:0 2px 10px rgba(123,63,160,.06);">
+          <div style="font-size:28px;line-height:1;">✨</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:800;color:#111;line-height:1.15;">Impulsa tu negocio</div>
+            <div style="font-size:11px;color:#888;line-height:1.45;margin-top:4px;">Activa una promoción y llega a más vecinos de la zona</div>
+          </div>
+          <div style="background:#F0EBF8;color:#7B3FA0;border-radius:12px;padding:7px 10px;font-size:11px;font-weight:800;white-space:nowrap;">Crear promo →</div>
+        </div>
+      </div>
+
+      <!-- VN-ZONA PERFIL PÚBLICO — Cómo me ve el cliente -->
+      <div>
+        <div class="sec-lbl">Mi perfil público</div>
+        <div onclick="negTo('vn-cmv')" style="margin:0 14px;background:linear-gradient(120deg,#3b1761,#7B3FA0);border-radius:18px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:0 4px 18px rgba(123,63,160,.25);">
+          <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:2px;">Cómo me ve el cliente</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.65);">Foto · nombre · estado · descripción</div>
+          </div>
+          <div style="color:rgba(255,255,255,.5);font-size:20px;font-weight:300;">›</div>
+        </div>
+      </div>
+
+      <!-- VN-ZONA RESUMEN SEMANAL -->
+      <div>
+        <div class="semana-row" onclick="negTo('vn-ventas')" style="margin-bottom:8px;">
+          <span class="semana-txt">Esta semana</span>
+          <span class="semana-val" id="vn-semana-resumen">— pedidos · $— · —★</span>
+          <span class="semana-expand">›</span>
+        </div>
+      </div>
     </div>
     <div class="nav">
       <div class="ni" onclick="go('v-home','left')"><div class="ni-ic">🏠</div><div class="ni-lb">Inicio</div></div>
@@ -9568,6 +9902,102 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       <div class="ni" onclick="negTo('vn-menu')"><div class="ni-ic">✏️</div><div class="ni-lb">Productos</div></div>
       <div class="ni" onclick="negTo('vn-promos')"><div class="ni-ic">📣</div><div class="ni-lb">Promos</div></div>
       <div class="ni" onclick="negTo('vn-config')"><div class="ni-ic">⚙️</div><div class="ni-lb">Config</div></div>
+    </div>
+  </div>
+
+
+
+  <!-- ╔══════════════════════════════════════════════╗
+       ║  VN-CMV — CÓMO ME VE EL CLIENTE NEGOCIO     ║
+       ╚══════════════════════════════════════════════╝ -->
+  <div class="view go-right" id="vn-cmv">
+    <div class="hdr" style="background:linear-gradient(135deg,#5B2C8A,#7B3FA0);">
+      <div class="sbar"><span class="vn-sbar-hora">--:--</span><span></span></div>
+      <div class="hdr-inner">
+        <div class="hdr-row">
+          <button class="btn-back" onclick="negTo('vn-home',true)">&#8249;</button>
+          <div class="hdr-title" style="display:flex;align-items:center;gap:7px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Cómo me ve el cliente</div>
+        </div>
+      </div>
+    </div>
+    <div class="scr" id="vn-cmv-scr" style="padding:0;">
+
+      <div style="background:linear-gradient(160deg,#160824,#0d1f14);padding:18px 16px 22px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(31,194,106,.8);"></div>
+          <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;">Vista previa — Dominio Cumbres</div>
+        </div>
+        <div id="vn-cmv-preview" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.4);"></div>
+        <div style="font-size:10px;color:rgba(255,255,255,.3);text-align:center;margin-top:10px;">Así apareces en el listado de negocios de Dominio Cumbres</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 16px 0;">
+        <div style="flex:1;height:1px;background:#e8e8e8;"></div>
+        <div style="font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;">Editar información pública</div>
+        <div style="flex:1;height:1px;background:#e8e8e8;"></div>
+      </div>
+
+      <div style="padding:12px 16px 24px;background:#f9f9f9;">
+        <div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border:.5px solid #ececec;">
+          <div style="font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Foto / Logo</div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div id="vn-cmv-foto-prev" style="width:72px;height:72px;border-radius:14px;background:#f0f0f0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;border:2px solid #e8e8e8;">🏪</div>
+            <div>
+              <input type="file" id="vn-cmv-foto-inp" accept="image/*" style="display:none;" onchange="vnegCmvFotoChange(this)">
+              <button onclick="document.getElementById('vn-cmv-foto-inp').click()" style="padding:9px 18px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">📷 Cambiar foto</button>
+              <div style="font-size:10px;color:#bbb;margin-top:5px;">JPG/PNG · máx 1 MB</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border:.5px solid #ececec;">
+          <div style="font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Nombre público</div>
+          <input id="vn-cmv-nombre" class="inp" style="font-size:13px;" placeholder="Ej: Vendo de todo un poco" oninput="vnegCmvRenderPreview()">
+        </div>
+
+        <div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border:.5px solid #ececec;">
+          <div style="font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Descripción breve</div>
+          <input id="vn-cmv-desc" class="inp" style="font-size:13px;" placeholder="Ej: Productos y servicios para tus vecinos" oninput="vnegCmvRenderPreview()">
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+          <div style="flex:1;background:#fff;border-radius:14px;padding:14px;border:.5px solid #ececec;">
+            <div style="font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Categoría</div>
+            <select id="vn-cmv-cat" class="inp" style="appearance:auto;-webkit-appearance:auto;font-size:12px;padding:10px 10px;" onchange="vnegCmvRenderPreview()">
+              <option value="tienda">Tienda</option>
+              <option value="abarrotes">Abarrotes</option>
+              <option value="belleza">Belleza</option>
+              <option value="papeleria">Papelería</option>
+              <option value="ferreteria">Ferretería</option>
+              <option value="farmacia">Farmacia</option>
+              <option value="mascotas">Mascotas</option>
+              <option value="hogar">Hogar</option>
+              <option value="servicios">Servicios</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div style="flex:1;background:#fff;border-radius:14px;padding:14px;border:.5px solid #ececec;">
+            <div style="font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Estado</div>
+            <select id="vn-cmv-estado" class="inp" style="appearance:auto;-webkit-appearance:auto;font-size:12px;padding:10px 10px;" onchange="vnegCmvPreviewEstado(this.value);vnegCmvRenderPreview()">
+              <option value="activo">🟢 Abierto</option>
+              <option value="ocupado">🟡 Ocupado</option>
+              <option value="pausado">⏸ Pausado</option>
+              <option value="cerrado">🔴 Cerrado</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;border:.5px solid #ececec;">
+          <div style="font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Dirección / referencia</div>
+          <input id="vn-cmv-dir" class="inp" style="font-size:13px;" placeholder="Ej: Av. Paseo 123, Col. Cumbres">
+          <div style="font-size:10px;color:#aaa;margin-top:5px;">Se usa como referencia pública del negocio.</div>
+        </div>
+
+        <div style="display:flex;gap:10px;">
+          <button onclick="vnegCmvGuardar()" id="vn-cmv-btn-guardar" style="flex:2;padding:14px;background:var(--green);color:#fff;border:none;border-radius:14px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(31,194,106,.35);">Guardar cambios</button>
+          <button onclick="negTo('vn-home',true)" style="flex:1;padding:14px;background:#fff;color:#777;border:.5px solid #ddd;border-radius:14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Cancelar</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -9860,8 +10290,79 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
       </div>
       <div class="sec-lbl">Horarios de servicio</div>
       <div style="background:var(--card-bg);border-radius:16px;border:.5px solid var(--border);margin:0 14px 4px;padding:4px 14px;" id="vneg-horarios"></div>
-      <button class="btn btn-blue" style="margin:18px 14px 0;width:calc(100% - 28px);background:linear-gradient(135deg,#5B2C8A,#7B3FA0);" onclick="vnegGuardarConfig()">Guardar cambios</button>
-      <div class="cfg-confirm" id="vneg-confirm"><div class="cfg-confirm-ic">✅</div><div class="cfg-confirm-txt"><div class="t">Guardado</div><div class="s">Tu estado se actualizó</div></div></div>
+
+      <!-- 3. Métodos de pago -->
+      <div class="sec-lbl">Métodos de pago aceptados</div>
+      <div style="padding:0 14px;margin-bottom:4px;">
+        <div class="pago-opt on" id="vn-pg-efectivo" onclick="vnegTogglePago('efectivo')">
+          <span style="font-size:19px;">💵</span>
+          <span style="font-size:13px;font-weight:600;color:var(--tx);">Efectivo</span>
+          <div class="pago-radio"></div>
+        </div>
+        <div class="pago-opt on" id="vn-pg-transf" onclick="vnegTogglePago('transf')">
+          <span style="font-size:19px;">📱</span>
+          <span style="font-size:13px;font-weight:600;color:var(--tx);">Transferencia / SPEI</span>
+          <div class="pago-radio"></div>
+        </div>
+        <div class="pago-opt" id="vn-pg-tarjeta" onclick="vnegTogglePago('tarjeta')">
+          <span style="font-size:19px;">💳</span>
+          <span style="font-size:13px;font-weight:600;color:var(--tx);">Tarjeta (Terminal)</span>
+          <div class="pago-radio"></div>
+        </div>
+      </div>
+
+      <!-- 4. Notificaciones -->
+      <div class="sec-lbl">Notificaciones</div>
+      <div style="background:var(--card-bg);border-radius:16px;border:.5px solid var(--border);margin:0 14px 10px;padding:4px 16px 6px;">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-info-tit">Nuevos pedidos</div>
+            <div class="toggle-info-sub">Alerta cuando llegue un pedido o solicitud</div>
+          </div>
+          <div class="toggle on" id="vn-nt-pedidos" onclick="vnegToggleNotif('pedidos')"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-info-tit">Cancelaciones</div>
+            <div class="toggle-info-sub">Aviso si el cliente cancela</div>
+          </div>
+          <div class="toggle on" id="vn-nt-cancel" onclick="vnegToggleNotif('cancel')"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-info-tit">Calificaciones</div>
+            <div class="toggle-info-sub">Al recibir una nueva reseña</div>
+          </div>
+          <div class="toggle" id="vn-nt-cal" onclick="vnegToggleNotif('cal')"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-info-tit">Resumen diario</div>
+            <div class="toggle-info-sub">Ventas del día cada noche</div>
+          </div>
+          <div class="toggle on" id="vn-nt-resumen" onclick="vnegToggleNotif('resumen')"></div>
+        </div>
+      </div>
+
+      <!-- 5. Datos bancarios -->
+      <div class="sec-lbl">Datos de transferencia</div>
+      <div style="background:var(--card-bg);border-radius:16px;border:.5px solid var(--border);margin:0 14px 10px;padding:14px 16px;">
+        <div class="form-g">
+          <label class="lbl">Banco</label>
+          <input class="inp" id="vn-bank-banco" placeholder="Ej: BBVA">
+        </div>
+        <div class="form-g">
+          <label class="lbl">CLABE / Número de cuenta</label>
+          <input class="inp" id="vn-bank-clabe" placeholder="18 dígitos o número de cuenta">
+        </div>
+        <div class="form-g" style="margin-bottom:0;">
+          <label class="lbl">Titular</label>
+          <input class="inp" id="vn-bank-titular" placeholder="Nombre del titular">
+        </div>
+      </div>
+
+      <button class="btn btn-blue" style="margin:0 14px;width:calc(100% - 28px);background:linear-gradient(135deg,#5B2C8A,#7B3FA0);" onclick="vnegGuardarConfig()">Guardar cambios</button>
+      <div class="cfg-confirm" id="vneg-confirm"><div class="cfg-confirm-ic">✅</div><div class="cfg-confirm-txt"><div class="t">Configuración guardada</div><div class="s">Tus cambios están activos</div></div></div>
     </div>
   </div>
 
@@ -11736,8 +12237,9 @@ function _goCore(id,dir){
     if(id==='v-panel-rest')setTimeout(()=>window.dcFood_cargarPanelRest&&window.dcFood_cargarPanelRest(),200);
     if(id==='v-repartidor')setTimeout(()=>window.dcFood_cargarPedidosRep&&window.dcFood_cargarPedidosRep(),200);
     if(id==='v-home')window.actualizarBadgesReales&&window.actualizarBadgesReales();
-    if(id==='vn-home'){window.vnegCargarConfig&&window.vnegCargarConfig();window._updateHora&&window._updateHora();}
+    if(id==='vn-home'){window.vnegCargarConfig&&window.vnegCargarConfig();window._updateHora&&window._updateHora();setTimeout(function(){window._calcMetricasNeg&&window._calcMetricasNeg();},120);}
     if(id==='vn-config'){window.vnegCargarConfig&&window.vnegCargarConfig();}
+    if(id==='vn-cmv'){setTimeout(function(){window.vnegCmvCargar&&window.vnegCmvCargar();},100);}
     if(id==='vn-pedidos'){_vnegPedTab='pedidos';setTimeout(function(){window.vnegRenderPedidos&&window.vnegRenderPedidos();},100);}
     if(id==='vn-menu')setTimeout(function(){window.vnegCargarMenu&&window.vnegCargarMenu();},100);
     if(id==='vn-ventas'){window._vnvMesOffset=0;setTimeout(function(){window._vnvCalc&&window._vnvCalc();},100);}
@@ -11748,7 +12250,11 @@ function _goCore(id,dir){
     if(id==='v-admin-solicitudes')setTimeout(()=>window.cargarSolicitudes&&window.cargarSolicitudes(),300);
     if(id==='v-admin-analytics')setTimeout(()=>window.cargarAnalytics&&window.cargarAnalytics(),300);
     if(id==='v-home')setTimeout(()=>{window.renderHomePersonalizado&&window.renderHomePersonalizado();},50);
-    if(id==='v-home'){var _t=(localStorage.getItem('dcuserTipo')||'').toLowerCase();if(_t==='restaurante')setTimeout(()=>{window._calcMetricasRest&&window._calcMetricasRest('hoy');},120);if(_t==='negocio'){window._vnegCargarHorariosYRepintar&&window._vnegCargarHorariosYRepintar();setTimeout(()=>{window._calcMetricasNeg&&window._calcMetricasNeg();},120);}}
+    if(id==='v-home'){var _t=(localStorage.getItem('dcuserTipo')||'').toLowerCase();if(_t==='restaurante'){window._restCargarHorariosYRepintar&&window._restCargarHorariosYRepintar();setTimeout(()=>{window._calcMetricasRest&&window._calcMetricasRest('hoy');},120);
+// B3: arrancar timer restaurante desde v-home si aún no está corriendo
+if(!window._rHoraTimer){window._rHoraTimer=setInterval(window._updateHora||function(){},30000);}}if(_t==='negocio'){window._vnegCargarHorariosYRepintar&&window._vnegCargarHorariosYRepintar();setTimeout(()=>{window._calcMetricasNeg&&window._calcMetricasNeg();},120);
+// B3: arrancar timer negocio desde v-home si aún no está corriendo
+if(!window._nHoraTimer){window._nHoraTimer=setInterval(function(){if(window._updateHora)window._updateHora();},30000);}}}
     if(id==='v-mipanel')setTimeout(()=>{window.cargarMiPerfil&&window.cargarMiPerfil();window.verificarChatsProveedor&&window.verificarChatsProveedor();},300);
     if(id==='v-mi-perfil')setTimeout(()=>{window.cargarMiPerfilDetalle&&window.cargarMiPerfilDetalle();},300);
     if(id==='v-mi-negocio')setTimeout(()=>{window._cargarBizStats&&window._cargarBizStats();},100);
@@ -11862,6 +12368,8 @@ document.addEventListener('change', _dcDirtyUniv, true);
 document.addEventListener('input',  _dcDirtyUniv, true);
 function _dcDirtyUniv(ev){
   var t=ev.target; if(!t||!t.closest) return;
+  if (t.getAttribute && t.getAttribute('data-no-dirty') === '1') return;
+  if (t.id === 'dcf-cat-select' || t.id === 'plaza-cat-select') return;
   if(_DC_DIRTY_IDS_EXCL.indexOf(t.id)!==-1) return;
   var ph=(t.getAttribute&&t.getAttribute('placeholder'))||'';
   if(ph.toLowerCase().indexOf('buscar')!==-1) return;
@@ -12469,7 +12977,7 @@ function onFrac(v){
 function showCatHint(sel){
   const h=document.getElementById('cat-hint');
   if(sel.value==='food'){h.innerHTML='🍽️ Tu negocio aparecerá en <strong>Dominio Food</strong>';h.style.color='#c8940a';}
-  else if(sel.value==='plaza'){h.innerHTML='🏪 Tu negocio aparecerá en <strong>Dominio Plaza Digital</strong>';h.style.color='#1A7AB5';}
+  else if(sel.value==='plaza'){h.innerHTML='🏪 Tu negocio aparecerá en <strong>Plaza Online</strong>';h.style.color='#1A7AB5';}
   else{h.textContent='';}
 }
 
@@ -13323,9 +13831,15 @@ function _dcfNavRest(to) {
 /* ── Filtrar lista ──────────────────────────────────── */
 function _dcfFiltrar(cat, btn) {
   document.querySelectorAll('#v-food .dcf-chip').forEach(function(b){b.classList.remove('dcf-on');});
-  btn.classList.add('dcf-on');
-  _S.filtro = cat;
+  if (btn && btn.classList) btn.classList.add('dcf-on');
+  _S.filtro = cat || 'todos';
+  var sel = document.getElementById('dcf-cat-select');
+  if (sel && sel.value !== _S.filtro) sel.value = _S.filtro;
   _dcfRenderLista(_S.historial);
+}
+function _dcfFiltrarSel(cat) {
+  _dcfFiltrar(cat || 'todos', null);
+  if (window._dcDirtyV === 'v-food') window._dcDirtyV = null;
 }
 
 /* ── Cargar restaurantes ────────────────────────────── */
@@ -14547,8 +15061,11 @@ window.dcFood_init = function() {
   } else if (tipo === 'repartidor' || tipo === 'transporte' || tipo === 'ambos') {
     setTimeout(window.dcFood_cargarPedidosRep, 200);
   } else {
-    // Reset filtro y chip "Todos" al entrar a v-food
+    // Reset filtro y selector "Todos" al entrar a v-food
     _S.filtro = 'todos';
+    var sel = document.getElementById('dcf-cat-select');
+    if (sel) sel.value = 'todos';
+    if (window._dcDirtyV === 'v-food') window._dcDirtyV = null;
     document.querySelectorAll('#v-food .dcf-chip').forEach(function(b){ b.classList.remove('dcf-on'); });
     var todosChip = document.querySelector('#v-food .dcf-chip');
     if (todosChip) todosChip.classList.add('dcf-on');
@@ -14723,8 +15240,7 @@ window._estadoEfectivoDe = function(manualOp, manualTs, horariosArr) {
   var porHorario = _calcEstadoHorario(horariosArr);
   // EL HORARIO CONFIGURADO MANDA: si el horario dice cerrado, cerrado gana sin importar el manual.
   if (porHorario === 'cerrado') return 'cerrado';
-  // Si el horario está ABIERTO, un 'cerrado' manual NO sobrevive: el horario abre (regla "cuando abra, que abra").
-  if (porHorario === 'activo' && manualOp === 'cerrado') return 'activo';
+  // Si el usuario eligió cerrado manualmente con timestamp reciente, se respeta (cae a lógica manual abajo).
   var esManual = (manualOp==='activo'||manualOp==='ocupado'||manualOp==='pausado'||manualOp==='cerrado');
   if (esManual && manualTs) {
     var lim = _ultimoLimiteHorario(horariosArr);
@@ -14748,6 +15264,14 @@ window.dcPintarEstado = function(){
     var lbl_ = document.getElementById('home-estado-lbl');
     if (dot)  dot.className = 'estado-dot ' + cfg.dotEl;
     if (lbl_) lbl_.textContent = cfg.lbl;
+    // Sincronizar select de vr-config si está abierto y sin cambios pendientes
+    var _vrc = document.getElementById('vr-config');
+    if (_vrc && _vrc.classList.contains('active')) {
+      var _valR = (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(HORARIOS)) ? 'cerrado' : 'activo';
+      var _selR = document.getElementById('cfg-est-sel');
+      if (_selR) _selR.value = _valR;
+      if (typeof _syncEstadoCfgUI === 'function') _syncEstadoCfgUI(_valR);
+    }
   }catch(e){}
 };
 
@@ -14786,8 +15310,8 @@ function lbl(e){ return ESTADO_LABELS[e]||e; }
 /* ═══════════════════════════════════════════════════════
    ESTADO LOCAL
 ═══════════════════════════════════════════════════════ */
-var _rEstadoOp    = localStorage.getItem('dcRestOpV2') || 'activo';
-var _rEstadoOpTs  = parseInt(localStorage.getItem('dcRestOpV2Ts')||'0',10);
+var _rEstadoOp    = 'activo'; // Se carga desde Firebase en dcRest_init — nunca desde localStorage compartido
+var _rEstadoOpTs  = 0;
 var _rPedTab      = 'pedidos';
 var _rMenuCat     = 'todos';
 var _rPedActivo   = null;
@@ -14798,6 +15322,11 @@ var _rBannerIdx   = 0;
 var _rBannerTimer = null;
 var _vnHoraTmp;
   var _rHoraTimer   = null;
+var _nHoraTimer   = null; // timer auto-refresco estado negocio
+var _vnegPagos = { efectivo:true, transf:true, tarjeta:false };
+var _vnegNotif = { pedidos:true, cancel:true, cal:false, resumen:true };
+var _vnegBanco = { banco:'', clabe:'', titular:'' };
+
 
 /* ═══════════════════════════════════════════════════════
    NAVEGACIÓN AISLADA
@@ -14944,10 +15473,21 @@ function dcNeg_navTo(id, isBack) {
     window._dirtyView = null;
     // DESCARTAR DE VERDAD: recargar el estado/horarios guardados
     if (cur.id === 'vn-config') { try { window.vnegCargarConfig && window.vnegCargarConfig(); } catch(e){} }
+    if (cur.id === 'vn-cmv') { try { window.vnegCmvCargar && window.vnegCmvCargar(); } catch(e){} }
   }
   // Reset scroll en destino
   try { nxt.scrollTop = 0; var sc = nxt.querySelector('.scr'); if (sc) sc.scrollTop = 0; } catch(e){}
   if (!isBack) _nNavStack.push(id);
+  // Hooks de entrada dentro del shell N — equivale a lo que hace _goCore para estas vistas
+  if (id === 'vn-config') setTimeout(function(){ window.vnegCargarConfig && window.vnegCargarConfig(); }, 80);
+  if (id === 'vn-cmv')    setTimeout(function(){ window.vnegCmvCargar && window.vnegCmvCargar(); window._updateHora && window._updateHora(); }, 80);
+  if (id === 'vn-home')   setTimeout(function(){
+    window.vnegCargarConfig && window.vnegCargarConfig();
+    window._updateHora && window._updateHora();
+    // Arrancar timer de auto-refresco de estado para negocio (30s, igual que restaurante)
+    if (_nHoraTimer) clearInterval(_nHoraTimer);
+    _nHoraTimer = setInterval(function(){ if (window._updateHora) window._updateHora(); }, 30000);
+  }, 80);
   if (isBack) {
     cur.classList.add('anim-out'); cur.style.transform='translateX(100%)'; cur.style.opacity='0';
     nxt.style.transform='translateX(-30%)'; nxt.style.opacity='0.4'; nxt.classList.add('active');
@@ -14981,9 +15521,8 @@ window._vnegRepintarEstado = function(){
     var _t = (localStorage.getItem('dcuserTipo')||'').toLowerCase();
     var _vh = document.getElementById('v-home');
     if (_t === 'negocio' && _vh && _vh.classList.contains('active')) {
-      var _manual = window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo';
-      if (window._normEstadoOp) _manual = window._normEstadoOp(_manual);
-      var _ef = window._estadoEfectivoDe ? window._estadoEfectivoDe(_manual, Date.now(), VNEG_HORARIOS) : _manual;
+      var _manual = window._normEstadoOp ? window._normEstadoOp(_vnegEstadoOp) : _vnegEstadoOp;
+      var _ef = window._estadoEfectivoDe ? window._estadoEfectivoDe(_manual, _vnegEstadoOpTs || 0, VNEG_HORARIOS) : _manual;
       var _cfg = DC_ESTADOS[_ef] || DC_ESTADOS.activo;
       // Tarjeta de estado (el recuadro grande del home)
       var _card = document.querySelector('#v-home [onclick*="vn-config"]');
@@ -14993,12 +15532,11 @@ window._vnegRepintarEstado = function(){
       }
       // Chip del header (home-estado-op) ya lo cubre dcPintarEstado/getEstadoEfectivoActual
     }
-    // Si el config está abierto, refrescar su badge con el efectivo
+    // Si el config está abierto Y el usuario NO tiene cambios sin guardar, refrescar badge
     var vc = document.getElementById('vn-config');
     if (vc && vc.classList.contains('active')) {
-      var manual = window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo';
-      if (window._normEstadoOp) manual = window._normEstadoOp(manual);
-      var ef = window._estadoEfectivoDe ? window._estadoEfectivoDe(manual, Date.now(), VNEG_HORARIOS) : manual;
+      var _forzaCerradoN = window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(VNEG_HORARIOS);
+      var ef = _forzaCerradoN ? 'cerrado' : 'activo';
       var sel = document.getElementById('vneg-est-sel');
       if (sel) sel.value = ef;
       if (window.vnegSyncCfgUI) window.vnegSyncCfgUI(ef);
@@ -15008,13 +15546,20 @@ window._vnegRepintarEstado = function(){
 
 // Estado operativo efectivo del usuario actual, aplicando el horario correcto según su tipo
 window.getEstadoEfectivoActual = function() {
-  var manual = window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo';
-  if (window._normEstadoOp) manual = window._normEstadoOp(manual);
   var tipo = (localStorage.getItem('dcuserTipo')||'').toLowerCase();
-  var horarios;
-  if (tipo === 'negocio' && typeof VNEG_HORARIOS !== 'undefined') horarios = VNEG_HORARIOS;
-  else horarios = undefined; // restaurante usa HORARIOS global
-  if (window._estadoEfectivoDe) { try { return window._estadoEfectivoDe(manual, Date.now(), horarios); } catch(e){} }
+  var manual, horarios, ts;
+  if (tipo === 'negocio' && typeof _vnegEstadoOp !== 'undefined') {
+    // Negocio: usar _vnegEstadoOp y su timestamp real — no Date.now()
+    manual = window._normEstadoOp ? window._normEstadoOp(_vnegEstadoOp) : _vnegEstadoOp;
+    horarios = (typeof VNEG_HORARIOS !== 'undefined') ? VNEG_HORARIOS : undefined;
+    ts = (typeof _vnegEstadoOpTs !== 'undefined') ? _vnegEstadoOpTs : 0;
+  } else {
+    manual = window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo';
+    if (window._normEstadoOp) manual = window._normEstadoOp(manual);
+    horarios = undefined; // restaurante usa HORARIOS global via _calcEstadoHorario
+    ts = (typeof _rEstadoOpTs !== 'undefined') ? _rEstadoOpTs : 0;
+  }
+  if (window._estadoEfectivoDe) { try { return window._estadoEfectivoDe(manual, ts, horarios); } catch(e){} }
   return manual;
 };
 
@@ -15027,14 +15572,67 @@ window._vnegCargarHorariosYRepintar = async function() {
     var ds = await _fb.getDoc(_fb.doc(_db,'usuarios',user.uid));
     if (ds.exists()) {
       var d = ds.data();
+      // Actualizar variables del módulo — NO llamar renderHomeM2 aquí
+      // para no sobreescribir el render correcto que ya hizo renderHomeM2
       if (d.horarios && d.horarios.length) VNEG_HORARIOS = d.horarios;
-      if (d.estadoOp) { try { localStorage.setItem('dcRestOpV2', d.estadoOp); } catch(e){} }
+      if (d.estadoOp) {
+        _vnegEstadoOp = window._normEstadoOp ? window._normEstadoOp(d.estadoOp) : d.estadoOp;
+        try { localStorage.setItem('dcRestOpV2', _vnegEstadoOp); } catch(e){}
+      }
+      // Siempre sincronizar el timestamp — incluso si no hay estadoOp (usuario nuevo)
+      _vnegEstadoOpTs = d.estadoOpTs || 0;
     }
-    // Repintar el home (vuelve a calcular el estado con el horario ya cargado)
-    if (typeof _renderHome === 'function') _renderHome();
-    // Aplicar estado efectivo (horario manda) tras cargar — igual que el restaurante al login
-    if (window._vnegRepintarEstado) window._vnegRepintarEstado();
+    // Sincronizar badge del Centro Operativo
+    _vnegSyncHomeBadge();
+    // Repintar chip del header (home-estado-dot/lbl) — mismo patrón que restaurante
+    if (window.dcPintarEstado) window.dcPintarEstado();
+    // Repintar tarjeta del v-home si está activo
+    var _vh = document.getElementById('v-home');
+    if (_vh && _vh.classList.contains('active')) {
+      if (window.renderHomePersonalizado) window.renderHomePersonalizado();
+    }
   } catch(e){ console.warn('[vneg hor home]', e.message); }
+};
+
+// Cargar horarios del restaurante desde Firebase y repintar el estado del home
+// Mismo patrón que _vnegCargarHorariosYRepintar — corrige bug de estado incorrecto en v-home
+window._restCargarHorariosYRepintar = async function() {
+  try {
+    var user = window._fbAuth && window._fbAuth.currentUser; var _db = window._fbDb;
+    if (!user || !_db) return;
+    var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var ds = await _fb.getDoc(_fb.doc(_db,'usuarios',user.uid));
+    if (ds.exists()) {
+      var d = ds.data();
+      // Actualizar el array HORARIOS global con los del restaurante en Firebase
+      if (d.horarios && d.horarios.length) {
+        // Reemplazar completo para eliminar días sobrantes de sesión anterior
+        d.horarios.forEach(function(dh) {
+          var local = HORARIOS.find(function(h){ return h.id === dh.id; });
+          if (local) { local.abre = dh.abre; local.cierra = dh.cierra; local.abierto = dh.abierto; }
+          else { HORARIOS.push({id:dh.id, dia:dh.dia, abre:dh.abre, cierra:dh.cierra, abierto:dh.abierto}); }
+        });
+        // Eliminar días que existen en memoria pero no en Firebase (sobrantes del usuario anterior)
+        for (var _hi = HORARIOS.length - 1; _hi >= 0; _hi--) {
+          if (!d.horarios.find(function(dh){ return dh.id === HORARIOS[_hi].id; })) {
+            HORARIOS.splice(_hi, 1);
+          }
+        }
+      }
+      // Sincronizar estado operativo
+      if (d.estadoOp) {
+        _rEstadoOp = window._normEstadoOp ? window._normEstadoOp(d.estadoOp) : d.estadoOp;
+        try { localStorage.setItem('dcRestOpV2', _rEstadoOp); } catch(e) {}
+      }
+      if (d.estadoOpTs) { _rEstadoOpTs = d.estadoOpTs; try { localStorage.setItem('dcRestOpV2Ts', String(d.estadoOpTs)); var _uR=user.uid; if(_uR) localStorage.setItem('dcuserEstadoOpTs_'+_uR, String(d.estadoOpTs)); } catch(e) {} }
+    }
+    // Repintar el v-home completo con el estado correcto recién cargado de Firebase
+    var _vh = document.getElementById('v-home');
+    if (_vh && _vh.classList.contains('active')) {
+      if (window.renderHomePersonalizado) window.renderHomePersonalizado();
+    }
+    if (window.dcPintarEstado) window.dcPintarEstado();
+  } catch(e){ console.warn('[rest hor home]', e.message); }
 };
 
 // FINAL FELIZ del negocio (mismo que restaurante, IDs propios)
@@ -15083,13 +15681,17 @@ window._calcMetricasNeg = async function(){
     var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
     var snap = await _fb.getDocs(_fb.query(_fb.collection(_db,'pedidos'), _fb.where('restauranteId','==',user.uid)));
     var GP_NUEVO=['nuevo'], GP_PROC=['aceptado','preparando','listo','buscando_repartidor','repartidor_asignado','en_camino','recogido'];
-    var nAcep=0,nProc=0,nHoy=0;
+    var nAcep=0,nProc=0,nHoy=0, ventaHoy=0, nSem=0, ventaSem=0;
     var hoy0=new Date(); hoy0.setHours(0,0,0,0); var t0=hoy0.getTime();
-    snap.forEach(function(d){ var p=d.data(); var e=p.estado||'';
+    var sem0=new Date(); sem0.setHours(0,0,0,0); sem0.setDate(sem0.getDate()-6); var ts0=sem0.getTime();
+    snap.forEach(function(d){ var p=d.data(); var e=p.estado||''; var f=p.fecha||0; var tot=p.total||0;
       if(GP_NUEVO.indexOf(e)!==-1)nAcep++; else if(GP_PROC.indexOf(e)!==-1)nProc++;
-      if(e==='entregado'&&(p.fecha||0)>=t0)nHoy++;
+      if(e==='entregado'&&f>=t0){nHoy++; ventaHoy+=tot;}
+      if(e==='entregado'&&f>=ts0){nSem++; ventaSem+=tot;}
     });
     setTxt('vnhome-poraceptar',nAcep); setTxt('vnhome-pedidos',nHoy); setTxt('vnhome-enproceso',nProc);
+    setTxt('vnj-pedidos',nHoy); setTxt('vnj-ventas','$'+ventaHoy);
+    setTxt('vn-semana-resumen', nSem + ' pedidos · $' + ventaSem + ' · 4.8★');
     ledSet('vncard-poraceptar',nAcep>0); ledSet('vncard-pedidoshoy',nHoy>0); ledSet('vncard-enproceso',nProc>0);
     // Banner de urgencia (igual que restaurante): X pedidos nuevos
     var wrap = document.getElementById('vn-urgencia-wrap');
@@ -15243,22 +15845,31 @@ function vnegSyncCfgUI(val) {
   if (dot) dot.style.background = m.c;
 }
 function vnegPreviewEstado(val) {
-  var cerradoPorHorario = window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(VNEG_HORARIOS);
-  // Mensaje 1: cerrado por horario, no se puede cambiar
-  if (cerradoPorHorario) {
-    if (window.toast) toast('Está cerrado por tu horario. No puedes cambiar el estado; cámbialo en Horarios.');
-    var s = document.getElementById('vneg-est-sel'); if (s) s.value = 'cerrado';
-    vnegSyncCfgUI('cerrado');
-    return;
-  }
-  // Mensaje 2: está abierto y seleccionan 'cerrado' → debe cambiarse en Horarios
-  if (val === 'cerrado') {
-    if (window.toast) toast('Está abierto por tu horario. Para cerrar, cambia el horario en Horarios.');
-    var s2 = document.getElementById('vneg-est-sel'); if (s2) s2.value = _vnegEstadoOp || 'activo';
-    vnegSyncCfgUI(_vnegEstadoOp || 'activo');
+  // Si el horario predeterminado fuerza cerrado, bloquear cambio y mostrar aviso
+  if (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(VNEG_HORARIOS)) {
+    // Resetear el select al valor actual
+    var _sel = document.getElementById('vneg-est-sel');
+    if (_sel) _sel.value = 'cerrado';
+    // Limpiar dirty para que el timer pueda sincronizar el select al abrir
+    window._dirtyView = null;
+    // Mostrar popup de aviso fuera de horario
+    var _ovId = 'dcFueraHorarioOv';
+    if (!document.getElementById(_ovId)) {
+      var _ov = document.createElement('div');
+      _ov.id = _ovId;
+      _ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+      _ov.innerHTML = '<div style="background:#fff;border-radius:22px;padding:28px 24px;max-width:300px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.3);">'
+        + '<div style="font-size:40px;margin-bottom:12px;">🕐</div>'
+        + '<div style="font-size:16px;font-weight:800;color:#111;margin-bottom:10px;">Fuera de horario laboral</div>'
+        + '<div style="font-size:13px;color:#666;line-height:1.5;margin-bottom:22px;">Actualmente estás fuera de tu horario laboral.<br>No se pueden cambiar estados.</div>'
+        + '<button onclick="var e=document.getElementById(\'dcFueraHorarioOv\');if(e)e.remove();" style="width:100%;padding:13px;background:#7B3FA0;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Aceptar</button>'
+        + '</div>';
+      document.body.appendChild(_ov);
+    }
     return;
   }
   window._dirtyView = 'vn-config';
+  window._vnegEstadoPendTocado = true;
   vnegSyncCfgUI(val);
   if (window.toast) toast('Estado: ' + (_vnegMeta[val]? _vnegMeta[val].ic+' '+_vnegMeta[val].t : val));
 }
@@ -15266,10 +15877,11 @@ window.vnegPreviewEstado = vnegPreviewEstado;
 
 // Pintar el badge de estado en el vn-home
 function _vnegSyncHomeBadge() {
-  // El horario del NEGOCIO manda: usar VNEG_HORARIOS (no los del restaurante)
-  var manual = window.getEstadoOperativo ? window.getEstadoOperativo() : _vnegEstadoOp;
-  if (window._normEstadoOp) manual = window._normEstadoOp(manual);
-  var ef = window._estadoEfectivoDe ? window._estadoEfectivoDe(manual, Date.now(), VNEG_HORARIOS) : manual;
+  // Usar _vnegEstadoOp y su timestamp real — no Date.now()
+  var manual = window._normEstadoOp ? window._normEstadoOp(_vnegEstadoOp) : _vnegEstadoOp;
+  var ef = window._estadoEfectivoDe ? window._estadoEfectivoDe(manual, _vnegEstadoOpTs || 0, VNEG_HORARIOS) : manual;
+  // Fix 3 N: si el horario fuerza cerrado, siempre mostrar cerrado en el badge
+  if (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(VNEG_HORARIOS)) ef = 'cerrado';
   var m = _vnegMeta[ef] || _vnegMeta.activo;
   var dot = document.getElementById('vn-estado-dot');
   var lbl = document.getElementById('vn-estado-lbl');
@@ -15311,28 +15923,130 @@ function vnegSetHora(idx,campo,val){ VNEG_HORARIOS[idx][campo]=val; window._dirt
 window.vnegToggleDia = vnegToggleDia;
 window.vnegSetHora = vnegSetHora;
 
+function vnegSyncPagoNotifUI(){
+  ['efectivo','transf','tarjeta'].forEach(function(k){
+    var el = document.getElementById('vn-pg-' + k);
+    if (el) el.classList.toggle('on', !!_vnegPagos[k]);
+  });
+  ['pedidos','cancel','cal','resumen'].forEach(function(k){
+    var el = document.getElementById('vn-nt-' + k);
+    if (el) el.classList.toggle('on', !!_vnegNotif[k]);
+  });
+  var b = document.getElementById('vn-bank-banco');
+  var c = document.getElementById('vn-bank-clabe');
+  var t = document.getElementById('vn-bank-titular');
+  if (b) b.value = _vnegBanco.banco || '';
+  if (c) c.value = _vnegBanco.clabe || '';
+  if (t) t.value = _vnegBanco.titular || '';
+}
+
+function vnegTogglePago(tipo) {
+  window._dirtyView = 'vn-config';
+  _vnegPagos[tipo] = !_vnegPagos[tipo];
+  var el = document.getElementById('vn-pg-' + tipo);
+  if (el) el.classList.toggle('on', !!_vnegPagos[tipo]);
+  var nombres = {efectivo:'Efectivo', transf:'Transferencia', tarjeta:'Tarjeta'};
+  toast((nombres[tipo]||tipo) + ': ' + (_vnegPagos[tipo] ? '✅ Activo' : '⏸️ Desactivado'));
+}
+
+function vnegToggleNotif(tipo) {
+  window._dirtyView = 'vn-config';
+  _vnegNotif[tipo] = !_vnegNotif[tipo];
+  var el = document.getElementById('vn-nt-' + tipo);
+  if (el) el.classList.toggle('on', !!_vnegNotif[tipo]);
+  toast('Notif. ' + tipo + ': ' + (_vnegNotif[tipo] ? '🔔 Activadas' : '🔕 Desactivadas'));
+}
+
 // Guardar config del negocio en Firebase (su propio uid)
 window.vnegGuardarConfig = async function() {
   var sel = document.getElementById('vneg-est-sel');
   var nuevoEstado = sel ? sel.value : 'activo';
+  if (window._normEstadoOp) nuevoEstado = window._normEstadoOp(nuevoEstado);
+  // FIX HORARIO→APERTURA: si el usuario solo modificó horarios y ahora el horario laboral está abierto,
+  // no arrastrar estados manuales viejos (cerrado/pausado/ocupado) desde antes del cambio.
+  // Solo se respeta manual si el usuario tocó explícitamente el selector de estado.
+  if (!window._vnegEstadoPendTocado && window._horarioFuerzaCerrado && !window._horarioFuerzaCerrado(VNEG_HORARIOS)) {
+    nuevoEstado = 'activo';
+  }
+  // Si el horario fuerza cerrado pero el usuario guardó sin cambiar, conservar el estado manual previo
+  // para que cuando el horario abra, el estado efectivo sea el que el usuario configuró (no cerrado manual)
+  if (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(VNEG_HORARIOS) && nuevoEstado === 'cerrado') {
+    // El select muestra cerrado por horario — preservar el estado manual guardado anteriormente
+    nuevoEstado = (_vnegEstadoOp && _vnegEstadoOp !== 'cerrado') ? _vnegEstadoOp : 'activo';
+  }
+  window._dirtyView = null;
+
+  // Mismo flujo exacto que cambiarEstadoOp del restaurante
   _vnegEstadoOp = nuevoEstado;
   _vnegEstadoOpTs = Date.now();
-  window._dirtyView = null;
-  // REUSA la función central probada (guarda estadoOp+ts en usuarios/uid, igual que restaurante)
-  if (window.setEstadoOperativo) { try { window.setEstadoOperativo(nuevoEstado); } catch(e){ console.warn('[vneg setEstado]', e.message); } }
+  localStorage.setItem('dcRestOpV2', nuevoEstado);
+  localStorage.setItem('dcRestOpV2Ts', String(_vnegEstadoOpTs));
+  try { var _uVN=(window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid)||localStorage.getItem('dcuserUid')||''; if(_uVN){ localStorage.setItem('dcuserEstadoOpTs_'+_uVN, String(_vnegEstadoOpTs)); } } catch(e){}
+  try {
+    var _uN = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid) || localStorage.getItem('dcuserUid') || '';
+    if (_uN) localStorage.setItem('dcuserEstadoOp_' + _uN, nuevoEstado);
+  } catch(e) {}
+
+  // Actualizar UI — todos los lugares igual que restaurante
+  vnegSyncCfgUI(nuevoEstado);
   _vnegSyncHomeBadge();
-  // Guardar los HORARIOS del negocio (lo único propio) junto al estado ya guardado
+  if (typeof window.setEstadoOperativo === 'function') window.setEstadoOperativo(nuevoEstado);
+
+  // Guardar pagos, notificaciones y datos bancarios del negocio
+  _vnegBanco = {
+    banco:   (document.getElementById('vn-bank-banco')   && document.getElementById('vn-bank-banco').value.trim())   || '',
+    clabe:   (document.getElementById('vn-bank-clabe')   && document.getElementById('vn-bank-clabe').value.trim())   || '',
+    titular: (document.getElementById('vn-bank-titular') && document.getElementById('vn-bank-titular').value.trim()) || ''
+  };
+
+  // Guardar en Firebase
   try {
     var user = window._fbAuth && window._fbAuth.currentUser;
     var _db = window._fbDb;
     if (user && _db) {
       var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-      await _fb.setDoc(_fb.doc(_db,'usuarios',user.uid), { horarios:VNEG_HORARIOS }, { merge:true });
+      var hSer = VNEG_HORARIOS.map(function(h){ return {id:h.id,dia:h.dia,abre:h.abre,cierra:h.cierra,abierto:h.abierto}; });
+      await _fb.setDoc(_fb.doc(_db,'usuarios',user.uid), {
+        estadoOp:nuevoEstado,
+        estadoOpTs:_vnegEstadoOpTs,
+        horarios:hSer,
+        pagos:_vnegPagos,
+        notificacionesCfg:_vnegNotif,
+        bancoTransferencia:_vnegBanco
+      }, {merge:true});
     }
-  } catch(e){ console.warn('[vneg horarios]', e.message); }
-  // FINAL FELIZ (mismo que restaurante) + regreso automático al home del Centro Operativo
+  } catch(e) { console.warn('[vneg guardar]', e.message); }
+
+  // Overlay y regreso
   if (window._vnegShowOverlay) {
-    window._vnegShowOverlay({ f1tit:'Guardando cambios...', f1sub:'Actualizando tu negocio.', f2tit:'¡Listo!', f2sub:'Cambios guardados.', onDone:function(){ if(window._vnegRepintarEstado) window._vnegRepintarEstado(); negTo('vn-home', true); } });
+    window._vnegShowOverlay({
+      f1tit:'Guardando cambios...', f1sub:'Actualizando tu negocio.',
+      f2tit:'¡Listo!', f2sub:'Cambios guardados.',
+      onDone: function() {
+        // Estado EFECTIVO (horario + manual) — no el manual crudo
+        var _efN = window._estadoEfectivoDe
+          ? window._estadoEfectivoDe(_vnegEstadoOp, _vnegEstadoOpTs, VNEG_HORARIOS)
+          : _vnegEstadoOp;
+        // Badge del Centro Operativo con estado efectivo
+        var _m = _vnegMeta[_efN] || _vnegMeta.activo;
+        var _dot = document.getElementById('vn-estado-dot');
+        var _lbl = document.getElementById('vn-estado-lbl');
+        if (_dot) { _dot.style.background = _m.c; _dot.className = 'estado-dot'; }
+        if (_lbl) _lbl.textContent = _m.t.toUpperCase();
+        // SELECT muestra el manual guardado (igual que restaurante en guardarConfig)
+        var _estSel = _vnegEstadoOp;
+        if (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(VNEG_HORARIOS)) _estSel = 'cerrado';
+        var _sel = document.getElementById('vneg-est-sel');
+        if (_sel) _sel.value = _estSel;
+        vnegSyncCfgUI(_estSel);
+        // Repintar home
+        window.renderHomePersonalizado && window.renderHomePersonalizado();
+        _vnegSyncHomeBadge();
+        if (window.dcPintarEstado) window.dcPintarEstado();
+        if (typeof window.setEstadoOperativo === 'function') window.setEstadoOperativo(_vnegEstadoOp);
+        negTo('vn-home', true);
+      }
+    });
   }
 };
 
@@ -15348,6 +16062,7 @@ window.vnegCargarConfig = async function() {
       var d = ds.data();
       _vnegEstadoOp = d.estadoOp || 'activo';
       _vnegEstadoOpTs = d.estadoOpTs || 0;
+      try { var _uVC=user.uid; if(_uVC){ localStorage.setItem('dcuserEstadoOpTs_'+_uVC, String(_vnegEstadoOpTs)); } } catch(e){}
       // Sincronizar con la fuente única (localStorage) para que v-home y vn-home coincidan
       if (window.setEstadoOperativo && d.estadoOp) {
         try { localStorage.setItem('dcRestOpV2', _vnegEstadoOp); } catch(e){}
@@ -15355,15 +16070,23 @@ window.vnegCargarConfig = async function() {
       if (d.horarios && d.horarios.length) VNEG_HORARIOS = d.horarios;
       var nm = document.getElementById('vn-hdr-name');
       if (nm) nm.textContent = d.nombreNegocio || d.nombre || 'Mi Negocio';
+      var cn = document.getElementById('vn-comunidad-nombre');
+      if (cn) cn.textContent = d.nombreNegocio || d.nombre || 'Tu negocio';
+      if (d.pagos) _vnegPagos = Object.assign({efectivo:true, transf:true, tarjeta:false}, d.pagos);
+      if (d.notificacionesCfg) _vnegNotif = Object.assign({pedidos:true, cancel:true, cal:false, resumen:true}, d.notificacionesCfg);
+      if (d.bancoTransferencia) _vnegBanco = Object.assign({banco:'', clabe:'', titular:''}, d.bancoTransferencia);
     }
-    var estManual = window.getEstadoOperativo ? window.getEstadoOperativo() : _vnegEstadoOp;
-    if (window._normEstadoOp) estManual = window._normEstadoOp(estManual);
-    // Igual que el restaurante (_initConfig): al ENTRAR muestra el estado EFECTIVO (horario manda)
-    var estMostrar = estManual;
-    if (window._estadoEfectivoDe) { try { estMostrar = window._estadoEfectivoDe(estManual, Date.now(), VNEG_HORARIOS); } catch(e){} }
+    vnegSyncPagoNotifUI();
+    window._vnegEstadoPendTocado = false;
+    // Usar _vnegEstadoOp directamente — ya fue cargado desde Firebase arriba
+    var estManual = window._normEstadoOp ? window._normEstadoOp(_vnegEstadoOp) : _vnegEstadoOp;
+    // El SELECT muestra el estado que el usuario guardó (manual).
+    // Si el horario fuerza cerrado, el select muestra cerrado también.
+    var estEnSelect = estManual;
+    if (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(VNEG_HORARIOS)) estEnSelect = 'cerrado';
     var sel = document.getElementById('vneg-est-sel');
-    if (sel) sel.value = estMostrar;
-    vnegSyncCfgUI(estMostrar);
+    if (sel) sel.value = estEnSelect;
+    vnegSyncCfgUI(estEnSelect);
     vnegRenderHorarios();
     _vnegSyncHomeBadge();
   } catch(e){ console.warn('[vneg cargar]', e.message); }
@@ -15388,7 +16111,9 @@ document.addEventListener('input',  _dcDirtyEv, true);
 function _dcDirtyEv(ev) {
   var t = ev.target; if (!t || !t.closest) return;
   if (t.closest('#vr-config')) _marcarSucio('vr-config');
+  else if (t.closest('#vn-config')) _marcarSucio('vn-config');
   else if (t.closest('#vr-cmv')) _marcarSucio('vr-cmv');
+  else if (t.closest('#vn-cmv')) _marcarSucio('vn-cmv');
   else if (t.closest('#vr-prod-form')) _marcarSucio('vr-prod-form');
 }
 
@@ -16667,32 +17392,43 @@ function _renderNotif() {
 function _initConfig() {
   window._dirtyView = null;
   window._cfgEstadoPend = null;
+  window._cfgEstadoPendTocado = false;
   try { window._cfgSnapHor = JSON.stringify(HORARIOS); } catch(e){}
   var sel = document.getElementById('cfg-est-sel');
-  var estMostrar = _estadoEfectivo(); // usa horario + prioridad manual
-  if (sel) sel.value = estMostrar;
-  _syncEstadoCfgUI(estMostrar);
+  // El SELECT muestra el estado manual guardado; si el horario fuerza cerrado, muestra cerrado.
+  var estEnSel = (typeof _rEstadoOp !== 'undefined' ? _rEstadoOp : 'activo') || 'activo';
+  if (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(HORARIOS)) estEnSel = 'cerrado';
+  if (sel) sel.value = estEnSel;
+  _syncEstadoCfgUI(estEnSel);
   _renderHorarios();
 }
 
 function cfgPreviewEstado(val) {
-  var _h = (typeof HORARIOS!=='undefined') ? HORARIOS : undefined;
-  var cerradoPorHorario = window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(_h);
-  // Mensaje 1: cerrado por horario, no se puede cambiar
-  if (cerradoPorHorario) {
-    if (window.toast) toast('Está cerrado por tu horario. No puedes cambiar el estado; cámbialo en Horarios.');
-    var s = document.getElementById('cfg-est-sel'); if (s) s.value = 'cerrado';
-    _syncEstadoCfgUI('cerrado');
-    return;
-  }
-  // Mensaje 2: está abierto y seleccionan 'cerrado' → debe cambiarse en Horarios
-  if (val === 'cerrado') {
-    if (window.toast) toast('Está abierto por tu horario. Para cerrar, cambia el horario en Horarios.');
-    var s2 = document.getElementById('cfg-est-sel'); if (s2) s2.value = (typeof _rEstadoOp!=='undefined'? _rEstadoOp : 'activo');
-    _syncEstadoCfgUI(typeof _rEstadoOp!=='undefined'? _rEstadoOp : 'activo');
+  // Si el horario predeterminado fuerza cerrado, bloquear cambio y mostrar aviso
+  if (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(HORARIOS)) {
+    // Resetear el select al valor actual (no dejar el cambio visualmente)
+    var _sel = document.getElementById('cfg-est-sel');
+    if (_sel) _sel.value = 'cerrado';
+    // Limpiar dirty para que el timer pueda sincronizar el select al abrir
+    window._dirtyView = null;
+    // Mostrar popup de aviso fuera de horario
+    var _ovId = 'dcFueraHorarioOv';
+    if (!document.getElementById(_ovId)) {
+      var _ov = document.createElement('div');
+      _ov.id = _ovId;
+      _ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+      _ov.innerHTML = '<div style="background:#fff;border-radius:22px;padding:28px 24px;max-width:300px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.3);">'
+        + '<div style="font-size:40px;margin-bottom:12px;">🕐</div>'
+        + '<div style="font-size:16px;font-weight:800;color:#111;margin-bottom:10px;">Fuera de horario laboral</div>'
+        + '<div style="font-size:13px;color:#666;line-height:1.5;margin-bottom:22px;">Actualmente estás fuera de tu horario laboral.<br>No se pueden cambiar estados.</div>'
+        + '<button onclick="var e=document.getElementById(\'dcFueraHorarioOv\');if(e)e.remove();" style="width:100%;padding:13px;background:#D63A2A;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Aceptar</button>'
+        + '</div>';
+      document.body.appendChild(_ov);
+    }
     return;
   }
   // Solo vista previa — NO guarda nada; el guardado ocurre con el botón Guardar
+  window._cfgEstadoPendTocado = true;
   window._cfgEstadoPend = val;
   _syncEstadoCfgUI(val);
   _marcarSucio('vr-config');
@@ -16703,7 +17439,7 @@ function cambiarEstadoOp(val) {
   localStorage.setItem('dcRestOpV2', val);
   localStorage.setItem('dcRestOpV2Ts', String(_rEstadoOpTs));
   // Sincronizar con la llave del index
-  try { (function(){ var _uS=_vrUid(); if(_uS){ localStorage.setItem('dcuserEstadoOp_'+_uS, val); } })(); } catch(e){}
+  try { (function(){ var _uS=_vrUid(); if(_uS){ localStorage.setItem('dcuserEstadoOp_'+_uS, val); localStorage.setItem('dcuserEstadoOpTs_'+_uS, String(_rEstadoOpTs)); } })(); } catch(e){}
   _syncEstadoCfgUI(val);
   toast('Estado: ' + DC_ESTADOS[val].ic + ' ' + DC_ESTADOS[val].lbl.charAt(0) + DC_ESTADOS[val].lbl.slice(1).toLowerCase());
   // Centro Operativo — home estado dot/lbl
@@ -16802,7 +17538,20 @@ function aplicarHorarioATodos() {
 var _rCfgConfirmTimer; // conservado — código muerto desde el cambio a overlay, documentado
 function guardarConfig() {
   window._dirtyView = null;
+  // FIX HORARIO→APERTURA: si el usuario solo modificó horarios y ahora el horario laboral está abierto,
+  // no arrastrar estados manuales viejos (cerrado/pausado/ocupado) desde antes del cambio.
+  // Solo se respeta manual si el usuario tocó explícitamente el selector de estado.
+  if (!window._cfgEstadoPendTocado && window._horarioFuerzaCerrado && !window._horarioFuerzaCerrado(HORARIOS)) {
+    window._cfgEstadoPend = 'activo';
+  }
+  // Protección E8: si el horario fuerza cerrado y el usuario guardó sin cambiar el select,
+  // no grabar "cerrado" como estado manual — preservar el estado manual anterior
+  if (window._cfgEstadoPend === 'cerrado' && window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(HORARIOS)) {
+    window._cfgEstadoPend = (_rEstadoOp && _rEstadoOp !== 'cerrado') ? _rEstadoOp : 'activo';
+  }
   if (window._cfgEstadoPend) { cambiarEstadoOp(window._cfgEstadoPend); window._cfgEstadoPend = null; }
+  // Actualizar timestamp del estado al guardar — asegura que el horario pueda retomar control correctamente
+  if (!_rEstadoOpTs) { _rEstadoOpTs = Date.now(); localStorage.setItem('dcRestOpV2Ts', String(_rEstadoOpTs)); }
   window._cfgSnapHor = JSON.stringify(HORARIOS);
   localStorage.setItem('dcRestOpV2', _rEstadoOp);
   // Persistir horarios y estado en Firestore — fuente para cálculo automático
@@ -16824,7 +17573,26 @@ function guardarConfig() {
     f1sub: 'Actualizando tu restaurante.',
     f2tit: 'Configuración guardada',
     f2sub: 'Tus cambios están activos.',
-    onDone: null
+    onDone: function() {
+      // Badge vr-home: usa estado efectivo (horario + manual)
+      var _ef = _estadoEfectivo();
+      // Actualizar tarjeta de estado en v-home (la grande clicable)
+      if (window.renderHomePersonalizado) window.renderHomePersonalizado();
+      var _cfg = DC_ESTADOS[_ef] || DC_ESTADOS.activo;
+      var _dot = document.getElementById('home-estado-dot');
+      var _lbl = document.getElementById('home-estado-lbl');
+      if (_dot) { _dot.className = 'estado-dot ' + _cfg.dotEl; }
+      if (_lbl) _lbl.textContent = _cfg.lbl;
+      // Config select: muestra el estado manual guardado
+      var _selEst = (typeof _rEstadoOp !== 'undefined' ? _rEstadoOp : 'activo') || 'activo';
+      if (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(HORARIOS)) _selEst = 'cerrado';
+      var _sel = document.getElementById('cfg-est-sel');
+      if (_sel) _sel.value = _selEst;
+      _syncEstadoCfgUI(_selEst);
+      if (window.dcPintarEstado) window.dcPintarEstado();
+      if (typeof window.setEstadoOperativo === 'function') window.setEstadoOperativo(_rEstadoOp);
+      dcRest_navTo('vr-home', true);
+    }
   });
 }
 function togglePago(tipo) {
@@ -16848,6 +17616,179 @@ function toggleNotif(tipo) {
    CÓMO ME VEN LOS CLIENTES — CMV
    Lee/escribe en usuarios/{uid} los datos públicos del restaurante
 ═══════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════
+   VN-CMV — Cómo me ve el cliente para NEGOCIO
+   Copia funcional del flujo Restaurante, con IDs propios.
+   No toca vr-cmv ni Configuración.
+═══════════════════════════════════════════════════════ */
+var _vnCmvFotoData = null;
+var _vnCmvFotoNueva = null;
+var _vnCmvFotoExistente = null;
+
+function vnegCmvFotoChange(inp) {
+  var file = inp && inp.files && inp.files[0];
+  if (!file) return;
+  if (file.size > 1024 * 1024) { toast('⚠️ La imagen debe pesar máximo 1 MB'); inp.value=''; return; }
+  var rd = new FileReader();
+  rd.onload = function(e){
+    _vnCmvFotoNueva = e.target.result;
+    _vnCmvFotoData = _vnCmvFotoNueva;
+    var fprev = document.getElementById('vn-cmv-foto-prev');
+    if (fprev) fprev.innerHTML = '<img src="'+_vnCmvFotoData+'" style="width:100%;height:100%;object-fit:cover;">';
+    vnegCmvRenderPreview();
+    window._dirtyView = 'vn-cmv';
+  };
+  rd.readAsDataURL(file);
+}
+
+function vnegCmvRenderPreview() {
+  var prev = document.getElementById('vn-cmv-preview'); if (!prev) return;
+  var nombre = (document.getElementById('vn-cmv-nombre')||{}).value || 'Mi Negocio';
+  var desc   = (document.getElementById('vn-cmv-desc')||{}).value || 'Productos y servicios para la comunidad';
+  var cat    = (document.getElementById('vn-cmv-cat')||{}).value || 'tienda';
+  var selVal = (document.getElementById('vn-cmv-estado')||{}).value || 'activo';
+  var manual = window._normEstadoOp ? window._normEstadoOp(_vnegEstadoOp || 'activo') : (_vnegEstadoOp || 'activo');
+  var estOp = manual;
+  if (window._estadoEfectivoDe) { try { estOp = window._estadoEfectivoDe(manual, _vnegEstadoOpTs || 0, VNEG_HORARIOS); } catch(e){} }
+  if (selVal && selVal !== 'activo') estOp = selVal;
+  if (selVal === 'activo') estOp = (window._horarioFuerzaCerrado && window._horarioFuerzaCerrado(VNEG_HORARIOS)) ? 'cerrado' : 'activo';
+  var EMOJIS = {tienda:'🏪',abarrotes:'🛒',belleza:'💅',papeleria:'📚',ferreteria:'🔧',farmacia:'💊',mascotas:'🐾',hogar:'🏠',servicios:'✨',otro:'🏪'};
+  var em = EMOJIS[cat] || '🏪';
+  var estLabel, estStyle;
+  if (estOp === 'cerrado')      { estLabel='🔴 Cerrado'; estStyle='background:#FDECEA;color:#D63A2A;'; }
+  else if (estOp === 'pausado') { estLabel='⏸ Pausado'; estStyle='background:#f0f0f0;color:#888;'; }
+  else if (estOp === 'ocupado') { estLabel='🟡 Ocupado'; estStyle='background:#FFF8E1;color:#d97706;'; }
+  else                          { estLabel='🟢 Abierto'; estStyle='background:#E8F5EE;color:#1a7a42;'; }
+  var fotoHtml = _vnCmvFotoData
+    ? '<div style="width:56px;height:56px;border-radius:14px;overflow:hidden;flex-shrink:0;"><img src="'+_vnCmvFotoData+'" style="width:100%;height:100%;object-fit:cover;"></div>'
+    : '<div style="width:56px;height:56px;border-radius:14px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">'+em+'</div>';
+  prev.innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;">'
+    + fotoHtml
+    + '<div style="flex:1;">'
+    + '<div style="font-size:14px;font-weight:800;color:#111;margin-bottom:2px;">'+nombre+'</div>'
+    + '<div style="font-size:11px;color:#888;margin-bottom:6px;">'+desc+'</div>'
+    + '<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;'+estStyle+'">'+estLabel+'</span>'
+    + '</div></div>';
+}
+
+function vnegCmvSyncEstado(val) {
+  val = window._normEstadoOp ? window._normEstadoOp(val) : val;
+  _vnegEstadoOp = val;
+  _vnegEstadoOpTs = Date.now();
+  try {
+    localStorage.setItem('dcRestOpV2', val);
+    localStorage.setItem('dcRestOpV2Ts', String(_vnegEstadoOpTs));
+    var uid = window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid;
+    if (uid) { localStorage.setItem('dcuserEstadoOp_'+uid, val); localStorage.setItem('dcuserEstadoOpTs_'+uid, String(_vnegEstadoOpTs)); }
+  } catch(e){}
+  if (typeof window.setEstadoOperativo === 'function') window.setEstadoOperativo(val);
+}
+
+function vnegCmvPreviewEstado(val) { window._dirtyView = 'vn-cmv'; }
+
+async function vnegCmvCargar() {
+  window._dirtyView = null;
+  _vnCmvFotoData = null; _vnCmvFotoNueva = null; _vnCmvFotoExistente = null;
+  var fprev = document.getElementById('vn-cmv-foto-prev');
+  var elNom = document.getElementById('vn-cmv-nombre');
+  var elDes = document.getElementById('vn-cmv-desc');
+  var elCat = document.getElementById('vn-cmv-cat');
+  var selEst = document.getElementById('vn-cmv-estado');
+  var elDir = document.getElementById('vn-cmv-dir');
+  var btn = document.getElementById('vn-cmv-btn-guardar');
+  if (fprev) fprev.innerHTML = '🏪';
+  if (elNom) elNom.value = '';
+  if (elDes) elDes.value = '';
+  if (elCat) elCat.value = 'tienda';
+  if (selEst) selEst.value = _vnegEstadoOp || 'activo';
+  if (elDir) elDir.value = '';
+  if (btn) { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+  var inp = document.getElementById('vn-cmv-foto-inp');
+  if (inp) { inp.value=''; inp.onchange=function(){ vnegCmvFotoChange(inp); }; }
+  var user = window._fbAuth && window._fbAuth.currentUser;
+  var db = window._fbDb;
+  if (!user || !db) { vnegCmvRenderPreview(); return; }
+  try {
+    var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var snap = await f.getDoc(f.doc(db, 'usuarios', user.uid));
+    if (!snap.exists()) { vnegCmvRenderPreview(); return; }
+    var d = snap.data();
+    if (elNom) elNom.value = d.nombreNegocio || d.nombre || '';
+    if (elDes) elDes.value = d.descripcion || '';
+    if (elCat && d.categoria) { try { elCat.value = d.categoria; } catch(e){} }
+    if (selEst && d.estadoOp) { selEst.value = d.estadoOp; _vnegEstadoOp = window._normEstadoOp ? window._normEstadoOp(d.estadoOp) : d.estadoOp; }
+    if (d.estadoOpTs) _vnegEstadoOpTs = d.estadoOpTs;
+    if (d.horarios && d.horarios.length) VNEG_HORARIOS = d.horarios;
+    if (elDir && d.direccionNegocio) elDir.value = d.direccionNegocio;
+    if (d.fotoPerfil) {
+      _vnCmvFotoExistente = d.fotoPerfil;
+      _vnCmvFotoData = d.fotoPerfil;
+      if (fprev) fprev.innerHTML = '<img src="'+d.fotoPerfil+'" style="width:100%;height:100%;object-fit:cover;">';
+    }
+    vnegCmvRenderPreview();
+  } catch(e) { console.warn('[vn-cmv] Error al cargar:', e.message); vnegCmvRenderPreview(); }
+}
+window.vnegCmvCargar = vnegCmvCargar;
+
+async function vnegCmvGuardar() {
+  window._dirtyView = null;
+  var btn    = document.getElementById('vn-cmv-btn-guardar');
+  var nombre = (document.getElementById('vn-cmv-nombre')||{}).value || '';
+  var desc   = (document.getElementById('vn-cmv-desc')||{}).value || '';
+  var cat    = (document.getElementById('vn-cmv-cat')||{}).value || '';
+  var estado = (document.getElementById('vn-cmv-estado')||{}).value || 'activo';
+  var dir    = (document.getElementById('vn-cmv-dir')||{}).value || '';
+  vnegCmvSyncEstado(estado);
+  var user = window._fbAuth && window._fbAuth.currentUser;
+  var db = window._fbDb;
+  if (!user || !db) { vnegCmvRenderPreview(); _vnegCmvFinalFeliz(); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  try {
+    var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var data = { estadoOp: estado, estadoOpTs: (_vnegEstadoOpTs || Date.now()) };
+    if (nombre) data.nombreNegocio = nombre;
+    if (desc) data.descripcion = desc;
+    if (cat) data.categoria = cat;
+    if (dir) data.direccionNegocio = dir;
+    var fotoAGuardar = _vnCmvFotoNueva || _vnCmvFotoExistente;
+    if (fotoAGuardar) data.fotoPerfil = fotoAGuardar;
+    await Promise.race([
+      f.setDoc(f.doc(db, 'usuarios', user.uid), data, { merge:true }),
+      new Promise(function(res){ setTimeout(res, 8000); })
+    ]);
+    if (nombre) {
+      var nm = document.getElementById('vn-hdr-name'); if (nm) nm.textContent = nombre;
+      var cn = document.getElementById('vn-comunidad-nombre'); if (cn) cn.textContent = nombre;
+    }
+    if (window._vnegSyncHomeBadge) window._vnegSyncHomeBadge();
+    _vnegCmvFinalFeliz();
+  } catch(e) {
+    toast('⚠️ Error: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+  }
+}
+window.vnegCmvGuardar = vnegCmvGuardar;
+
+function _vnegCmvFinalFeliz() {
+  var b = document.getElementById('vn-cmv-btn-guardar');
+  if (b) { b.disabled = false; b.textContent = 'Guardar cambios'; }
+  window._dirtyView = null;
+  if (window._vnegShowOverlay) {
+    window._vnegShowOverlay({
+      f1tit:'Guardando cambios...',
+      f1sub:'Actualizando cómo te ven tus clientes.',
+      f2tit:'¡Listo!',
+      f2sub:'Tus clientes ya ven tu información actualizada.',
+      onDone:function(){ negTo('vn-home', true); }
+    });
+  } else {
+    toast('✅ ¡Listo! Tus clientes ya ven tu información actualizada');
+    negTo('vn-home', true);
+  }
+}
+
 var _cmvFotoData     = null; // DEPRECATED — se mantiene para cmvRenderPreview (lee esta var)
 var _cmvFotoExistente = null; // foto cargada desde Firestore del usuario actual
 var _cmvFotoNueva     = null; // foto recién seleccionada por el usuario en esta sesión
@@ -16903,7 +17844,7 @@ function cmvSyncEstado(val) {
   _rEstadoOpTs = Date.now();
   localStorage.setItem('dcRestOpV2', val);
   localStorage.setItem('dcRestOpV2Ts', String(_rEstadoOpTs));
-  try { (function(){ var _uS=_vrUid(); if(_uS){ localStorage.setItem('dcuserEstadoOp_'+_uS, val); } })(); } catch(e){}
+  try { (function(){ var _uS=_vrUid(); if(_uS){ localStorage.setItem('dcuserEstadoOp_'+_uS, val); localStorage.setItem('dcuserEstadoOpTs_'+_uS, String(_rEstadoOpTs)); } })(); } catch(e){}
   if (typeof window.setEstadoOperativo === 'function') window.setEstadoOperativo(val);
 }
 function cmvPreviewEstado(val) {
@@ -17006,13 +17947,22 @@ async function cmvGuardar() {
 }
 
 function _cmvFinalFeliz() {
-  // NO destruir el DOM — solo toast de éxito y regresar al panel
-  // El formulario permanece intacto y reconfigurable la próxima vez
+  // Final feliz reutilizando el overlay oficial de Configuración Restaurante
   var _b = document.getElementById('cmv-btn-guardar');
   if (_b) { _b.disabled = false; _b.textContent = 'Guardar cambios'; }
   window._dirtyView = null;
-  toast('✅ ¡Listo! Tus clientes ya ven tu información actualizada');
-  navTo('vr-home', true);
+  if (window._showOverlay) {
+    window._showOverlay({
+      f1tit:'Guardando cambios...',
+      f1sub:'Actualizando cómo te ven tus clientes.',
+      f2tit:'¡Listo!',
+      f2sub:'Tus clientes ya ven tu información actualizada.',
+      onDone:function(){ navTo('vr-home', true); }
+    });
+  } else {
+    toast('✅ ¡Listo! Tus clientes ya ven tu información actualizada');
+    navTo('vr-home', true);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -17043,7 +17993,7 @@ window.dcRest_init = function() {
           // Cargar estado operativo guardado
           if(d.estadoOp){ _rEstadoOp=(window._normEstadoOp?window._normEstadoOp(d.estadoOp):d.estadoOp); localStorage.setItem('dcRestOpV2',_rEstadoOp);
             try{ var _uK=_vrUid(); if(_uK){ localStorage.setItem('dcuserEstadoOp_'+_uK, _rEstadoOp); } }catch(e){} }
-          if(d.estadoOpTs){ _rEstadoOpTs=d.estadoOpTs; localStorage.setItem('dcRestOpV2Ts',String(d.estadoOpTs)); }
+          if(d.estadoOpTs){ _rEstadoOpTs=d.estadoOpTs; localStorage.setItem('dcRestOpV2Ts',String(d.estadoOpTs)); try{ if(_uK){ localStorage.setItem('dcuserEstadoOpTs_'+_uK,String(d.estadoOpTs)); } }catch(e){} }
           else if(_rEstadoOp && _rEstadoOp !== 'activo') {
             // El doc no tiene estadoOp pero localmente hay uno — sincronizar a Firestore
             (async function(_uid,_db,_est){
@@ -17055,7 +18005,12 @@ window.dcRest_init = function() {
             d.horarios.forEach(function(dh){
               var local=HORARIOS.find(function(h){ return h.id===dh.id; });
               if(local){ local.abre=dh.abre; local.cierra=dh.cierra; local.abierto=dh.abierto; }
+              else { HORARIOS.push({id:dh.id,dia:dh.dia,abre:dh.abre,cierra:dh.cierra,abierto:dh.abierto}); }
             });
+            // Eliminar días sobrantes de sesión anterior
+            for(var _hj=HORARIOS.length-1;_hj>=0;_hj--){
+              if(!d.horarios.find(function(dh){return dh.id===HORARIOS[_hj].id;})) HORARIOS.splice(_hj,1);
+            }
           }
         } catch(e){ console.warn('[dcRest_init] doc:', e.message); }
       })()
