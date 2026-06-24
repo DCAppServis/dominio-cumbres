@@ -238,6 +238,30 @@
         if(p.estado === 'activo') docs.push({id: d.id, ...p});
       });
       const filtro = (categoria || 'todos').toLowerCase();
+      // Reconstruir cat-grid con oficios reales
+      const grid = document.getElementById('cat-grid-servicios');
+      if(grid) {
+        const ICONOS_G = {plomero:'💧',electricista:'⚡',jardinero:'🌿',limpieza:'🧹',pintura:'🎨',ac:'❄️',cerrajero:'🔒',mascotas:'🐾',tecnologia:'🖥️',belleza:'💆',otro:'🔧'};
+        const seen = new Set();
+        const oficiosList = [];
+        docs.forEach(p => {
+          [p.oficio1, p.oficio2, p.oficio3].filter(Boolean).forEach(o => {
+            const k = o.toLowerCase();
+            if(!seen.has(k)){ seen.add(k); oficiosList.push({key:k, label:o}); }
+          });
+        });
+        let gh = '<div class="cat-item" data-oficio="todos" onclick="setCatS(this)">'
+          +'<div class="si25 cat-ic'+(filtro==='todos'?' on':'')+'">🔧</div>'
+          +'<div class="cat-nm'+(filtro==='todos'?' on':'')+'">Todos</div></div>';
+        oficiosList.forEach(function(o){
+          const ic = ICONOS_G[o.key]||'🔧';
+          const on = filtro===o.key;
+          gh += '<div class="cat-item" data-oficio="'+o.key+'" onclick="setCatS(this)">'
+            +'<div class="cat-ic'+(on?' on':'')+'" style="background:'+(on?'var(--green-lt)':'#f5f5f5')+';">'+ic+'</div>'
+            +'<div class="cat-nm'+(on?' on':'')+'">'+o.label.charAt(0).toUpperCase()+o.label.slice(1)+'</div></div>';
+        });
+        grid.innerHTML = gh;
+      }
       const visibles = filtro === 'todos' ? docs : docs.filter(p => {
         return [p.oficio1, p.oficio2, p.oficio3, p.categoria]
           .some(o => (o||'').toLowerCase() === filtro);
@@ -3022,6 +3046,7 @@ window.cargarMisComprasPlaza = async function() {
         + chip('🎪','Eventos', "go('v-eventos','right')")
         + chip('🚨','Seguridad',"go('v-seguridad','right')")
         + chip('❤️','Favoritos',"go('v-favoritos','right');setTimeout(cargarFavoritos,400)")
+        + chip('📦','Mis Compras',"go('v-mis-compras-plaza','right')")
         + '</div>';
 
       html += descubrimiento(tieneActividad);

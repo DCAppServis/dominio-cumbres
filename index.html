@@ -1857,15 +1857,8 @@
         <button onclick="window.irASolicitudes&&window.irASolicitudes()" id="btn-solicitud-rol" style="width:100%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:11px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;text-align:left;display:flex;align-items:center;gap:8px;">&#128203; <span id="btn-solicitud-label">Publicar solicitud de servicio</span><span style="margin-left:auto;opacity:.6;">&rarr;</span></button>
         <button id="btn-mis-solicitudes-vecino" onclick="go('v-mis-reportes','right');setTimeout(function(){window.cargarMisReportes&&window.cargarMisReportes();},300)" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:11px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;text-align:left;display:flex;align-items:center;gap:8px;">📋 <span>Mis solicitudes de servicio</span><span style="margin-left:auto;opacity:.6;">&rarr;</span></button>
       </div>
-      <div class="cat-grid">
-        <div class="cat-item" onclick="setCatS(this)"><div class="si25 cat-ic on">🔧</div><div class="cat-nm on">Todos</div></div>
-        <div class="cat-item" onclick="setCatS(this)"><div class="si26 cat-ic">💧</div><div class="cat-nm">Plomero</div></div>
-        <div class="cat-item" onclick="setCatS(this)"><div class="si51 cat-ic">⚡</div><div class="cat-nm">Eléctrico</div></div>
-        <div class="cat-item" onclick="setCatS(this)"><div class="si25 cat-ic">🌿</div><div class="cat-nm">Jardín</div></div>
-        <div class="cat-item" onclick="setCatS(this)"><div class="cat-ic" style="background:#F0EBF8;">🧹</div><div class="cat-nm">Limpieza</div></div>
-        <div class="cat-item" onclick="setCatS(this)"><div class="si52 cat-ic">🎨</div><div class="cat-nm">Pintura</div></div>
-        <div class="cat-item" onclick="setCatS(this)"><div class="si26 cat-ic">❄️</div><div class="cat-nm">A/C</div></div>
-        <div class="cat-item" onclick="setCatS(this)"><div class="si51 cat-ic">🔒</div><div class="cat-nm">Cerrajero</div></div>
+      <div class="cat-grid" id="cat-grid-servicios">
+        <div class="cat-item" data-oficio="todos" onclick="setCatS(this)"><div class="si25 cat-ic on">🔧</div><div class="cat-nm on">Todos</div></div>
       </div>
       <div class="scroll" style="padding:10px 0;" id="servicios-lista">
         <div class="si24">Cargando proveedores... ⏳</div>
@@ -1932,6 +1925,7 @@
           <button onclick="dcProvRatingEnviar()" style="width:100%;margin-top:8px;background:#F5C518;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;color:#1a1200;cursor:pointer;font-family:'Inter',sans-serif;">Enviar calificación →</button>
         </div>
 
+        <div id="det-opiniones-block" style="display:none;margin-top:10px;"></div>
         <div style="height:10px;"></div>
       </div>
     </div>
@@ -7242,14 +7236,11 @@ function selRider(el,price,name,time){
   document.getElementById('rider-lbl').textContent=name+' · '+time+' · Moto';
 }
 function setCatS(btn){
-  document.querySelectorAll('.cat-ic').forEach(c=>c.classList.remove('on'));
-  document.querySelectorAll('.cat-nm').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('#cat-grid-servicios .cat-ic').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('#cat-grid-servicios .cat-nm').forEach(c=>c.classList.remove('on'));
   btn.querySelector('.cat-ic').classList.add('on');
   btn.querySelector('.cat-nm').classList.add('on');
-  const nombre = btn.querySelector('.cat-nm').textContent.trim().toLowerCase();
-  // Mapear nombre visual a valor de categoria en Firebase
-  const mapa = {'todos':'todos','plomero':'plomero','eléctrico':'electricista','jardín':'jardinero','limpieza':'limpieza','pintura':'pintura','a/c':'ac','cerrajero':'cerrajero','mascotas':'mascotas','belleza':'belleza','tecnología':'tecnologia','albanileria':'albanileria','otro':'otro'};
-  const cat = mapa[nombre] || nombre;
+  const cat = btn.dataset.oficio || btn.querySelector('.cat-nm').textContent.trim().toLowerCase();
   if(window.cargarProveedores) window.cargarProveedores(cat);
 }
 function setStars(n){
@@ -13797,7 +13788,8 @@ window.dcProvRatingEnviar=async function(){
   var btn=document.querySelector('#det-rating-block button:last-child');
   if(btn){btn.disabled=true;btn.textContent='&#x23F3; Guardando...';}
   try{
-    await _fbSet4('calificaciones',pUid,'votos',myUid,{rating:_ratingSel,comentario:com,fecha:new Date().toISOString(),vecUid:myUid});
+    var miNombre=localStorage.getItem('dcuser')||'Vecino';
+    await _fbSet4('calificaciones',pUid,'votos',myUid,{rating:_ratingSel,comentario:com,fecha:new Date().toISOString(),vecUid:myUid,nombre:miNombre});
     var snap=await _fbColSub3('calificaciones',pUid,'votos');
     var tot=0,cnt=0; snap.forEach(function(d){tot+=(d.data().rating||0);cnt++;});
     var prom=cnt?Math.round((tot/cnt)*10)/10:0;
@@ -13832,11 +13824,40 @@ window.dcProvRatingCargar=async function(pUid){
       if(mv.exists()){
         var vd=mv.data();
         _ratingMostrarVotado(vd.rating||0,vd.comentario||'',prom,cnt);
+        _ratingMostrarOpiniones(pUid,myUid2);
         return;
       }
     }
     dcProvRatingModoEditar();
+    _ratingMostrarOpiniones(pUid,myUid2||'');
   }catch(e){console.error('rating-cargar',e);dcProvRatingModoEditar();}
+};
+
+async function _ratingMostrarOpiniones(pUid,myUid){
+  var ob=document.getElementById('det-opiniones-block'); if(!ob)return;
+  try{
+    var snap=await _fbColSub3('calificaciones',pUid,'votos');
+    var items=[];
+    snap.forEach(function(d){
+      var v=d.data();
+      if(d.id!==myUid&&(v.comentario||'').trim()) items.push(v);
+    });
+    if(!items.length){ob.style.display='none';return;}
+    ob.style.display='block';
+    var html='<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">Opiniones de clientes</div>';
+    items.forEach(function(v){
+      var nr=v.rating||0;
+      var fecha=v.fecha?new Date(v.fecha).toLocaleDateString('es-MX'):'';
+      html+='<div style="background:#fff;border-radius:12px;padding:12px;margin-bottom:8px;border:.5px solid #e8e8e8;">'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+        +'<span style="font-size:13px;">'+('⭐'.repeat(nr)+'☆'.repeat(5-nr))+'</span>'
+        +'<span style="font-size:10px;color:#aaa;">'+fecha+'</span></div>'
+        +(v.comentario?'<div style="font-size:12px;color:#444;line-height:1.5;margin-bottom:4px;font-style:italic;">&ldquo;'+v.comentario.replace(/</g,'&lt;')+'&rdquo;</div>':'')
+        +'<div style="font-size:11px;color:#888;">'+( v.nombre||'Vecino')+'</div>'
+        +'</div>';
+    });
+    ob.innerHTML=html;
+  }catch(e){ob.style.display='none';}
 };
 
 /* ======= CMV PROVEEDOR ======= */
