@@ -237,18 +237,28 @@
         const p = d.data();
         if(p.estado === 'activo') docs.push({id: d.id, ...p});
       });
-      if(docs.length === 0) {
-        lista.innerHTML = '<div style="text-align:center;padding:30px;"><div style="font-size:32px;margin-bottom:10px;">🔧</div><div class="si33">Próximamente</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Los primeros proveedores se están registrando</div></div>';
+      const filtro = (categoria || 'todos').toLowerCase();
+      const visibles = filtro === 'todos' ? docs : docs.filter(p => {
+        return [p.oficio1, p.oficio2, p.oficio3, p.categoria]
+          .some(o => (o||'').toLowerCase() === filtro);
+      });
+      if(visibles.length === 0) {
+        lista.innerHTML = '<div style="text-align:center;padding:30px;"><div style="font-size:32px;margin-bottom:10px;">🔧</div><div class="si33">'+(filtro==='todos'?'Próximamente':'Sin resultados')+'</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">'+(filtro==='todos'?'Los primeros proveedores se están registrando':'No hay proveedores para esta especialidad')+'</div></div>';
         return;
       }
       lista.innerHTML = '';
       const ICONOS = {plomero:'💧',electricista:'⚡',jardinero:'🌿',limpieza:'🧹',pintura:'🎨',ac:'❄️',cerrajero:'🔒',mascotas:'🐾',tecnologia:'🖥️',belleza:'💆',otro:'🔧'};
       const BGS    = {plomero:'#E8F0F8',electricista:'#FFF8E1',jardinero:'#E8F5EE',limpieza:'#F0EBF8',pintura:'#FDECEA',ac:'#E8F0F8',cerrajero:'#FFF8E1',otro:'#E8F5EE'};
-      docs.forEach(p => {
-        const cat = (p.categoria||'otro').toLowerCase();
+      visibles.forEach(p => {
+        const cat = (p.oficio1 || p.categoria || 'otro').toLowerCase();
         const ic  = ICONOS[cat]||'🔧';
         const bg  = BGS[cat]||'#E8F5EE';
         const premium = p.membresia === 'premium';
+        const cnt  = p.ratingTotal || 0;
+        const prom = p.ratingPromedio || 0;
+        const ratingHtml = cnt > 0
+          ? `⭐ ${prom} (${cnt} opinión${cnt>1?'es':''})`
+          : 'Nuevo';
         const div = document.createElement('div');
         div.className = 'prov-card';
         div.innerHTML = `
@@ -256,8 +266,8 @@
             <div class="prov-av" style="background:${bg};">${ic}<div class="prov-badge" style="background:${premium?'var(--yellow)':'var(--green)'};">${premium?'💎':'✓'}</div></div>
             <div class="si03">
               <div class="si17">${p.nombre||'—'}</div>
-              <div class="si01">${p.descripcion||p.categoria||'Proveedor'}</div>
-              <div class="si59">★★★★★ Nuevo</div>
+              <div class="si01">${p.descripcion||p.oficio1||p.categoria||'Proveedor'}</div>
+              <div class="si59">★ ${ratingHtml}</div>
             </div>
           </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">
