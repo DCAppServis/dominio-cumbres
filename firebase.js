@@ -1844,7 +1844,7 @@ window.cargarMisComprasPlaza = async function() {
   var DC_ESTADOS = {
     activo:  { ic:'🟢', lbl:'Activo',  col:'#1FC26A', bg:'#E8F5EE', desc:'Recibiendo pedidos y solicitudes' },
     ocupado: { ic:'🟡', lbl:'Ocupado', col:'#9A6800', bg:'#FFF8E1', desc:'Respuesta más lenta' },
-    pausado: { ic:'🟠', lbl:'Pausado', col:'#E87722', bg:'#FFF0E6', desc:'Sin nuevos pedidos por ahora' },
+    pausado: { ic:'🟠', lbl:'Pausado', col:'#E87722', bg:'#FFF0E6', desc:'Sin nuevos pedidos por ahora', dotEl:'naranja' },
     cerrado: { ic:'🔴', lbl:'Cerrado', col:'#D63A2A', bg:'#FDECEA', desc:'No disponible hoy' },
   };
   // REGLA UNIVERSAL DE ESTADO: catálogo unificado (Mi Panel = Configuración).
