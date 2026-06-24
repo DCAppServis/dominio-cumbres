@@ -1,4 +1,4 @@
-  window.VERSION_APP = "V62-QF39-LIMPIEZA-3-MIS-COMPRAS-OFICIAL-20260621";
+  window.VERSION_APP = "V63-ETAPA3-RATING-CMV-MEMBRESIA-20260624";
 
   // ============ CHAT CON FIREBASE ============
   window._chatUnsubscribe = null;
@@ -48,6 +48,7 @@
     const nombre = document.querySelector('#v-serv-det [style*="font-size:18px"]');
     if(nombre) nombre.textContent = p.nombre || 'Proveedor';
     go('v-serv-det','right');
+    setTimeout(function(){ window.dcProvRatingCargar && window.dcProvRatingCargar(uid); }, 200);
   };
 
   window.contactarProveedor = async function() {

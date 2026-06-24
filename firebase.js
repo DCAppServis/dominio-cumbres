@@ -466,7 +466,10 @@
     html += ACCION('💳','Métodos de pago',"go('vr-config','right')");
     html += ACCION('🔔','Notificaciones',"go('v-notificaciones','right');setTimeout(window.renderNotificaciones,300)");
     if (tipo !== 'vecino') {
-      html += ACCION('⭐','Membresía y plan',"go('vr-promos','right')");
+      html += ACCION('⭐','Membresía y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)");
+      if (tipo === 'proveedor') {
+        html += ACCION('👁','Cómo me ve el cliente',"go('v-prov-cmv','right');setTimeout(window.vprovCmvCargar,200)");
+      }
       if (tipo === 'restaurante' || tipo === 'negocio') {
         html += ACCION('📣','Crear promoción',"window.irACrearPromo&&window.irACrearPromo()");
       }
@@ -2540,7 +2543,7 @@ window.cargarMisComprasPlaza = async function() {
       }
     });
     // Actualizar notif-dot en nav: mostrar si hay cualquier no leída
-    var total = notifs.filter(function(n){ return !n.leida && (n.modulo||'') !== 'pedidos'; }).length;
+    var total = notifs.filter(function(n){ var m=n.modulo||''; var t=n.tipo||''; return !n.leida && m!=='pedidos' && m!=='chat' && t!=='chat' && t!=='pedido'; }).length;
     window._lastBadgeCheck = Date.now();
     var totPed = notifs.filter(function(n){ return !n.leida && (n.modulo||'') === 'pedidos'; }).length;
     document.querySelectorAll('.nav-ped-dot').forEach(function(el) {
@@ -3033,7 +3036,7 @@ window.cargarMisComprasPlaza = async function() {
             "window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",
             'chats')
         + modulo('🔧','#FFF8DC','Mi Servicio','Editar perfil',"go('v-mipanel','right')")
-        + modulo('⭐','#FFF8DC','Membresía','Estado y plan',"go('v-espera-pago','right')")
+        + modulo('⭐','#FFF8DC','Membresía','Estado y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)")
         + '</div>';
 
       html += descubrimiento(tieneActividad);
