@@ -1659,7 +1659,7 @@
     proceso:{dot:'🟢',label:'En proceso',color:'#1FC26A'},
     finalizado:{dot:'⚪',label:'Finalizado',color:'#EAEAEA'},
     cancelado:{dot:'🔴',label:'Cancelado',color:'#D63A2A'},
-    pausado:{dot:'🟣',label:'Pausado',color:'#7B3FA0'}
+    pausado:{dot:'🟠',label:'Pausado',color:'#E87722'}
   };
   window.dcEstadoKey=function(txt){
     txt=String(txt||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
