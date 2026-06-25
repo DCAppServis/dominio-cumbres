@@ -251,7 +251,7 @@
       const docs = [];
       snap.forEach(d => {
         const p = d.data();
-        if(p.estado === 'activo') docs.push({id: d.id, ...p});
+        if(['activo','aprobado','aprobado_pendiente_pago'].indexOf(p.estado) !== -1) docs.push({id: d.id, ...p});
       });
       const filtro = (categoria || 'todos').toLowerCase();
       // Actualizar el select desplegable
