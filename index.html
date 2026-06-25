@@ -1853,8 +1853,22 @@
         <button onclick="window.irASolicitudes&&window.irASolicitudes()" id="btn-solicitud-rol" style="width:100%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:11px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;text-align:left;display:flex;align-items:center;gap:8px;">&#128203; <span id="btn-solicitud-label">Publicar solicitud de servicio</span><span style="margin-left:auto;opacity:.6;">&rarr;</span></button>
         <button id="btn-mis-solicitudes-vecino" onclick="go('v-mis-reportes','right');setTimeout(function(){window.cargarMisReportes&&window.cargarMisReportes();},300)" style="width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:11px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;text-align:left;display:flex;align-items:center;gap:8px;">📋 <span>Mis solicitudes de servicio</span><span style="margin-left:auto;opacity:.6;">&rarr;</span></button>
       </div>
-      <div class="cat-grid" id="cat-grid-servicios">
-        <div class="cat-item" data-oficio="todos" onclick="setCatS(this)"><div class="si25 cat-ic on">🔧</div><div class="cat-nm on">Todos</div></div>
+      <div style="padding:0 14px 10px;">
+        <select id="cat-sel-servicios" onchange="cargarProveedores(this.value)" style="width:100%;background:#fff;border:.5px solid #e0e0e0;border-radius:14px;padding:11px 14px;font-size:13px;font-weight:700;color:#111;font-family:'Inter',sans-serif;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path d=%22M1 1l5 5 5-5%22 stroke=%22%23888%22 stroke-width=%221.5%22 fill=%22none%22 stroke-linecap=%22round%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;">
+          <option value="todos">🔧 Todos los servicios</option>
+          <option value="plomero">💧 Plomero</option>
+          <option value="electricista">⚡ Eléctrico</option>
+          <option value="jardinero">🌿 Jardín</option>
+          <option value="limpieza">🧹 Limpieza</option>
+          <option value="pintura">🎨 Pintura</option>
+          <option value="ac">❄️ A/C</option>
+          <option value="cerrajero">🔒 Cerrajero</option>
+          <option value="mascotas">🐾 Mascotas</option>
+          <option value="tecnologia">🖥️ Tecnología</option>
+          <option value="belleza">💆 Belleza</option>
+          <option value="albanileria">🧱 Albañilería</option>
+          <option value="otro">🔧 Otro</option>
+        </select>
       </div>
       <div class="scroll" style="padding:10px 0;" id="servicios-lista">
         <div class="si24">Cargando proveedores... ⏳</div>
