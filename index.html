@@ -23,12 +23,7 @@
   // 3. Crea un "Email Template" con estas variables: {{tipo}}, {{nombre}}, {{correo}}, {{telefono}}, {{fecha}}
   //    Pon tu correo como destinatario fijo en el template
   // 4. Copia tu Public Key (Account → API Keys)
-  // 5. Reemplaza los valores de abajo:
-  const EMAILJS_PUBLIC_KEY    = 'D8IYC6Jyyp6u3FOfg';      // ← reemplaza
-  const EMAILJS_SERVICE_ID    = 'DCAppServis';      // ← reemplaza
-  const EMAILJS_TEMPLATE_ID   = 'template_3gpxjvc';     // ← template: aviso al admin cuando alguien se registra
-  const EMAILJS_TEMPLATE_APROBADO    = 'template_3gpxjvc';    // ← template: aviso al usuario cuando es aprobado
-  const EMAILJS_TEMPLATE_BIENVENIDO  = 'template_3gpxjvc';  // ← template: bienvenida al registrarse
+  // 5. Las constantes EMAILJS están en init.js (no duplicar aquí)
   // Variables del template APROBADO:   {{nombre}}, {{correo}}, {{fecha}}
   // Variables del template BIENVENIDO: {{nombre}}, {{correo}}, {{tipo}}, {{fecha}}
   // En ambos templates, el "To Email" debe ser {{correo}}
