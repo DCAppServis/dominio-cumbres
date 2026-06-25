@@ -13924,8 +13924,9 @@ window.vprovCmvCargar=async function(){
     var ofs=[d.oficio1,d.oficio2,d.oficio3].filter(Boolean).join(' · ')||d.categoria||'—';
     var oEl=document.getElementById('vprov-cmv-oficios'); if(oEl)oEl.textContent=ofs;
     if(d.fotoUrl){
+      window._cmvFotoB64=d.fotoUrl;
       var pv=document.getElementById('vprov-cmv-foto-prev');
-      if(pv){pv.dataset.src=d.fotoUrl;pv.innerHTML='<img src="'+d.fotoUrl+'" style="width:100%;height:100%;object-fit:cover;">';}
+      if(pv){pv.innerHTML='<img src="'+d.fotoUrl+'" style="width:100%;height:100%;object-fit:cover;">';}
     }
     window.vprovCmvRenderPreview();
   }catch(e){console.error('cmv-cargar',e);}
@@ -13939,7 +13940,9 @@ window.vprovCmvGuardar=async function(){
   var btn=document.getElementById('vprov-cmv-btn-guardar');
   if(btn){btn.disabled=true;btn.textContent='&#x23F3; Guardando...';}
   try{
-    await _fbMerge2('usuarios',uid,{nombre:nm,descripcion:ds});
+    var datos={nombre:nm,descripcion:ds};
+    if(window._cmvFotoB64) datos.fotoUrl=window._cmvFotoB64;
+    await _fbMerge2('usuarios',uid,datos);
     if(btn){btn.disabled=false;btn.textContent='Guardar cambios';}
     window.vprovCmvRenderPreview();
     _feliz('&#xA1;Perfil actualizado!');
