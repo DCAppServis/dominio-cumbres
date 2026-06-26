@@ -1992,3 +1992,54 @@
   // se respeta su función existente; no se redirige carrito/pedidos.
   window.__DC_REST_PANEL_7B_KEYS__ = Object.keys(oficiales).filter(function(k){ return typeof oficiales[k] === 'function'; });
 })();
+
+
+/* PARCHE POST-COMPRA PLAZA — dos correcciones:
+   1. Colapsar acordeón del carrito en Mis Compras después de confirmar compra.
+   2. Flecha de Mis Compras siempre va a Plaza Online (v-plaza), no a COMPRANDO.
+   Alcance: solo Plaza Online. No toca Food, Chat, Firebase ni ninguna otra sección.
+*/
+(function(){
+  if(window.__dcPlazaPostCompraFix) return;
+  window.__dcPlazaPostCompraFix = true;
+
+  function colapsarCarritoL14(){
+    try{
+      localStorage.setItem('dcPlazaL14CartOpen','0');
+      localStorage.setItem('dcPlazaL14VaciarOpen','0');
+      localStorage.setItem('dcPlazaQF36Open','0');
+      localStorage.setItem('dcPlazaQF36VaciarOpen','0');
+      localStorage.setItem('dcPlazaB2AOpen','0');
+    }catch(_){}
+  }
+
+  // 1a. Patch del callback QF39 expuesto por window (cuando Final Feliz lo llama por referencia).
+  var origGoProceso = window.dcPlazaIrMisComprasProcesoQF39;
+  function goProcesoParcheado(){
+    colapsarCarritoL14();
+    if(typeof origGoProceso === 'function') return origGoProceso.apply(this, arguments);
+    try{if(typeof window.go==='function')window.go('v-mis-compras-plaza','right');}catch(e){}
+    return false;
+  }
+  window.dcPlazaIrMisComprasProcesoQF39 = goProcesoParcheado;
+
+  // 1b. Patch de cargarMisComprasPlaza: se llama siempre al entrar a Mis Compras,
+  //     incluyendo desde el Final Feliz que usa la referencia local de goProceso.
+  var origCMCP = window.cargarMisComprasPlaza;
+  window.cargarMisComprasPlaza = function(){
+    colapsarCarritoL14();
+    if(typeof origCMCP === 'function') return origCMCP.apply(this, arguments);
+  };
+
+  // 2. Flecha de Mis Compras siempre va a Plaza Online, no al stack (evita regresar a COMPRANDO).
+  document.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('.btn-back') : null;
+    if(!btn) return;
+    if(!btn.closest('#v-mis-compras-plaza')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    try{if(typeof window.go==='function')window.go('v-plaza','left');}catch(_){}
+    return false;
+  }, true);
+})();
