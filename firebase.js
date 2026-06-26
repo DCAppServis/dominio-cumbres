@@ -276,7 +276,7 @@
         const cnt  = p.ratingTotal || 0;
         const prom = p.ratingPromedio || 0;
         const ratingHtml = cnt > 0
-          ? `⭐ ${prom} (${cnt} opinión${cnt>1?'es':''})`
+          ? `⭐ ${prom} <span onclick="event.stopPropagation();window.dcRatingVerComentarios&&window.dcRatingVerComentarios('${p.id}',event)" style="color:var(--blue,#1a6fbf);text-decoration:underline;cursor:pointer;font-weight:700;">(${cnt} opinión${cnt>1?'es':''})</span>`
           : 'Nuevo';
         const div = document.createElement('div');
         div.className = 'prov-card';
