@@ -1198,6 +1198,8 @@ window.plazaAbrirProductoDetalle = function(pid){
         + '</div>' : '')
     + '<button type="button" '+(agotado?'disabled':'')+' onclick="return window.plazaAgregarAlCarritoDetalle(\''+String(pid).replace(/'/g,"\\'")+'\')" style="width:100%;padding:14px;border:none;border-radius:17px;background:'+(agotado?'#ddd':'var(--blue)')+';color:#fff;font-size:13px;font-weight:900;font-family:inherit;cursor:'+(agotado?'not-allowed':'pointer')+';box-shadow:0 8px 16px rgba(26,122,181,.20);letter-spacing:.2px;">'+(agotado?'No disponible':'🛒 AGREGAR AL CARRITO')+'</button>'
     + '</div></div>';
+    ov.style.visibility = '';
+  ov.style.pointerEvents = '';
   ov.style.display = 'flex';
   try { document.body.style.overflow='hidden'; document.body.style.touchAction='none'; } catch(e) {}
 };
