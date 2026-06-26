@@ -445,6 +445,7 @@ document.addEventListener('click',function(e){
     // Ahora sí confirmar compra
     var o={id:'plaza_'+Date.now(),folio:'#PZ'+String(Date.now()).slice(-6),tipo:'plaza_orden',estado:'en_proceso',titulo:'Plaza Online',fecha:Date.now(),items:selectedItems(),total:total(selectedItems()),entrega:(localStorage.getItem('dcPlazaTipoEntrega')||'domicilio'),pago:'transferencia',referenciaTransferencia:ref};
     saveOrder(o); clearCart();
+    try{if(typeof window._showPedidoOverlay==='function') return window._showPedidoOverlay(goSeguimiento),false;}catch(_){}
     try{if(typeof window.dcPlazaFinalFelizOficial==='function') return window.dcPlazaFinalFelizOficial(goSeguimiento),false;}catch(_){}
     return goSeguimiento();
   }
@@ -457,10 +458,10 @@ document.addEventListener('click',function(e){
 var _confirmLock=false;
 
 function goSeguimiento(){
-  // Quitar v-plaza-comprando del stack para que ‹ desde seguimiento no regrese ahí
-  for(var _i=_navStack.length-1;_i>=0;_i--){if(_navStack[_i]==='v-plaza-comprando'){_navStack.splice(_i,1);break;}}
-  try{window._misComprasPlazaTab='proceso';}catch(e){}
+  // _navSuppress=true evita que dcGoOficial empuje v-plaza-comprando al stack
+  _navSuppress=true;
   try{if(typeof window.go==='function') window.go('v-plaza-seguimiento','right');}catch(e){}
+  setTimeout(function(){_navSuppress=false;},0);
   [40,120,300].forEach(function(ms){setTimeout(function(){try{renderSeguimiento();}catch(_){}},ms);});
   setTimeout(function(){_confirmLock=false;},800);
   return false;
