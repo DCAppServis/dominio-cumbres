@@ -544,8 +544,8 @@ function _plazaShowCompraOverlay(onDone){
 var _confirmLock=false;
 
 function goSeguimiento(){
-  // Limpiar textareas para evitar el diálogo "cambios sin guardar" del browser
-  try{['dc-plaza-transfer-ref','dc-plaza-dir-compra','dc-plaza-nota-compra'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});}catch(_){}
+  // Limpiar flag "dirty" para que _dcConfirmarSalida no muestre el confirm()
+  try{window._dcDirtyV=null;}catch(_){}
   // Tras compra → volver a Plaza Online (limpiar comprando del stack)
   _navStack=_navStack.filter(function(id){return id!=='v-plaza-comprando';});
   _navSuppress=true;
