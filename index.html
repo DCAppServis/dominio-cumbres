@@ -6863,7 +6863,7 @@ function _renderMenu(el, prods) {
       var disp=p.disponible!==false;
       var n=(p.nombre||'').replace(/'/g,"&#39;");
       var c=(p.categoria||'').replace(/'/g,"&#39;");
-      var tieneFoto = p.foto && p.foto.indexOf('data:image')===0;
+      var tieneFoto = p.foto && (p.foto.indexOf('data:image')===0 || p.foto.indexOf('https://')===0);
 
       if (tieneFoto) {
         // Layout vertical con foto grande arriba
