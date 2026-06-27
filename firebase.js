@@ -20,6 +20,8 @@
   window._fbAuth = auth;
   window._fbDb   = db;
 
+  function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
   // Importar funciones Firestore una sola vez
   const { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, onSnapshot, updateDoc, doc: fsDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
   window._fs = { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, onSnapshot, updateDoc, fsDoc, doc, getDoc, setDoc };
@@ -1106,7 +1108,7 @@ window.plazaCargarProductos = async function(uidNegocio, negocio, estOp) {
   if (!el) return;
   el.innerHTML = '<div class="si24">Cargando productos... ⏳</div>';
   if (estOp === 'cerrado' || estOp === 'pausado') {
-    el.innerHTML = '<div style="padding:32px 20px;text-align:center;"><div style="font-size:40px;margin-bottom:12px;">'+(estOp==='pausado'?'⏸️':'🔴')+'</div><div style="font-size:14px;font-weight:800;color:#111;margin-bottom:6px;">'+(negocio.nombrePublico||negocio.nombreNegocio||'El comercio')+' no está disponible</div><div style="font-size:12px;color:#777;line-height:1.5;">Puedes ver sus productos más tarde cuando esté abierto.</div></div>';
+    el.innerHTML = '<div style="padding:32px 20px;text-align:center;"><div style="font-size:40px;margin-bottom:12px;">'+(estOp==='pausado'?'⏸️':'🔴')+'</div><div style="font-size:14px;font-weight:800;color:#111;margin-bottom:6px;">'+_esc(negocio.nombrePublico||negocio.nombreNegocio||'El comercio')+' no está disponible</div><div style="font-size:12px;color:#777;line-height:1.5;">Puedes ver sus productos más tarde cuando esté abierto.</div></div>';
     return;
   }
   try {
@@ -1185,7 +1187,7 @@ window.cargarMisComprasPlaza = async function() {
       docs.forEach((r,i) => {
         const chip = document.createElement('div');
         chip.className = 'rider-chip' + (i===0?' on':'');
-        chip.innerHTML = `<div class="si11">🏍️</div><div class="si49">${r.nombre||'—'}</div><div class="si50">~${3+i*2} min</div><div class="si63">★ Nuevo</div>`;
+        chip.innerHTML = '<div class="si11">🏍️</div><div class="si49">'+_esc(r.nombre||'—')+'</div><div class="si50">~'+(3+i*2)+' min</div><div class="si63">★ Nuevo</div>';
         chip.onclick = () => selRider(chip, 55+i*5, r.nombre||'Repartidor', '~'+(3+i*2)+' min');
         if(container) container.appendChild(chip);
       });
@@ -2594,38 +2596,28 @@ window.cargarMisComprasPlaza = async function() {
         });
       }
 
-      // Intento 3: fallback local si Firebase no respondió
-      // El usuario está logueado en la app aunque auth tarde
+      // Fallback: uid guardado en localStorage durante el login
       if (!vecinoUid) {
-        // Tier 2: uid guardado en localStorage durante el login
-        var savedUid = localStorage.getItem('dcuserUid') || '';
-        if (savedUid) {
-          vecinoUid = savedUid;
-        } else {
-          // Tier 3: uid sintético por nombre+tipo (solo si hay usuario identificado)
-          var dcuser = localStorage.getItem('dcuser') || '';
-          var dcTipo = localStorage.getItem('dcuserTipo') || 'vecino';
-          if (!dcuser) {
-            return { ok: false, msg: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
-          }
-          vecinoUid = 'local_' + dcTipo + '_' + dcuser.replace(/\s+/g,'').toLowerCase();
-        }
+        vecinoUid = localStorage.getItem('dcuserUid') || '';
+      }
+
+      // Sin uid real — sesión expirada
+      if (!vecinoUid) {
+        return { ok: false, msg: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
       }
 
       var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
 
-      // Verificar duplicado (solo si uid real de Firebase, no local)
-      if (!vecinoUid.startsWith('local_')) {
-        var qDup = _fb.query(
-          _fb.collection(db, 'reservas'),
-          _fb.where('vecinoUid', '==', vecinoUid),
-          _fb.where('proveedorUid', '==', reserva.proveedorUid),
-          _fb.where('dia', '==', reserva.dia),
-          _fb.where('hora', '==', reserva.hora)
-        );
-        var dupSnap = await _fb.getDocs(qDup);
-        if (!dupSnap.empty) return { ok: false, msg: 'Ya tienes una reserva con este proveedor ese día y hora.' };
-      }
+      // Verificar duplicado
+      var qDup = _fb.query(
+        _fb.collection(db, 'reservas'),
+        _fb.where('vecinoUid', '==', vecinoUid),
+        _fb.where('proveedorUid', '==', reserva.proveedorUid),
+        _fb.where('dia', '==', reserva.dia),
+        _fb.where('hora', '==', reserva.hora)
+      );
+      var dupSnap = await _fb.getDocs(qDup);
+      if (!dupSnap.empty) return { ok: false, msg: 'Ya tienes una reserva con este proveedor ese día y hora.' };
 
       // LOG DIAGNÓSTICO
       // Guardar reserva en Firestore

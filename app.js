@@ -2650,7 +2650,7 @@ window.cargarMembresia=async function(){
         if (rSnap.exists()) {
           var rData = rSnap.data();
           var vecinoUid = rData.vecinoUid || '';
-          if (vecinoUid && !vecinoUid.startsWith('local_')) {
+          if (vecinoUid) {
             var titulo = nuevoEstado === 'aceptada' ? 'Reserva aceptada ✅' : 'Reserva rechazada';
             var mensaje = nuevoEstado === 'aceptada'
               ? 'Tu reserva con ' + (rData.proveedorNombre||'el proveedor') + ' para el ' + (rData.dia||'') + ' a las ' + (rData.hora||'') + ' fue aceptada.'
