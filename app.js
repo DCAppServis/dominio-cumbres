@@ -721,16 +721,21 @@ function _plazaDoAdd(pid,q){
   }finally{window.__dcPlazaAddLock=false;}
   return false;
 }
-// Registrado en window capture DESPUÉS de los parches legacy — sobreescribe su stopImmediatePropagation
-window.addEventListener('click',function(ev){
+// pointerdown/touchstart disparan ANTES del click, antes que los listeners legacy (v54) del parche.
+// Esto permite agregar el producto correctamente (con DOM fallback) antes de que v54 intercepte el click.
+// Después seteamos _dcPlazaAddLockV54=true para que v54 no doble-agregue en el click.
+function _plazaPreAdd(ev){
   var btn=ev.target&&ev.target.closest&&ev.target.closest('button');
   if(!btn) return;
   var id=btn.id||'', oc=(btn.getAttribute('onclick')||'').toLowerCase(), txt=(btn.textContent||'').toLowerCase();
   var isAdd=id.indexOf('plaza-btn-add-cart')===0||oc.indexOf('plazaagregaralcarritodetalle')>-1||txt.indexOf('agregar al carrito')>-1;
   if(!isAdd||!_plazaActiveModal()) return;
-  ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();
   _plazaDoAdd(_plazaPidFrom(btn),_plazaGetQty());
-},true);
+  window._dcPlazaAddLockV54=true;
+  setTimeout(function(){window._dcPlazaAddLockV54=false;},600);
+}
+window.addEventListener('pointerdown',_plazaPreAdd,true);
+window.addEventListener('touchstart',_plazaPreAdd,{capture:true,passive:true});
 window.plazaAgregarAlCarritoDetalle=function(pid,ev){
   if(ev){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();}
   return _plazaDoAdd(pid,_plazaGetQty());
