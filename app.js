@@ -2987,7 +2987,7 @@ window._plazaRenderProductos = function() {
   el.innerHTML = html + '<div style="height:70px;"></div>';
 };
 
-window.plazaCambiarQtyDetalle = window.plazaCambiarQtyDetalle || function(delta){
+window.plazaCambiarQtyDetalle = function(delta){
   var q = Number(window._plazaDetalleQty||1) + Number(delta||0);
   if (q < 1) q = 1; if (q > 99) q = 99;
   window._plazaDetalleQty = q;
@@ -2996,7 +2996,7 @@ window.plazaCambiarQtyDetalle = window.plazaCambiarQtyDetalle || function(delta)
   return false;
 };
 
-window.plazaAbrirProductoDetalle = window.plazaAbrirProductoDetalle || function(pid){
+window.plazaAbrirProductoDetalle = function(pid){
   if(document.body.dataset.dcModalLocked!=='1'){var _sy=window.scrollY||0;document.body.dataset.dcModalLocked='1';document.body.dataset.dcModalScrollY=String(_sy);document.body.style.overflow='hidden';document.body.style.touchAction='none';}
   var p = (window._plazaProdDocsCache||[]).find(function(x){return String(x._id)===String(pid);});
   if (!p) return;
