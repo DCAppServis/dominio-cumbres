@@ -46,7 +46,8 @@
     if(container) { container.appendChild(divLocal); container.scrollTop = container.scrollHeight; }
     const userId = auth.currentUser ? auth.currentUser.uid : (window._chatUserId || 'anonimo');
     const userName = localStorage.getItem('dcuser') || 'Vecino';
-    const provId = window._chatProveedorId || 'proveedor_demo';
+    const provId = window._chatProveedorId || '';
+    if (!provId) { if(typeof toast==='function') toast('⚠️ Selecciona un proveedor para chatear.'); return; }
     const idsOrdenados = [userId, provId].sort().join('_');
     const chatId = 'chat_' + idsOrdenados;
     try {
@@ -82,8 +83,9 @@
     });
     const userId = auth.currentUser ? auth.currentUser.uid : 'anonimo';
     window._chatUserId = userId;
-    const provId = window._chatProveedorId || 'proveedor_demo';
-    const chatId = window._chatIdExacto || ('chat_' + [userId, provId].sort().join('_'));
+    const provId = window._chatProveedorId || '';
+    const chatId = window._chatIdExacto || (provId ? ('chat_' + [userId, provId].sort().join('_')) : null);
+    if (!chatId) return;
     window._chatIdExacto = null;
     try {
       const msgsRef = collection(db, 'chats', chatId, 'mensajes');

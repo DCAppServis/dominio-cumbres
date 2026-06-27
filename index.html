@@ -841,265 +841,6 @@
         <button class="btn btn-yellow-ol" onclick="go('v-splash','left')">← Regresar al inicio</button>
       </div>
     </div>
-<!-- ====== HOME MULTIROL MOCK — visual only, zero functional changes ====== -->
-<div class="view go-right" id="v-home-multirol-mock" style="background:#fff;overflow-y:auto;">
-
-<div class="m-wrap">
-
-  <!-- STATUS BAR -->
-  <div class="m-sb">
-    <span>9:41</span>
-    <span style="display:flex;gap:4px;align-items:center;font-size:13px;">▲ ■ ■</span>
-  </div>
-
-  <!-- HEADER: logo + marca a la izquierda, botón Salir a la derecha -->
-  <div class="m-hdr">
-    <div class="m-brand">
-      <div class="m-logo">
-        <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
-          <circle cx="16" cy="16" r="14" stroke="#3da820" stroke-width="1.2" fill="none"/>
-          <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#3da820"/>
-          <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#F5C518" transform="rotate(120 16 16)"/>
-          <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#D63A2A" transform="rotate(180 16 16)"/>
-          <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#3da820" transform="rotate(240 16 16)"/>
-          <polygon points="16,3 17.8,13 16,11 14.2,13" fill="#F5C518" transform="rotate(300 16 16)"/>
-          <circle cx="16" cy="16" r="2.8" fill="#3da820"/>
-        </svg>
-      </div>
-      <div>
-        <div class="m-brand-name">DOMINIO CUMBRES</div>
-        <div class="m-brand-sub">AppServis</div>
-      </div>
-    </div>
-    <button class="m-salir">Salir</button>
-  </div>
-
-  <!-- SALUDO: Hola nombre + badge + ubicación -->
-  <div class="m-saludo-block">
-    <div class="m-hola">Hola, <b>Borja</b> 👋</div>
-    <div class="m-badge"><div class="m-badge-dot"></div>Vecino</div>
-  </div>
-  <div class="m-loc">📍 Sector Santoral, Dominio Cumbres</div>
-
-  <!-- HERO -->
-  <div class="m-hero">
-    <svg width="100%" height="100%" viewBox="0 0 320 140" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="m-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#c0d8ee"/>
-          <stop offset="55%" stop-color="#ddeaf6"/>
-          <stop offset="100%" stop-color="#eaf3f9"/>
-        </linearGradient>
-        <linearGradient id="m-gnd" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#72965c"/>
-          <stop offset="100%" stop-color="#4e7040"/>
-        </linearGradient>
-        <linearGradient id="m-w1" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#f2efe8"/>
-          <stop offset="100%" stop-color="#e0dcd4"/>
-        </linearGradient>
-        <linearGradient id="m-rf" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#3a4828"/>
-          <stop offset="100%" stop-color="#28341a"/>
-        </linearGradient>
-        <linearGradient id="m-vig" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#0a1606" stop-opacity=".12"/>
-          <stop offset="42%" stop-color="#0a1606" stop-opacity="0"/>
-          <stop offset="68%" stop-color="#0a1606" stop-opacity=".3"/>
-          <stop offset="100%" stop-color="#0a1606" stop-opacity=".75"/>
-        </linearGradient>
-        <filter id="m-blur"><feGaussianBlur stdDeviation=".8"/></filter>
-        <radialGradient id="m-sun" cx="80%" cy="10%" r="30%">
-          <stop offset="0%" stop-color="#fff8d0" stop-opacity=".25"/>
-          <stop offset="100%" stop-color="#fff8d0" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-      <!-- cielo -->
-      <rect width="320" height="140" fill="url(#m-sky)"/>
-      <!-- nubes -->
-      <ellipse cx="65" cy="24" rx="34" ry="10" fill="#fff" opacity=".6" filter="url(#m-blur)"/>
-      <ellipse cx="94" cy="19" rx="22" ry="7" fill="#fff" opacity=".5" filter="url(#m-blur)"/>
-      <ellipse cx="220" cy="28" rx="38" ry="11" fill="#fff" opacity=".45" filter="url(#m-blur)"/>
-      <!-- montañas -->
-      <polygon points="0,95 44,52 88,95" fill="#8eb47a" opacity=".45"/>
-      <polygon points="55,95 108,44 162,95" fill="#7ea86a" opacity=".38"/>
-      <polygon points="148,95 210,38 272,95" fill="#8eb47a" opacity=".32"/>
-      <polygon points="240,95 288,56 320,95" fill="#7ea86a" opacity=".28"/>
-      <!-- suelo -->
-      <rect x="0" y="104" width="320" height="36" fill="url(#m-gnd)"/>
-      <ellipse cx="160" cy="104" rx="200" ry="9" fill="#608a4c" opacity=".55"/>
-      <!-- casa central -->
-      <rect x="74" y="48" width="172" height="62" fill="url(#m-w1)"/>
-      <rect x="218" y="48" width="28" height="62" fill="#dedad0"/>
-      <polygon points="62,48 160,20 258,48" fill="url(#m-rf)"/>
-      <line x1="62" y1="48" x2="258" y2="48" stroke="#1c2616" stroke-width="1.4"/>
-      <!-- ventanas -->
-      <rect x="88" y="62" width="28" height="21" rx="2" fill="#aaccdf" opacity=".88"/>
-      <line x1="102" y1="63" x2="102" y2="82" stroke="#88aec2" stroke-width=".9"/>
-      <line x1="89" y1="72" x2="115" y2="72" stroke="#88aec2" stroke-width=".9"/>
-      <rect x="130" y="62" width="28" height="21" rx="2" fill="#aaccdf" opacity=".88"/>
-      <line x1="144" y1="63" x2="144" y2="82" stroke="#88aec2" stroke-width=".9"/>
-      <line x1="131" y1="72" x2="157" y2="72" stroke="#88aec2" stroke-width=".9"/>
-      <rect x="172" y="62" width="28" height="21" rx="2" fill="#aaccdf" opacity=".88"/>
-      <line x1="186" y1="63" x2="186" y2="82" stroke="#88aec2" stroke-width=".9"/>
-      <line x1="173" y1="72" x2="199" y2="72" stroke="#88aec2" stroke-width=".9"/>
-      <!-- puerta -->
-      <rect x="134" y="82" width="22" height="28" rx="2" fill="#8a7a60"/>
-      <path d="M134,84 Q145,74 156,84" fill="none" stroke="#6a5840" stroke-width="1.1"/>
-      <circle cx="152" cy="97" r="1.8" fill="#c8a030"/>
-      <!-- alas -->
-      <rect x="28" y="65" width="56" height="46" fill="#eae6da"/>
-      <polygon points="22,65 56,49 84,65" fill="#28341a" opacity=".9"/>
-      <rect x="46" y="65" width="20" height="15" rx="1" fill="#b0ccde" opacity=".8"/>
-      <rect x="236" y="65" width="56" height="46" fill="#e2ddd4"/>
-      <polygon points="236,65 264,50 292,65" fill="#28341a" opacity=".85"/>
-      <rect x="248" y="65" width="20" height="15" rx="1" fill="#b0ccde" opacity=".8"/>
-      <!-- árboles -->
-      <rect x="14" y="76" width="7" height="30" fill="#5a4030"/>
-      <ellipse cx="18" cy="70" rx="14" ry="18" fill="#244018"/>
-      <ellipse cx="18" cy="66" rx="11" ry="14" fill="#3a5a28"/>
-      <rect x="290" y="78" width="7" height="28" fill="#5a4030"/>
-      <ellipse cx="294" cy="72" rx="14" ry="18" fill="#244018"/>
-      <ellipse cx="294" cy="68" rx="11" ry="14" fill="#3a5a28"/>
-      <!-- arbustos -->
-      <ellipse cx="94" cy="104" rx="18" ry="8" fill="#4e7840"/>
-      <ellipse cx="220" cy="104" rx="16" ry="7" fill="#4e7840"/>
-      <!-- camino -->
-      <path d="M130,140 L137,110 L183,110 L190,140Z" fill="#c8c0a8" opacity=".7"/>
-      <!-- vignette + luz -->
-      <rect width="320" height="140" fill="url(#m-vig)"/>
-      <rect width="320" height="140" fill="url(#m-sun)"/>
-    </svg>
-    <div class="m-hero-txt">Tu comunidad,<br>todo en un solo lugar.</div>
-  </div>
-
-  <!-- ¿QUÉ NECESITAS HOY? -->
-  <div class="m-sec-lbl">¿Qué necesitas hoy?</div>
-  <div class="m-grid">
-    <!-- Buscar Servicios -->
-    <div class="m-card">
-      <div class="m-card-ic" style="background:#e8f5e1;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a6b10" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-        </svg>
-      </div>
-      <div class="m-card-lbl">Buscar<br>Servicios</div>
-    </div>
-    <!-- Pedir Comida -->
-    <div class="m-card">
-      <div class="m-card-ic" style="background:#fff3e0;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d84000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 11l19-9-9 19-2-8-8-2z"/>
-        </svg>
-      </div>
-      <div class="m-card-lbl">Pedir<br>Comida</div>
-    </div>
-    <!-- Transporte -->
-    <div class="m-card">
-      <div class="m-card-ic" style="background:#e4eef8;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1458a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="1" y="3" width="15" height="13" rx="2"/>
-          <path d="M16 8h4l3 4v4h-7V8z"/>
-          <circle cx="5.5" cy="18.5" r="2.5"/>
-          <circle cx="18.5" cy="18.5" r="2.5"/>
-        </svg>
-      </div>
-      <div class="m-card-lbl">Transporte</div>
-    </div>
-    <!-- Plaza Online -->
-    <div class="m-card">
-      <div class="m-card-ic" style="background:#f0eafc;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5c12a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-      </div>
-      <div class="m-card-lbl">Plaza<br>Online</div>
-    </div>
-  </div>
-
-  <!-- FAVORITOS -->
-  <div class="m-fav-hdr">
-    <div class="m-fav-ttl">Tus favoritos</div>
-    <div class="m-fav-ver">Ver todos</div>
-  </div>
-  <div class="m-fav-row">
-    <div class="m-fav-item">
-      <div class="m-fav-circle" style="background:#e8f5e1;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a6b10" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-      </div>
-      <div class="m-fav-lbl">Plomero<br>Rápido</div>
-    </div>
-    <div class="m-fav-item">
-      <div class="m-fav-circle" style="background:#fff3e0;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d84000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
-      </div>
-      <div class="m-fav-lbl">La Postrería<br>Restaurante</div>
-    </div>
-    <div class="m-fav-item">
-      <div class="m-fav-circle" style="background:#e4eef8;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1458a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-      </div>
-      <div class="m-fav-lbl">Juan R.<br>Transporte</div>
-    </div>
-    <div class="m-fav-item">
-      <div class="m-fav-circle" style="background:#f0f0f0;color:#aaa;font-size:24px;font-weight:300;">+</div>
-      <div class="m-fav-lbl">Agregar</div>
-    </div>
-  </div>
-
-  <!-- COMUNIDAD -->
-  <div class="m-com-hdr">
-    <div class="m-com-ttl">Comunidad</div>
-    <div class="m-com-ver">Ver más</div>
-  </div>
-  <div class="m-com-card">
-    <div class="m-com-img">
-      <svg width="84" height="72" viewBox="0 0 84 72" preserveAspectRatio="xMidYMid slice">
-        <rect width="84" height="72" fill="#dce8c0"/>
-        <rect x="0" y="42" width="84" height="30" fill="#5a8840"/>
-        <rect x="12" y="16" width="26" height="30" rx="2" fill="#e0dcd0"/>
-        <polygon points="6,16 25,6 44,16" fill="#3a4a28"/>
-        <rect x="16" y="22" width="8" height="8" rx="1" fill="#a8c8d8" opacity=".85"/>
-        <rect x="28" y="22" width="8" height="8" rx="1" fill="#a8c8d8" opacity=".85"/>
-        <rect x="18" y="34" width="8" height="12" rx="1" fill="#8a7a60"/>
-        <rect x="46" y="20" width="22" height="24" rx="2" fill="#e0dcd0"/>
-        <polygon points="42,20 57,12 72,20" fill="#3a4a28"/>
-        <rect x="50" y="27" width="7" height="7" rx="1" fill="#a8c8d8" opacity=".85"/>
-        <ellipse cx="8" cy="42" rx="9" ry="11" fill="#244018"/>
-        <ellipse cx="76" cy="40" rx="8" ry="10" fill="#244018"/>
-        <rect x="0" y="0" width="84" height="72" fill="rgba(10,22,6,.07)"/>
-      </svg>
-    </div>
-    <div class="m-com-body">
-      <div class="m-com-title">Diseño del mes</div>
-      <div class="m-com-desc">Feria de emprendedores<br>este fin de semana.</div>
-    </div>
-  </div>
-
-  <!-- BOTTOM NAV -->
-  <div class="m-nav">
-    <div class="m-nav-item">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f7a38" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <div class="m-nav-lbl active">Inicio</div>
-    </div>
-    <div class="m-nav-item">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      <div class="m-nav-lbl">Mensajes</div>
-    </div>
-    <div class="m-nav-item">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-      <div class="m-nav-lbl">Favoritos</div>
-    </div>
-    <div class="m-nav-item">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <div class="m-nav-lbl">Cuenta</div>
-    </div>
-  </div>
-
-</div><!-- m-wrap -->
-</div><!-- fin v-home-multirol-mock -->
-
 <div class="view go-right" id="v-home" style="background:#fff;display:flex;flex-direction:column;">
 
   <!-- ── STATUS BAR ── -->
@@ -6830,63 +6571,11 @@ var _S = {
 };
 var _isDemo = !(window._fbAuth && window._fbDb);
 
-/* ── Demo data ───────────────────────────────────────── */
-var _DR = [
-  {_id:'rest1',tipo:'restaurante',estado:'activo',categoria:'tacos',
-   nombreNegocio:'Taquería El Paisa',descripcion:'Tacos norteños desde 1985',
-   entrega:'propia',permiteRecoger:false,permiteEntrega:true,entregaInterna:'tienda',cobertura:'Cumbres',colonia:'Cumbres'},
-  {_id:'rest2',tipo:'restaurante',estado:'aprobado_pendiente_pago',categoria:'pizzas',
-   nombreNegocio:'Pizzería Napoli',descripcion:'Pizza artesanal al horno de leña',
-   entrega:'ride',permiteRecoger:false,permiteEntrega:true,entregaInterna:'dc',cobertura:'Cumbres',colonia:'Cumbres'},
-  {_id:'rest3',tipo:'restaurante',estado:'activo',categoria:'sushi',
-   nombreNegocio:'Sushi Sakura',descripcion:'Rolls y sashimi frescos',
-   entrega:'todas',permiteRecoger:true,permiteEntrega:true,entregaInterna:'dc_tienda',cobertura:'Cumbres',colonia:'Cumbres'},
-];
-var _DM = {
-  rest1:[
-    {_id:'p1',nombre:'Taco de Bistec',categoria:'Tacos',descripcion:'Bistec, cebolla, cilantro',precio:85,disponible:true,orden:0},
-    {_id:'p2',nombre:'Taco de Pastor',categoria:'Tacos',descripcion:'Pastor, piña, salsa verde',precio:75,disponible:true,orden:1},
-    {_id:'p3',nombre:'Quesadilla',categoria:'Antojitos',descripcion:'Queso Oaxaca',precio:95,disponible:true,orden:2},
-    {_id:'p4',nombre:'Agua Fresca',categoria:'Bebidas',descripcion:'Jamaica u horchata',precio:35,disponible:true,orden:3},
-    {_id:'p5',nombre:'Refresco',categoria:'Bebidas',descripcion:'Coca, Sprite',precio:30,disponible:false,orden:4},
-  ],
-  rest2:[
-    {_id:'p6',nombre:'Pizza Margarita',categoria:'Pizzas',descripcion:'Jitomate, mozzarella',precio:180,disponible:true,orden:0},
-    {_id:'p7',nombre:'Pizza Pepperoni',categoria:'Pizzas',descripcion:'Extra queso',precio:210,disponible:true,orden:1},
-    {_id:'p8',nombre:'Pan de Ajo',categoria:'Entradas',descripcion:'Mantequilla y hierbas',precio:65,disponible:true,orden:2},
-  ],
-  rest3:[
-    {_id:'p9',nombre:'Roll California',categoria:'Rolls',descripcion:'Cangrejo, aguacate',precio:140,disponible:true,orden:0},
-    {_id:'p10',nombre:'Roll Spicy Tuna',categoria:'Rolls',descripcion:'Atún, mayo picante',precio:165,disponible:true,orden:1},
-    {_id:'p11',nombre:'Edamame',categoria:'Entradas',descripcion:'Con sal de mar',precio:55,disponible:true,orden:2},
-  ]
-};
-var _DPrest = [
-  {_id:'pr1',vecinoNombre:'Sofía Garza',restauranteId:'rest1',restauranteNombre:'Taquería El Paisa',
-   items:[{productoId:'p1',nombre:'Taco de Bistec',precio:85,cantidad:3},{productoId:'p4',nombre:'Agua Fresca',precio:35,cantidad:2}],
-   subtotal:325,envio:0,total:325,metodoPago:'efectivo',tipoEntrega:'propia',requiereRepartidor:false,
-   estado:'nuevo',tiempoEstimado:null,notas:'Sin cebolla',fecha:Date.now()-180000},
-  {_id:'pr2',vecinoNombre:'Carlos Reyes',restauranteId:'rest1',restauranteNombre:'Taquería El Paisa',
-   items:[{productoId:'p2',nombre:'Taco de Pastor',precio:75,cantidad:4}],
-   subtotal:300,envio:0,total:300,metodoPago:'tarjeta',tipoEntrega:'propia',requiereRepartidor:false,
-   estado:'preparando',tiempoEstimado:15,notas:'',fecha:Date.now()-600000},
-];
-var _DPvec = [
-  {_id:'pv1',vecinoId:'demo-vec',vecinoNombre:'Tú',restauranteId:'rest2',restauranteNombre:'Pizzería Napoli',
-   items:[{productoId:'p6',nombre:'Pizza Margarita',precio:180,cantidad:1}],
-   subtotal:180,envio:30,total:210,metodoPago:'efectivo',tipoEntrega:'dc',requiereRepartidor:true,
-   estado:'en_camino',tiempoEstimado:35,notas:'',repartidorId:'rep1',repartidorNombre:'Miguel Hdz.',
-   fecha:Date.now()-3600000,calificadoRestaurante:false},
-  {_id:'pv2',vecinoId:'demo-vec',vecinoNombre:'Tú',restauranteId:'rest3',restauranteNombre:'Sushi Sakura',
-   items:[{productoId:'p9',nombre:'Roll California',precio:140,cantidad:2}],
-   subtotal:280,envio:40,total:320,metodoPago:'transferencia',tipoEntrega:'propia',requiereRepartidor:false,
-   estado:'entregado',tiempoEstimado:25,notas:'',repartidorId:null,repartidorNombre:null,
-   fecha:Date.now()-86400000,calificadoRestaurante:true},
-];
-var _DPrep = [
-  {_id:'prep1',restauranteNombre:'Pizzería Napoli',vecinoNombre:'Ana López',
-   total:350,estado:'buscando_repartidor',restauranteId:'rest2',vecinoId:'demo-vec2'},
-];
+var _DR = [];
+var _DM = {};
+var _DPrest = [];
+var _DPvec = [];
+var _DPrep = [];
 
 /* ── Helpers Firestore ───────────────────────────────── */
 async function _fb() {
@@ -8208,17 +7897,7 @@ window.cargarRestaurantes = window.dcFood_cargarRestaurantes;
    ════════════════════════════════════════════════════════ */
 
 'use strict';
-/* ═══════════════════════════════════════════════════════
-   DATOS MOCK — conectables con Firebase en integración
-═══════════════════════════════════════════════════════ */
-var MOCK_PEDIDOS = [
-  // Sin pedidos demo — datos reales se cargarán desde Firebase en integración M2-D
-];
-
-/* ── Cache de pedidos reales para Centro Operativo ──────────
-   Lee de Firestore: pedidos where restauranteId == uid
-   Sustituye MOCK_PEDIDOS para usuarios autenticados.
-   ─────────────────────────────────────────────────────────── */
+/* ── Cache de pedidos reales para Centro Operativo (Firestore) ── */
 var _vrPedidosCache = [];
 
 async function _vrCargarPedidos() {
@@ -8233,11 +7912,7 @@ async function _vrCargarPedidos() {
   } catch(e) { }
 }
 
-function _vrPedidos() { return _vrIsD() ? MOCK_PEDIDOS : _vrPedidosCache; }
-
-var MOCK_MENU = [
-  // Sin productos demo — solo se usa como fallback si no hay Firebase/Auth
-];
+function _vrPedidos() { return _vrPedidosCache; }
 
 /* ── Helpers Firebase para Centro Operativo Restaurante ── */
 function _vrFb()  { return import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js'); }
@@ -8245,10 +7920,8 @@ function _vrDb()  { return window._fbDb; }
 function _vrUid() { return window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid; }
 function _vrIsD() { return !(_vrUid() && _vrDb()); }
 
-// Cache en memoria del menú del restaurante autenticado (sustituye MOCK_MENU para usuarios reales)
 var _vrMenuCache = [];
 
-// Carga productos desde menu/{uid}/productos y actualiza _vrMenuCache
 // Nota: NO usa orderBy para evitar que Firestore excluya documentos sin campo 'orden'
 async function _vrCargarMenu() {
   if (_vrIsD()) return;
@@ -8258,7 +7931,6 @@ async function _vrCargarMenu() {
     var snap = await f.getDocs(f.collection(db,'menu',uid,'productos'));
     _vrMenuCache = [];
     snap.forEach(function(d){ _vrMenuCache.push(Object.assign({_id:d.id}, d.data())); });
-    // Ordenar en memoria: por 'orden' si existe, luego por 'creado'
     _vrMenuCache.sort(function(a,b){
       var oa = (a.orden!=null ? a.orden : 9999);
       var ob = (b.orden!=null ? b.orden : 9999);
@@ -8268,15 +7940,10 @@ async function _vrCargarMenu() {
   } catch(e) { }
 }
 
-// Fuente activa: Firebase cache para usuarios reales, MOCK_MENU para demo
-function _vrMenu() { return _vrIsD() ? MOCK_MENU : _vrMenuCache; }
+function _vrMenu() { return _vrMenuCache; }
 
-var MOCK_NOTIFS = [
-  // Sin alertas demo — las notificaciones reales llegarán desde Firebase
-];
-
-// Banners del carrusel DC — se cargarán desde Firebase/CMS en integración real
-var MOCK_BANNERS = [];
+var _vrNotifsCache = [];
+var _vrBannersCache = [];
 
 /* ═══════════════════════════════════════════════════════
    ESTADOS
@@ -9654,7 +9321,7 @@ function _renderHome() {
   var bNotif = document.getElementById('qi-badge-notif');
   var nbPed  = document.getElementById('nav-badge-ped');
   var nbNot  = document.getElementById('nav-badge-notif');
-  var nSinLeer = MOCK_NOTIFS.filter(function(n){ return !n.leida; }).length;
+  var nSinLeer = _vrNotifsCache.filter(function(n){ return !n.leida; }).length;
   var nNuevos = nuevos.length; // solo 'nuevo' — alerta real
 
   if (bPed)  { bPed.style.display  = nNuevos>0 ? 'flex':'none'; bPed.textContent  = nNuevos||''; }
@@ -9707,7 +9374,7 @@ function _renderBanners() {
   if (!track || !dots) return;
 
   // Sin banners: ocultar toda la sección
-  if (!MOCK_BANNERS.length) {
+  if (!_vrBannersCache.length) {
     track.innerHTML = '';
     dots.innerHTML  = '';
     clearInterval(_rBannerTimer);
@@ -9719,7 +9386,7 @@ function _renderBanners() {
     return;
   }
 
-  track.innerHTML = MOCK_BANNERS.map(function(b) {
+  track.innerHTML = _vrBannersCache.map(function(b) {
     return '<div class="banner-slide" style="background:' + b.bg + ';" onclick="toast(\'📌 Banner DC — comunidad activa\')">'
       + '<div class="banner-inner">'
       + '<div class="banner-ico">' + b.ic + '</div>'
@@ -9732,13 +9399,13 @@ function _renderBanners() {
       + '</div>';
   }).join('');
 
-  dots.innerHTML = MOCK_BANNERS.map(function(_,i){
+  dots.innerHTML = _vrBannersCache.map(function(_,i){
     return '<div class="bd' + (i===0?' on':'') + '" id="bd-'+i+'"></div>';
   }).join('');
 
   clearInterval(_rBannerTimer);
   _rBannerTimer = setInterval(function(){
-    _rBannerIdx = (_rBannerIdx + 1) % MOCK_BANNERS.length;
+    _rBannerIdx = (_rBannerIdx + 1) % _vrBannersCache.length;
     _advanceBanner(_rBannerIdx);
   }, 4000);
 }
@@ -10389,8 +10056,8 @@ function crearCategoria() {
     if (exists) { toast('⚠️ Esa categoría ya existe'); return; }
 
     if (_vrIsD()) {
-      // Demo: agregar en MOCK_MENU
-      MOCK_MENU.push({_id:'cat_ph_'+Date.now(),nombre:'(Ejemplo — edita o elimina)',categoria:nombre,descripcion:'',precio:0,disponible:true,_esPlaceholder:true});
+      // Demo: agregar en _vrMenuCache
+      _vrMenuCache.push({_id:'cat_ph_'+Date.now(),nombre:'(Ejemplo — edita o elimina)',categoria:nombre,descripcion:'',precio:0,disponible:true,_esPlaceholder:true});
       _rMenuCat = nombre; _renderMenuRest();
       toast('✅ Categoría "' + nombre + '" creada — agrega tus productos');
     } else {
@@ -10424,7 +10091,7 @@ function _pfCatNueva(catSel) {
     }
     // Guardar usando la misma lógica que crearCategoria()
     if (_vrIsD()) {
-      MOCK_MENU.push({_id:'cat_ph_'+Date.now(),nombre:'(Ejemplo — edita o elimina)',categoria:nombre,descripcion:'',precio:0,disponible:true,_esPlaceholder:true});
+      _vrMenuCache.push({_id:'cat_ph_'+Date.now(),nombre:'(Ejemplo — edita o elimina)',categoria:nombre,descripcion:'',precio:0,disponible:true,_esPlaceholder:true});
       _pfCatRecargar(catSel, nombre);
       toast('✅ Categoría "'+nombre+'" creada');
     } else {
@@ -10465,9 +10132,9 @@ function eliminarCategoria(nombre) {
   }
   window._dcConfirmar('¿Eliminar la categoría "' + nombre + '"?', function() {
     if (_vrIsD()) {
-      // Demo: eliminar del MOCK_MENU
-      var idx = MOCK_MENU.findIndex(function(p){ return p.categoria === nombre; });
-      if (idx !== -1) MOCK_MENU.splice(idx, 1);
+      // Demo: eliminar del _vrMenuCache
+      var idx = _vrMenuCache.findIndex(function(p){ return p.categoria === nombre; });
+      if (idx !== -1) _vrMenuCache.splice(idx, 1);
       if (_rMenuCat === nombre) _rMenuCat = 'todos';
       _renderMenuRest();
       toast('🗑 Categoría "' + nombre + '" eliminada');
@@ -10688,13 +10355,13 @@ function guardarProducto() {
   err.style.display = 'none';
 
   if (_vrIsD()) {
-    // Demo: mutar MOCK_MENU
+    // Demo: mutar _vrMenuCache
     if (pid) {
-      var p = MOCK_MENU.find(function(x){ return x._id===pid; });
+      var p = _vrMenuCache.find(function(x){ return x._id===pid; });
       if (p) { p.nombre=nombre; p.categoria=cat; p.descripcion=desc; p.precio=precio; p.disponible=_rPfDisp; p.foto=_rPfFoto; }
       toast('✅ Producto actualizado');
     } else {
-      MOCK_MENU.push({_id:'p_'+Date.now(),nombre:nombre,categoria:cat,descripcion:desc,precio:precio,disponible:_rPfDisp,foto:_rPfFoto});
+      _vrMenuCache.push({_id:'p_'+Date.now(),nombre:nombre,categoria:cat,descripcion:desc,precio:precio,disponible:_rPfDisp,foto:_rPfFoto});
       _rMenuCat = cat;
       toast('✅ Producto agregado al menú');
     }
@@ -10735,8 +10402,8 @@ function eliminarProducto() {
   if (!pid) return;
 
   if (_vrIsD()) {
-    var idx = MOCK_MENU.findIndex(function(x){ return x._id===pid; });
-    if (idx!==-1) MOCK_MENU.splice(idx,1);
+    var idx = _vrMenuCache.findIndex(function(x){ return x._id===pid; });
+    if (idx!==-1) _vrMenuCache.splice(idx,1);
     toast('🗑 Producto eliminado');
     navTo('vr-menu');
     return;
@@ -10764,22 +10431,22 @@ function eliminarProducto() {
 function _renderNotif() {
   var cont  = document.getElementById('notif-cont');
   var subEl = document.getElementById('notif-sub');
-  var sinLeer = MOCK_NOTIFS.filter(function(n){ return !n.leida; }).length;
+  var sinLeer = _vrNotifsCache.filter(function(n){ return !n.leida; }).length;
   if (subEl) subEl.textContent = sinLeer>0 ? sinLeer+' sin leer' : 'Todo al día';
 
   // Marcar como leídas al abrir
-  MOCK_NOTIFS.forEach(function(n){ n.leida=true; });
+  _vrNotifsCache.forEach(function(n){ n.leida=true; });
   var nbNot = document.getElementById('nav-badge-notif');
   var qiNot = document.getElementById('qi-badge-notif');
   if (nbNot) nbNot.style.display='none';
   if (qiNot) qiNot.style.display='none';
 
-  if (!MOCK_NOTIFS.length) {
+  if (!_vrNotifsCache.length) {
     cont.innerHTML='<div class="empty"><div class="empty-ic">🔔</div><div class="empty-tit">Sin notificaciones</div></div>';
     return;
   }
   var TIPOS_IC = {membresia:'🏷️', promo:'📣', pago:'💳', sistema:'⚙️', dc:'🏘️', info:'⭐'};
-  cont.innerHTML = MOCK_NOTIFS.map(function(n){
+  cont.innerHTML = _vrNotifsCache.map(function(n){
     var t = new Date(n.ts);
     var ts = t.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) + ' · ' + t.toLocaleDateString('es-MX',{day:'2-digit',month:'short'});
     return '<div class="notif-item">'
