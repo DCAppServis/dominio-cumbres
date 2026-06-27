@@ -500,6 +500,8 @@
     if (tipo !== 'vecino') {
       html += ACCION('⭐','Membresía y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)");
       if (tipo === 'proveedor') {
+        html += ACCION('📅','Mis horarios',"go('v-agenda','right');setTimeout(function(){window._renderAgenda&&window._renderAgenda();},100)");
+        html += ACCION('📋','Reservas recibidas',"go('v-agenda-reservas','right');setTimeout(function(){window._renderAgendaReservas&&window._renderAgendaReservas();},100)");
         html += ACCION('👁','Cómo me ve el cliente',"go('v-prov-cmv','right');setTimeout(window.vprovCmvCargar,200)");
       }
       if (tipo === 'restaurante' || tipo === 'negocio') {
