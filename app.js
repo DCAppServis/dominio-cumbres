@@ -935,17 +935,6 @@ window.dcBack=function(fallback){
 
 try{Object.defineProperty(window,'go',{value:dcGoOficial,writable:false,configurable:false});}catch(_){window.go=dcGoOficial;}
 
-// Handler global de flechas .btn-back
-document.addEventListener('click',function(e){
-  var btn=e.target&&e.target.closest?e.target.closest('.btn-back'):null;
-  if(!btn) return;
-  if(btn.closest('#vr-shell')||btn.closest('#vn-shell')) return;
-  var oc=(btn.getAttribute('onclick')||'');
-  if(oc.indexOf('navTo')!==-1||oc.indexOf('navBack')!==-1) return;
-  e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-  if(btn.closest('#v-mis-compras-plaza')){try{window.go('v-plaza','left');}catch(_){} return false;}
-  window.dcBack('v-home');
-},true);
 
 
 // ══════════════════════════════════════════════

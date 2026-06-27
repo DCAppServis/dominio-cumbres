@@ -5406,27 +5406,6 @@ if(!window._nHoraTimer){window._nHoraTimer=setInterval(function(){if(window._upd
     }
   }));
 }
-function go(id,dir){
-  if(id==='v-reg-prov'&&localStorage.getItem('dcuserEstado')==='aprobado_pendiente_pago'){
-    id='v-espera-pago';dir=dir||'right';
-  }
-  // Reset btn cuando se navega HACIA una vista de registro
-  if(['v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz'].includes(id)){
-    document.querySelectorAll('.check-row .chk.on').forEach(el=>el.classList.remove('on'));
-    var _bv=document.getElementById('btn-reg-vecino');
-    if(_bv){_bv.textContent='Crear mi cuenta →';_bv.disabled=false;}
-  }
-  // Reset btn cuando se navega DESDE v-reg-vecino hacia otra vista
-  const cur=document.querySelector('.view.active');
-  if(cur&&cur.id==='v-reg-vecino'&&id!=='v-reg-vecino'){
-    var _bv2=document.getElementById('btn-reg-vecino');
-    if(_bv2){_bv2.textContent='Crear mi cuenta →';_bv2.disabled=false;}
-  }
-  if(!id||!document.getElementById(id)||(cur&&cur.id===id))return;
-  if(dir==='left'&&cur&&typeof window._dcConfirmarSalida==='function'&&!window._dcConfirmarSalida(cur.id))return;
-  history.pushState({viewId:id},'','');
-  _goCore(id,dir);
-}
 // Estado inicial en el historial (replaceState = no añade entrada extra al historial)
 (function(){
   const ini=document.querySelector('.view.active');
