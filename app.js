@@ -165,7 +165,6 @@ function renderMisCompras(force){
   _mcRendering=true; el.setAttribute('data-l14-sig',sig); el.innerHTML=html; _mcRendering=false; return true;
 }
 
-window.cambiarTabMisComprasPlaza=function(t){mcSetTabs(t);renderMisCompras(true);return false;};
 window.dcPlazaLimpieza15Render=function(){return renderMisCompras(true);};
 
 // ——————————————————————————————————————————————
