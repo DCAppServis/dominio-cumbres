@@ -1254,7 +1254,7 @@ window.dcProvRatingEnviar=async function(){
   if(btn){btn.disabled=true;btn.textContent='&#x23F3; Guardando...';}
   try{
     var miNombre=localStorage.getItem('dcuser')||'Vecino';
-    await _fbSet4('calificaciones',pUid,'votos',myUid,{rating:_ratingSel,comentario:com,fecha:new Date().toISOString(),vecUid:myUid,nombre:miNombre});
+    await _fbSet4('calificaciones',pUid,'votos',myUid,{rating:_ratingSel,comentario:com,fecha:new Date().toISOString(),nombre:miNombre});
     var snap=await _fbColSub3('calificaciones',pUid,'votos');
     var tot=0,cnt=0; snap.forEach(function(d){tot+=(d.data().rating||0);cnt++;});
     var prom=cnt?Math.round((tot/cnt)*10)/10:0;
@@ -1369,7 +1369,7 @@ window.dcRatingEnviar=async function(blockId){
   if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
   try{
     var miNombre=localStorage.getItem('dcuser')||'Vecino';
-    await _fbSet4('calificaciones',pUid,'votos',myUid,{rating:nr,comentario:com,fecha:new Date().toISOString(),vecUid:myUid,nombre:miNombre});
+    await _fbSet4('calificaciones',pUid,'votos',myUid,{rating:nr,comentario:com,fecha:new Date().toISOString(),nombre:miNombre});
     var snap=await _fbColSub3('calificaciones',pUid,'votos');
     var tot=0,cnt=0; snap.forEach(function(d){tot+=(d.data().rating||0);cnt++;});
     var prom=cnt?Math.round((tot/cnt)*10)/10:0;
@@ -1770,7 +1770,7 @@ window.cargarMembresia=async function(){
     if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
     try{
       var miNombre=localStorage.getItem('dcuser')||'Vecino';
-      await _fbSet4('calificaciones',_rpUid,'votos',myUid,{rating:_rpSel,comentario:com,fecha:new Date().toISOString(),vecUid:myUid,nombre:miNombre});
+      await _fbSet4('calificaciones',_rpUid,'votos',myUid,{rating:_rpSel,comentario:com,fecha:new Date().toISOString(),nombre:miNombre});
       var snap=await _fbColSub3('calificaciones',_rpUid,'votos');
       var tot=0,cnt=0; snap.forEach(function(d){tot+=(d.data().rating||0);cnt++;});
       var prom=cnt?Math.round((tot/cnt)*10)/10:0;

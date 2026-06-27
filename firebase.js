@@ -53,7 +53,7 @@
       // Guardar mensaje en subcolección
       await addDoc(collection(db, 'chats', chatId, 'mensajes'), {
         texto, remitenteId: userId, remitenteNombre: userName,
-        destinatarioId: provId, timestamp: serverTimestamp()
+        timestamp: serverTimestamp()
       });
       // Actualizar documento raíz del chat para que cargarMisChats y verificarChatsProveedor lo encuentren
       const { setDoc, doc: fsDoc2 } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");

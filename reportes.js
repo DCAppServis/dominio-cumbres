@@ -627,7 +627,6 @@ window._postularEnReporte = async function(reporteId) {
     texto:           msgTexto,
     remitenteId:     uid,
     remitenteNombre: nombreProv,
-    destinatarioId:  vecinoId,
     timestamp:       serverTimestamp()
   });
 
