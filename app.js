@@ -951,7 +951,7 @@ try{Object.defineProperty(window,'go',{value:dcGoOficial,writable:false,configur
     if(txt.indexOf('inicio')!==-1){ev.preventDefault();ev.stopPropagation();window.go('v-home','left');return;}
     if(txt.indexOf('plaza')!==-1&&txt.indexOf('mis')===-1){ev.preventDefault();ev.stopPropagation();window.go('v-plaza','left');return;}
     if(txt.indexOf('mis compras')!==-1||txt.indexOf('compras')!==-1){ev.preventDefault();ev.stopPropagation();window._misComprasPlazaTab='proceso';window.go('v-mis-compras-plaza','right');setTimeout(function(){try{window.cargarMisComprasPlaza&&window.cargarMisComprasPlaza();}catch(e){}},120);return;}
-    if(txt.indexOf('alertas')!==-1){ev.preventDefault();ev.stopPropagation();window.go('v-notificaciones','right');setTimeout(function(){try{window.renderNotificaciones&&window.renderNotificaciones();}catch(e){}},180);return;}
+    if(txt.indexOf('reservaciones')!==-1){ev.preventDefault();ev.stopPropagation();window.go('v-mi-agenda','right');setTimeout(function(){try{window._renderMiAgenda&&window._renderMiAgenda();}catch(e){}},200);return;}
     if(txt.indexOf('perfil')!==-1){ev.preventDefault();ev.stopPropagation();window.go('v-mipanel','right');setTimeout(function(){try{window.cargarMiPerfil&&window.cargarMiPerfil();}catch(e){}},180);return;}
   },true);
 })();
@@ -983,7 +983,7 @@ try{Object.defineProperty(window,'go',{value:dcGoOficial,writable:false,configur
       if(id==='v-mis-pedidos-food'&&(t.indexOf('pedido')!==-1||t.indexOf('mis pedido')!==-1)){setItem(item,'🔔','Alertas',function(){goTo('v-notificaciones','right',function(){try{window.renderNotificaciones&&window.renderNotificaciones();}catch(_){}});},'');}
       if(id==='v-mis-reportes'&&(t.indexOf('solicitud')!==-1||t.indexOf('mis solicitudes')!==-1)){setItem(item,'🔧','Servicios',function(){goTo('v-servicios','left');},'var(--green)');}
       if(id==='v-favoritos'&&t.indexOf('favoritos')!==-1){setItem(item,'🔧','Servicios',function(){goTo('v-servicios','left');},'');}
-      if(id==='v-notificaciones'&&t.indexOf('alertas')!==-1){setItem(item,'🏠','Inicio',function(){goTo('v-home','left');},'');}
+      if(id==='v-notificaciones'&&t.indexOf('reservaciones')!==-1){setItem(item,'🏠','Inicio',function(){goTo('v-home','left');},'');}
     });
   }
   function patchAll(){
