@@ -397,7 +397,7 @@ function _renderTransferencia(){
   el.innerHTML=
     '<div style="background:#fff;border-radius:16px;padding:16px;margin:8px;border:.5px solid #e8e8e8;box-shadow:0 2px 8px rgba(0,0,0,.04);">'+
       '<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Resumen</div>'+
-      '<div style="font-size:13px;font-weight:800;color:#111;margin-bottom:8px;">'+esc(storeName)+'</div>'+
+      '<div style="font-size:13px;font-weight:800;color:#111;margin-bottom:8px;">Plaza Online</div>'+
       cartRows+
       '<div style="display:flex;justify-content:space-between;padding-top:10px;font-size:14px;font-weight:900;color:#111;">'+
         '<span>Total</span><span>'+money(subtotal)+'</span>'+
