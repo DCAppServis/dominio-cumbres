@@ -872,7 +872,18 @@ function _preHooks(id){
   if(id==='v-reg-prov'&&localStorage.getItem('dcuserEstado')==='aprobado_pendiente_pago') return 'v-espera-pago';
   return id;
 }
+function _closeFloatingOverlays(){
+  try{
+    var rp=document.getElementById('dc-rp-overlay');
+    if(rp&&rp.style.display==='flex'){rp.style.pointerEvents='none';var rs=document.getElementById('dc-rp-sheet');if(rs)rs.style.transform='translateY(100%)';setTimeout(function(){rp.style.display='none';rp.style.pointerEvents='';},320);}
+    var cp=document.getElementById('dc-com-overlay');
+    if(cp&&cp.style.display==='flex'){cp.style.pointerEvents='none';var cs=document.getElementById('dc-com-sheet');if(cs)cs.style.transform='translateY(100%)';setTimeout(function(){cp.style.display='none';cp.style.pointerEvents='';},320);}
+    var pp=document.getElementById('plaza-prod-det-ov');
+    if(pp&&pp.style.display==='flex'){pp.style.display='none';_dcUnlockBodyForModal();}
+  }catch(_){}
+}
 function _postHooks(id){
+  _closeFloatingOverlays();
   try{if(id!=='v-mis-compras-plaza') _plazaCollapseAll();}catch(_){}
   try{
     if(id==='v-mis-compras-plaza'){
@@ -1857,32 +1868,5 @@ window.cargarMembresia=async function(){
     ov.style.pointerEvents='none';
     setTimeout(function(){ov.style.display='none';ov.style.pointerEvents='';},320);
   };
-
-  if(!window.__dcRatingGoWrap){
-    window.__dcRatingGoWrap=true;
-    var _origGoR=window.go;
-    window.go=function(view,dir){
-      try{
-        var rp=document.getElementById('dc-rp-overlay');
-        if(rp&&rp.style.display==='flex'){
-          rp.style.pointerEvents='none';
-          var rs=document.getElementById('dc-rp-sheet'); if(rs)rs.style.transform='translateY(100%)';
-          setTimeout(function(){rp.style.display='none';rp.style.pointerEvents='';},320);
-        }
-        var cp=document.getElementById('dc-com-overlay');
-        if(cp&&cp.style.display==='flex'){
-          cp.style.pointerEvents='none';
-          var cs=document.getElementById('dc-com-sheet'); if(cs)cs.style.transform='translateY(100%)';
-          setTimeout(function(){cp.style.display='none';cp.style.pointerEvents='';},320);
-        }
-        var pp=document.getElementById('plaza-prod-det-ov');
-        if(pp&&pp.style.display==='flex'){
-          pp.style.display='none';
-          try{document.body.style.overflow='';document.body.style.touchAction='';}catch(e2){}
-        }
-      }catch(e){}
-      return (typeof _origGoR==='function')?_origGoR.apply(this,arguments):undefined;
-    };
-  }
 
 })();
