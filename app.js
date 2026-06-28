@@ -1,8 +1,8 @@
 /* ════════════════════════════════════════════════════════════
-   DOMINIO CUMBRES — APP.JS
-   Sin parches, sin stacked IIFEs, sin guard flags.
+   DOMINIO CUMBRES — APP.JS  v1.0.0
    Una función por responsabilidad.
 ════════════════════════════════════════════════════════════ */
+window.DC_VERSION='1.0.0';
 // Suprimir diálogo "cambios sin guardar" del browser en este SPA
 window.onbeforeunload=null;
 window.addEventListener('beforeunload',function(e){delete e.returnValue;},true);
@@ -376,12 +376,10 @@ function renderComprando(){
     html+='<div class="dc-plz-product-row"><div class="dc-plz-product-img">'+img+'</div><div class="dc-plz-product-main"><div class="dc-plz-product-name">'+esc(x.nombre)+'</div><div class="dc-plz-product-sub">'+qty(x.cantidad)+' x '+money(num(x.precio))+'</div></div><div class="dc-plz-product-price">'+money(num(x.precio)*qty(x.cantidad))+'</div><button type="button" class="dc-plz-product-x" aria-label="Quitar producto" data-l20-remove="'+esc(x.key||i)+'">×</button></div>';
   });
 
-  // Fix C — opciones de entrega con estado activo según selección actual
   html+='<div class="dc-plz-sec-label">📦 ¿Cómo deseas recibir tu compra?</div>';
   html+='<div class="dc-plz-option'+(entrega==='domicilio'?' active':'')+'" data-dc-plaza-entrega="domicilio"><div class="dc-plz-option-ic">🚚</div><div class="dc-plz-option-txt"><div class="dc-plz-option-title">Entrega a domicilio</div><div class="dc-plz-option-sub">Repartidor DC / Tienda</div></div><div class="dc-plz-radio"></div></div>';
   html+='<div class="dc-plz-option'+(entrega==='recoger'?' active':'')+'" data-dc-plaza-entrega="recoger"><div class="dc-plz-option-ic">🏪</div><div class="dc-plz-option-txt"><div class="dc-plz-option-title">Pasaré a recoger</div><div class="dc-plz-option-sub">Recoger directamente en tienda</div></div><div class="dc-plz-radio"></div></div>';
 
-  // Fix C — campos condicionales según entrega
   if(entrega==='domicilio'){
     html+='<div class="dc-plz-sec-label">📍 Tu dirección de entrega</div><input id="dc-plaza-dir-compra" class="dc-plz-input" placeholder="Calle, número, colonia, referencias...">';
     html+='<div class="dc-plz-sec-label">📝 Nota para el negocio</div><textarea id="dc-plaza-nota-compra" class="dc-plz-input" placeholder="Color, talla, indicaciones, referencias..."></textarea>';
@@ -391,7 +389,6 @@ function renderComprando(){
     html+='<div class="dc-plz-sec-label">📝 Nota para el negocio</div><textarea id="dc-plaza-nota-compra" class="dc-plz-input" placeholder="Horario, nombre, indicaciones..."></textarea>';
   }
 
-  // Fix C — opciones de pago con estado activo según selección actual
   html+='<div class="dc-plz-sec-label">💳 Forma de pago</div>';
   html+='<div class="dc-plz-option'+(pago==='efectivo'?' active':'')+'" data-dc-plaza-pago="efectivo"><div class="dc-plz-option-ic">💵</div><div class="dc-plz-option-txt"><div class="dc-plz-option-title">Efectivo al entregar</div><div class="dc-plz-option-sub">Paga al recibir</div></div><div class="dc-plz-radio"></div></div>';
   html+='<div class="dc-plz-option'+(pago==='tarjeta'?' active':'')+'" data-dc-plaza-pago="tarjeta"><div class="dc-plz-option-ic">💳</div><div class="dc-plz-option-txt"><div class="dc-plz-option-title">Tarjeta al entregar</div><div class="dc-plz-option-sub">Terminal en la entrega</div></div><div class="dc-plz-radio"></div></div>';
@@ -399,7 +396,6 @@ function renderComprando(){
 
   html+='<div class="dc-plz-summary"><div class="dc-plz-srow"><span>Subtotal</span><span>'+money(subtotal)+'</span></div><div class="dc-plz-srow"><span>Envío</span><span>Gratis</span></div><div class="dc-plz-srow total"><span>Total</span><span>'+money(subtotal)+'</span></div></div>';
 
-  // Fix D — botón diferente si pago es transferencia
   if(pago==='transferencia'){
     html+='<button type="button" class="dc-plz-buy-btn" id="dc-plaza-ir-transferencia">Continuar → Pago por transferencia</button>';
   }else{
@@ -497,7 +493,6 @@ document.addEventListener('click',function(e){
 },false);
 
 window.dcPlazaRenderComprando=renderComprando;
-window.dcPlazaRenderComprandoRestaurant=renderComprando;
 
 setTimeout(function(){
   var v=document.getElementById('v-plaza-comprando');
@@ -510,7 +505,6 @@ setTimeout(function(){
 document.addEventListener('click',function(e){
   var t=e.target; if(!t||!t.closest) return;
 
-  // Fix B: usar closest sin selector compuesto para mayor compatibilidad
   var rem=t.closest('[data-l20-remove],[data-b2b-remove]');
   if(rem&&rem.closest('#v-plaza-comprando')){
     stop(e);
@@ -522,7 +516,6 @@ document.addEventListener('click',function(e){
     return false;
   }
 
-  // Fix C: al cambiar entrega/pago re-renderiza para mostrar campos correctos
   var opt=t.closest('[data-dc-plaza-entrega],[data-dc-plaza-pago]');
   if(opt&&opt.closest('#v-plaza-comprando')){
     stop(e);
@@ -535,7 +528,6 @@ document.addEventListener('click',function(e){
     return false;
   }
 
-  // Fix D: botón "Continuar → transferencia" abre pantalla de referencia
   var btnTrans=t.closest('#dc-plaza-ir-transferencia');
   if(btnTrans&&btnTrans.closest('#v-plaza-comprando')){
     stop(e);
@@ -543,7 +535,6 @@ document.addEventListener('click',function(e){
     return false;
   }
 
-  // Fix D: validar referencia antes de confirmar cuando es transferencia
   var btnYaTransferi=t.closest('#dc-plaza-ya-transferi');
   if(btnYaTransferi&&btnYaTransferi.closest('#v-plaza-comprando')){
     stop(e);
@@ -749,9 +740,7 @@ window.dcPlazaFinalFelizOficial=_plazaShowFinal;
 window.plazaFinalFelizCarrito=function(msg,onDone){_plazaShowFinal(onDone);return false;};
 window.plazaShowCarritoToast=function(){_plazaShowFinal();return false;};
 
-// pointerdown/touchstart disparan ANTES del click, antes que los listeners legacy (v54) del parche.
-// Esto permite agregar el producto correctamente (con DOM fallback) antes de que v54 intercepte el click.
-// Después seteamos _dcPlazaAddLockV54=true para que v54 no doble-agregue en el click.
+// pointerdown/touchstart garantizan que el producto se agrega antes que otros listeners de click.
 function _plazaPreAdd(ev){
   var btn=ev.target&&ev.target.closest&&ev.target.closest('button');
   if(!btn) return;
@@ -759,8 +748,6 @@ function _plazaPreAdd(ev){
   var isAdd=id.indexOf('plaza-btn-add-cart')===0||oc.indexOf('plazaagregaralcarritodetalle')>-1||txt.indexOf('agregar al carrito')>-1;
   if(!isAdd||!_plazaActiveModal()) return;
   _plazaDoAdd(_plazaPidFrom(btn),_plazaGetQty());
-  window._dcPlazaAddLockV54=true;
-  setTimeout(function(){window._dcPlazaAddLockV54=false;},600);
 }
 window.addEventListener('pointerdown',_plazaPreAdd,true);
 window.addEventListener('touchstart',_plazaPreAdd,{capture:true,passive:true});

@@ -467,7 +467,7 @@
       + '<div style="font-size:11px;color:#999;" id="mp2-notif-sub"></div>'
       + '</div>';
 
-    // ── 5. REPUTACIÓN (placeholder, M2-C conectará) ────────────
+    // ── 5. REPUTACIÓN ──────────────────────────────────────────
     if (tipo !== 'vecino') {
       html += SEC('Reputación');
       html += CARD(
@@ -481,7 +481,7 @@
       );
     }
 
-    // ── 6. MÉTRICAS (placeholder, M2-C conectará) ──────────────
+    // ── 6. MÉTRICAS ────────────────────────────────────────────
     if (tipo !== 'vecino') {
       html += SEC('Métricas (últimos 7 días)');
       html += CARD(
@@ -490,7 +490,7 @@
         + '<div style="flex:1;background:#f8f8f8;border-radius:10px;padding:10px 8px;text-align:center;"><div style="font-size:18px;font-weight:700;color:'+color+';" id="mp2-met-cont">—</div><div style="font-size:9px;color:#888;margin-top:2px;">Contactos</div></div>'
         + '<div style="flex:1;background:#f8f8f8;border-radius:10px;padding:10px 8px;text-align:center;"><div style="font-size:18px;font-weight:700;color:'+color+';" id="mp2-met-conv">—</div><div style="font-size:9px;color:#888;margin-top:2px;">Conversiones</div></div>'
         + '</div>'
-        + '<div style="font-size:11px;color:#888;line-height:1.45;" id="mp2-met-insight">Conectando con datos reales en M2-C.</div>'
+        + '<div style="font-size:11px;color:#888;line-height:1.45;" id="mp2-met-insight">Estadísticas en tiempo real.</div>'
       );
     }
 
@@ -924,7 +924,6 @@ window.plazaAbrirComercio = async function(id) {
 window._plazaProdDocsCache = [];
 window._plazaProdFiltro = 'todos';
 window._plazaSetProdFiltro = window._plazaSetProdFiltro || function(ev, cat) {
-  // BLOQUE 1 PLAZA ONLINE: pestañas de productos robustas.
   // Soporta llamada desde onclick(event,'cat') y llamada directa _plazaSetProdFiltro('cat').
   if (ev && typeof ev === 'object' && ev.preventDefault) {
     ev.preventDefault();
