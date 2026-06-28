@@ -352,11 +352,14 @@ window.dcRestGoMenuAfterSave = function(){ _rNavStack = ['vr-home','vr-menu','vr
 
 // ══════ NAVEGACIÓN DEL CENTRO OPERATIVO DEL NEGOCIO (vn-shell) ══════
 var _nNavStack = ['vn-home'];
+var _nNavBusy = false;
 function dcNeg_navTo(id, isBack) {
+  if (_nNavBusy) return;
   var shell = document.getElementById('vn-shell');
   var cur = shell ? shell.querySelector('.view.active') : null;
   var nxt = document.getElementById(id);
   if (!cur || !nxt || cur === nxt) return;
+  _nNavBusy = true; setTimeout(function(){ _nNavBusy = false; }, 330);
   // REGLA #4: avisar antes de salir con cambios sin guardar
   if (window._dirtyView && cur.id === window._dirtyView) {
     var _seguir = window.confirm('\u26A0\uFE0F Tienes cambios sin guardar.\n\nPresiona CANCELAR para quedarte y guardarlos,\no ACEPTAR para salir y descartarlos.');
@@ -400,6 +403,7 @@ function dcNeg_navBack() {
 var negTo = function(id, isBack){ if(isBack) return dcNeg_navBack(); return dcNeg_navTo(id); };
 window.dcNeg_navTo = dcNeg_navTo;
 window.negTo = negTo;
+window.dcNeg_resetStack = function(){ _nNavStack = ['vn-home']; };
 window.vnegGoHomeFromMenu = function(){ _nNavStack = ['vn-home','vn-menu']; dcNeg_navBack(); };
 window.vnegBackMenuFromProd = function(){ _nNavStack = ['vn-home','vn-menu','vn-prod-form']; dcNeg_navBack(); };
 window.vnegGoMenuAfterSave = function(){ _nNavStack = ['vn-home','vn-menu','vn-prod-form']; dcNeg_navBack(); setTimeout(function(){ window.vnegCargarMenu&&window.vnegCargarMenu(); },160); };
