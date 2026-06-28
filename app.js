@@ -611,13 +611,12 @@ function _plazaSaveOrderFirestore(o){
 var _confirmLock=false;
 
 function goSeguimiento(){
-  // Limpiar flag "dirty" para que _dcConfirmarSalida no muestre el confirm()
   try{window._dcDirtyV=null;}catch(_){}
-  // Tras compra → volver a Plaza Online (limpiar comprando del stack)
   _navStack=_navStack.filter(function(id){return id!=='v-plaza-comprando';});
-  _navSuppress=true;
-  try{if(typeof window.go==='function') window.go('v-plaza','left');}catch(e){}
-  setTimeout(function(){_navSuppress=false;},0);
+  // Reemplazar la entrada de comprando en el historial del browser (no pushState)
+  // para que el botón Atrás no regrese a la pantalla de compra ya completada
+  try{history.replaceState({viewId:'v-plaza'},'','');}catch(_){}
+  try{if(typeof window._goCore==='function') window._goCore('v-plaza','left'); else if(typeof _goCore==='function') _goCore('v-plaza','left');}catch(e){}
   setTimeout(function(){_confirmLock=false;},800);
   return false;
 }
