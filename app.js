@@ -610,18 +610,39 @@ function _plazaSaveOrderFirestore(o){
 // ══════════════════════════════════════════════
 var _confirmLock=false;
 
-function goSeguimiento(){
-  try{window._dcDirtyV=null;}catch(_){}
-  _navStack=_navStack.filter(function(id){return id!=='v-plaza-comprando';});
-  try{history.replaceState({viewId:'v-plaza'},'','');}catch(_){}
-  try{if(typeof window._goCore==='function') window._goCore('v-plaza','left'); else if(typeof _goCore==='function') _goCore('v-plaza','left');}catch(e){}
-  setTimeout(function(){_confirmLock=false;},800);
-  return false;
+// Vistas de Plaza que deben limpiarse del historial tras una compra
+var _PLAZA_FLOW_VIEWS=/^(v-plaza|v-plaza-det|v-mis-compras-plaza|v-plaza-comprando|v-plaza-seguimiento)$/;
+var _dcPlazaCleaningHistory=false;
+
+function _dcPlazaLlegarAMisCompras(){
+  _dcPlazaCleaningHistory=false;
+  _navStack=_navStack.filter(function(id){return !_PLAZA_FLOW_VIEWS.test(id);});
+  try{window._misComprasPlazaTab='proceso';}catch(_){}
+  try{history.replaceState({viewId:'v-mis-compras-plaza'},'','');}catch(_){}
+  try{if(typeof window._goCore==='function') window._goCore('v-mis-compras-plaza','left'); else if(typeof _goCore==='function') _goCore('v-mis-compras-plaza','left');}catch(_){}
+  setTimeout(function(){try{renderMisCompras(true);}catch(_){}},60);
 }
 
-// v-plaza-comprando nunca es destino de Atrás — igual que seguimiento (chat.js:634)
-// El usuario llega a comprando solo por acción explícita ("Continuar compra"), nunca por historial
+function goSeguimiento(){
+  try{window._dcDirtyV=null;}catch(_){}
+  _dcPlazaCleaningHistory=true;
+  setTimeout(function(){_confirmLock=false;},800);
+  try{history.go(-1);}catch(_){_dcPlazaLlegarAMisCompras();}
+}
+
+// Interceptor post-compra: vacía el historial de Plaza hacia atrás hasta llegar a territorio seguro
+// Una vez fuera del flujo Plaza, reemplaza con v-mis-compras-plaza (1 paso al home)
 window.addEventListener('popstate',function(e){
+  if(_dcPlazaCleaningHistory){
+    e.stopImmediatePropagation();
+    if(e.state&&_PLAZA_FLOW_VIEWS.test(e.state.viewId)){
+      try{history.go(-1);}catch(_){_dcPlazaLlegarAMisCompras();}
+    } else {
+      _dcPlazaLlegarAMisCompras();
+    }
+    return;
+  }
+  // Bloqueo permanente: comprando no es destino de Atrás en navegación normal
   if(!e.state||e.state.viewId!=='v-plaza-comprando') return;
   e.stopImmediatePropagation();
   try{history.replaceState({viewId:'v-plaza'},'','');}catch(_){}
