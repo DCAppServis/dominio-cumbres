@@ -4870,7 +4870,6 @@ window.cargarMisComprasPlaza = function() {
     var dir = inp ? inp.value.trim() : '';
     if (!dir) { return; }
     var uid = localStorage.getItem('dcuid');
-    var window._fbDb = window._fbDb;
     if (!uid || !window._fbDb) { return; }
     try {
       var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
