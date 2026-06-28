@@ -2060,6 +2060,8 @@
 
     <!-- Botón de acción (se rellena por _renderDetalleReporte) -->
     <div id="det-rep-accion"></div>
+    <!-- Acciones globales del reporte: completar / cancelar -->
+    <div id="det-rep-accion-global"></div>
 
     <div style="height:16px;"></div>
   </div>
@@ -11156,7 +11158,6 @@ if (typeof window.go !== 'function') {
     _v12Add(ids, window._vnegMenuUidCache);
     _v12Add(ids, user.uid);
     _v12Add(ids, localStorage.getItem('dcuserUid'));
-    _v12Add(ids, localStorage.getItem('dcuid'));
 
     // 1) Documento directo del usuario logueado.
     try{
@@ -11169,7 +11170,7 @@ if (typeof window.go !== 'function') {
 
     // 2) Buscar usuario/negocio por correo/email.
     var emails=[]; _v12Add(emails,user.email);
-    try{ _v12Add(emails, localStorage.getItem('dccorreo')); _v12Add(emails, localStorage.getItem('dcemail')); }catch(e){}
+    // dccorreo/dcemail: legacy keys, never written by current code
     for(var ei=0; ei<emails.length; ei++){
       try{
         var qs=await _fb.getDocs(_fb.query(_fb.collection(db,'usuarios'), _fb.where('correo','==',emails[ei])));
@@ -11193,8 +11194,7 @@ if (typeof window.go !== 'function') {
     try{
       var localNames=[];
       _v12Add(localNames, localStorage.getItem('dcuser'));
-      _v12Add(localNames, localStorage.getItem('dcNegocioNombre'));
-      _v12Add(localNames, localStorage.getItem('dcNombreNegocio'));
+      // dcNegocioNombre/dcNombreNegocio: legacy keys, never written by current code
       var normNames=localNames.map(_v12Norm).filter(Boolean);
       if(normNames.length){
         var all=await _fb.getDocs(_fb.collection(db,'usuarios'));

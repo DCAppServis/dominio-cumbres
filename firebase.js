@@ -28,6 +28,7 @@
 
   // enviarMensaje DENTRO del módulo — acceso directo a Firestore
   window.enviarMensaje = async function() {
+    if (!auth.currentUser) { if(typeof toast==='function') toast('⚠️ Inicia sesión para enviar mensajes.'); return; }
     const input = document.getElementById('chat-input');
     if(!input || !input.value.trim()) return;
     const texto = input.value.trim();
@@ -44,7 +45,7 @@
     divLocal.appendChild(_tLocal);
     divLocal.appendChild(_hLocal);
     if(container) { container.appendChild(divLocal); container.scrollTop = container.scrollHeight; }
-    const userId = auth.currentUser ? auth.currentUser.uid : (window._chatUserId || 'anonimo');
+    const userId = auth.currentUser.uid;
     const userName = localStorage.getItem('dcuser') || 'Vecino';
     const provId = window._chatProveedorId || '';
     if (!provId) { if(typeof toast==='function') toast('⚠️ Selecciona un proveedor para chatear.'); return; }
@@ -3077,11 +3078,20 @@ window.cargarMisComprasPlaza = function() {
     } catch(e) {}
     // 2. Limpiar localStorage de sesión
     localStorage.removeItem('dcuser');
-    localStorage.removeItem('dc_badges_v1'); // limpiar badges al cerrar sesión
+    localStorage.removeItem('dc_badges_v1');
     // G1: guardar uid ANTES de eliminarlo para poder limpiar claves por uid
     var _dcLogoutUid = localStorage.getItem('dcuserUid') || '';
-    localStorage.removeItem('dcuserUid');    // limpiar uid guardado
+    localStorage.removeItem('dcuserUid');
     localStorage.removeItem('dcuserTipo');
+    // Limpiar datos de plaza para evitar fuga entre usuarios en mismo dispositivo
+    ['dcPlazaCartV61','dcPlazaOrdenActivaV62','dcPlazaCompraSeleccionada',
+     'dcPlazaComprasHistorial','dcPlazaOrdenesPlazaV62',
+     'dcPlazaCartV61Meta','dcPlazaB2AMeta','dcPlazaCartMetaV63',
+     'dcPlazaQF42Tab','dcPlazaL14CartOpen','dcPlazaL14VaciarOpen',
+     'dcPlazaL14OrderOpen','dcPlazaTransferenciaRef',
+     'dcPlazaCarrito','dcPlazaCarritoEnProceso','dcPlazaCart','dc_plaza_cart',
+     'dcPlazaComproProceso','dcPlazaCompraProceso','dcPlazaTipoEntrega','dcPlazaTipoPago'
+    ].forEach(function(k){ try{localStorage.removeItem(k);}catch(_){} });
     localStorage.removeItem('dcuserEstado');
     // 3. Cancelar subscripciones activas
     if(window._chatUnsubscribe){window._chatUnsubscribe();window._chatUnsubscribe=null;}

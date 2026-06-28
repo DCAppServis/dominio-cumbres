@@ -2468,7 +2468,7 @@ window.cargarMembresia=async function(){
     lista.innerHTML = '<div style="text-align:center;padding:30px;color:#999;font-size:12px;">Cargando…</div>';
 
     var notifs = await (window.cargarNotificaciones ? window.cargarNotificaciones() : Promise.resolve([]));
-    notifs = (notifs||[]).filter(function(n){ var m=n.modulo||''; var t=n.tipo||''; return m!=='pedidos' && m!=='chat' && t!=='chat' && t!=='pedido'; });
+    notifs = (notifs||[]).filter(function(n){ var m=n.modulo||''; var t=n.tipo||''; return m!=='pedidos' && m!=='chat' && m!=='compra' && t!=='chat' && t!=='pedido' && t!=='compra'; });
 
     if (!notifs || notifs.length === 0) {
       if (sub) sub.textContent = 'Sin notificaciones';

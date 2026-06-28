@@ -35,7 +35,7 @@ const DC_ESTADOS_LABEL = {
 };
 
 // Tipos que se consideran proveedor de servicio
-const DC_TIPOS_PROVEEDOR = ['proveedor', 'transporte', 'negocio'];
+const DC_TIPOS_PROVEEDOR = ['proveedor', 'transporte'];
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -498,6 +498,7 @@ window.verDetalleReporte = async function(reporteId, datos) {
 };
 
 function _renderDetalleReporte(id, r) {
+  window._reporteActualDatos = r;
   const cat = DC_CATEGORIAS[r.categoria] || DC_CATEGORIAS.otro;
   const uid = window._fbAuth?.currentUser?.uid || '';
 
@@ -698,18 +699,74 @@ window._cargarPostulantesVecino = async function(reporteId, postulantes, vecinoU
 
     if (!nombreProv) nombreProv = 'Proveedor verificado';
 
-    html += '<div style="background:#fff;border:.5px solid #e8e8e8;border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">'
+    var estaContratado = r && r.proveedorContratado === provUid;
+    html += '<div style="background:#fff;border:.5px solid #e8e8e8;border-radius:12px;padding:12px 14px;margin-bottom:8px;">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'
       + '<div>'
       + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">' + nombreProv + '</div>'
       + (oficio ? '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">🔧 ' + oficio + '</div>' : '')
+      + (estaContratado ? '<div style="font-size:11px;color:#0A4220;font-weight:700;margin-top:3px;">✅ Contratado</div>' : '')
       + '</div>'
       + '<button onclick="window.abrirChatExacto(\'' + chatId + '\',\'' + provUid + '\',\'' + nombreProv.replace(/'/g,'') + '\',\'v-reporte-detalle\')" '
       + 'style="background:var(--green,#1FC26A);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">'
       + '💬 Chatear</button>'
+      + '</div>'
+      + (!estaContratado
+        ? '<button onclick="window._contratarProveedor(\'' + reporteId + '\',\'' + provUid + '\',\'' + nombreProv.replace(/'/g,'') + '\')" '
+          + 'style="width:100%;margin-top:8px;padding:9px;background:#1A7AB5;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">'
+          + '🤝 Contratar este proveedor</button>'
+        : '')
       + '</div>';
   }
 
   lista.innerHTML = html;
+
+  // Botones de acción global del reporte (completar / cancelar) si hay proveedor contratado
+  var r2 = window._reporteActualDatos || {};
+  var btnArea = document.getElementById('det-rep-accion-global');
+  if (btnArea && r2.proveedorContratado && r2.estado === 'contratado') {
+    btnArea.innerHTML = '<div style="display:flex;gap:8px;margin-top:12px;">'
+      + '<button onclick="window._completarReporte(\'' + reporteId + '\')" style="flex:1;padding:10px;background:#1FC26A;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">✅ Marcar completado</button>'
+      + '<button onclick="window._cancelarReporte(\'' + reporteId + '\')" style="flex:1;padding:10px;background:#D63A2A;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">❌ Cancelar</button>'
+      + '</div>';
+  }
+};
+
+window._contratarProveedor = async function(reporteId, provUid, provNombre) {
+  if (!window._fbAuth || !window._fbAuth.currentUser) return;
+  if (!confirm('¿Contratar a ' + provNombre + ' para esta solicitud?')) return;
+  try {
+    var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    await f.updateDoc(f.doc(window._fbDb, 'reportes', reporteId), {
+      estado: 'contratado', proveedorContratado: provUid, proveedorNombre: provNombre
+    });
+    if (typeof toast === 'function') toast('✅ Proveedor contratado');
+    window.verDetalleReporte && window.verDetalleReporte(reporteId);
+  } catch(e) { if (typeof toast === 'function') toast('⚠️ Error: ' + e.message); }
+};
+
+window._completarReporte = async function(reporteId) {
+  if (!window._fbAuth || !window._fbAuth.currentUser) return;
+  if (!confirm('¿Marcar esta solicitud como completada?')) return;
+  try {
+    var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    await f.updateDoc(f.doc(window._fbDb, 'reportes', reporteId), { estado: 'completado' });
+    if (typeof toast === 'function') toast('✅ Solicitud completada');
+    window.cargarMisReportes && window.cargarMisReportes();
+    if (typeof go === 'function') go('v-mis-reportes', 'left');
+  } catch(e) { if (typeof toast === 'function') toast('⚠️ Error: ' + e.message); }
+};
+
+window._cancelarReporte = async function(reporteId) {
+  if (!window._fbAuth || !window._fbAuth.currentUser) return;
+  if (!confirm('¿Cancelar esta solicitud? No se puede deshacer.')) return;
+  try {
+    var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    await f.updateDoc(f.doc(window._fbDb, 'reportes', reporteId), { estado: 'cancelado', proveedorContratado: null });
+    if (typeof toast === 'function') toast('Solicitud cancelada');
+    window.cargarMisReportes && window.cargarMisReportes();
+    if (typeof go === 'function') go('v-mis-reportes', 'left');
+  } catch(e) { if (typeof toast === 'function') toast('⚠️ Error: ' + e.message); }
 };
 
 // ── Inicialización al cargar el formulario ───────────────────
