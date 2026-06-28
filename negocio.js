@@ -176,14 +176,7 @@
     }catch(e){}
   }
 })();
-/* ═══════════════════════════════════════════════════════
-   V14 — MIS PRODUCTOS: CLICK INMEDIATO + REGLAS UNIVERSALES
-   - El click en producto abre edición al instante usando caché.
-   - Firebase refresca después, sin bloquear la navegación.
-   - Al entrar a Mis productos abre arriba y en pestaña Todos.
-   - Categorías/búsqueda se filtran desde caché sin reconsultar.
-   - No toca compra real ni Mis compras.
-═══════════════════════════════════════════════════════ */
+// ── MIS PRODUCTOS: CLICK INMEDIATO + REGLAS UNIVERSALES ──
 (function(){
   function esc(v){ if(window.dcEscHTML) return window.dcEscHTML(v); return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   function clean(v,max){ if(window.dcCleanText) return window.dcCleanText(v,max||120); var t=String(v==null?'':v).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); return t.length>(max||120)?t.slice(0,max||120).trim():t; }
