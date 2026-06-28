@@ -613,13 +613,21 @@ var _confirmLock=false;
 function goSeguimiento(){
   try{window._dcDirtyV=null;}catch(_){}
   _navStack=_navStack.filter(function(id){return id!=='v-plaza-comprando';});
-  // Reemplazar la entrada de comprando en el historial del browser (no pushState)
-  // para que el botón Atrás no regrese a la pantalla de compra ya completada
   try{history.replaceState({viewId:'v-plaza'},'','');}catch(_){}
   try{if(typeof window._goCore==='function') window._goCore('v-plaza','left'); else if(typeof _goCore==='function') _goCore('v-plaza','left');}catch(e){}
   setTimeout(function(){_confirmLock=false;},800);
   return false;
 }
+
+// Interceptar popstate que regresaría a comprando con carrito vacío (compra ya completada)
+window.addEventListener('popstate',function(e){
+  if(!e.state||e.state.viewId!=='v-plaza-comprando') return;
+  try{var c=JSON.parse(localStorage.getItem('dcPlazaCartV61')||'[]');if(Array.isArray(c)&&c.length>0) return;}catch(_){}
+  // Carrito vacío + intentando ir a comprando = compra ya realizada → redirigir a v-plaza
+  e.stopImmediatePropagation();
+  try{history.replaceState({viewId:'v-plaza'},'','');}catch(_){}
+  try{if(typeof window._goCore==='function') window._goCore('v-plaza','left'); else if(typeof _goCore==='function') _goCore('v-plaza','left');}catch(_){}
+},true);
 
 function isConfirmTarget(e){
   var t=e&&e.target; if(!t||!t.closest) return false;
