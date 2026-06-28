@@ -610,15 +610,19 @@ function _plazaSaveOrderFirestore(o){
 // ══════════════════════════════════════════════
 var _confirmLock=false;
 
-// Vistas de Plaza que deben limpiarse del historial tras una compra
-var _PLAZA_FLOW_VIEWS=/^(v-plaza|v-plaza-det|v-mis-compras-plaza|v-plaza-comprando|v-plaza-seguimiento)$/;
+// Vistas del flujo de compra que se deben drenar del historial (NO incluye v-plaza — es el destino seguro)
+var _PLAZA_DRAIN_VIEWS=/^(v-plaza-det|v-mis-compras-plaza|v-plaza-comprando|v-plaza-seguimiento)$/;
 var _dcPlazaCleaningHistory=false;
+var _dcPlazaDrainCount=0;
 
 function _dcPlazaLlegarAMisCompras(){
   _dcPlazaCleaningHistory=false;
-  _navStack=_navStack.filter(function(id){return !_PLAZA_FLOW_VIEWS.test(id);});
+  _dcPlazaDrainCount=0;
+  _navStack=_navStack.filter(function(id){return !_PLAZA_DRAIN_VIEWS.test(id);});
   try{window._misComprasPlazaTab='proceso';}catch(_){}
-  try{history.replaceState({viewId:'v-mis-compras-plaza'},'','');}catch(_){}
+  // pushState (no replaceState): deja v-plaza como destino de Atrás desde Mis Compras
+  // Resultado: Home → Plaza Online → Mis Compras
+  try{history.pushState({viewId:'v-mis-compras-plaza'},'','');}catch(_){}
   try{if(typeof window._goCore==='function') window._goCore('v-mis-compras-plaza','left'); else if(typeof _goCore==='function') _goCore('v-mis-compras-plaza','left');}catch(_){}
   setTimeout(function(){try{renderMisCompras(true);}catch(_){}},60);
 }
@@ -626,23 +630,28 @@ function _dcPlazaLlegarAMisCompras(){
 function goSeguimiento(){
   try{window._dcDirtyV=null;}catch(_){}
   _dcPlazaCleaningHistory=true;
+  _dcPlazaDrainCount=0;
   setTimeout(function(){_confirmLock=false;},800);
   try{history.go(-1);}catch(_){_dcPlazaLlegarAMisCompras();}
 }
 
-// Interceptor post-compra: vacía el historial de Plaza hacia atrás hasta llegar a territorio seguro
-// Una vez fuera del flujo Plaza, reemplaza con v-mis-compras-plaza (1 paso al home)
+// Interceptor post-compra: drena historial de compra hasta v-plaza, luego push Mis Compras
+// Historial resultante: [..., v-home, v-plaza, v-mis-compras-plaza]
+// Atrás desde Mis Compras → Plaza Online; Atrás desde Plaza → Home. Sin ciclos.
 window.addEventListener('popstate',function(e){
   if(_dcPlazaCleaningHistory){
     e.stopImmediatePropagation();
-    if(e.state&&_PLAZA_FLOW_VIEWS.test(e.state.viewId)){
+    _dcPlazaDrainCount++;
+    if(_dcPlazaDrainCount<15&&e.state&&_PLAZA_DRAIN_VIEWS.test(e.state.viewId)){
+      // Seguir drenando — aún estamos en vistas del flujo de compra
       try{history.go(-1);}catch(_){_dcPlazaLlegarAMisCompras();}
     } else {
+      // Llegamos a v-plaza (o a home si no había v-plaza) — aquí terminamos
       _dcPlazaLlegarAMisCompras();
     }
     return;
   }
-  // Bloqueo permanente: comprando no es destino de Atrás en navegación normal
+  // Bloqueo normal: comprando no es destino de Atrás fuera del flujo de compra
   if(!e.state||e.state.viewId!=='v-plaza-comprando') return;
   e.stopImmediatePropagation();
   try{history.replaceState({viewId:'v-plaza'},'','');}catch(_){}
