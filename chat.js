@@ -1,4 +1,102 @@
 
+// ============ CHAT — ENVIAR Y RECIBIR MENSAJES ============
+window.enviarMensaje = async function() {
+  var auth = window._fbAuth;
+  var db   = window._fbDb;
+  var fs   = window._fs;
+  if (!auth || !auth.currentUser) { if(typeof toast==='function') toast('⚠️ Inicia sesión para enviar mensajes.'); return; }
+  var input = document.getElementById('chat-input');
+  if(!input || !input.value.trim()) return;
+  var texto = input.value.trim();
+  input.value = '';
+  var container = document.getElementById('chat-msgs-container');
+  var hora = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  var divLocal = document.createElement('div');
+  divLocal.className = 'msg msg-s';
+  var _tLocal = document.createTextNode(texto);
+  var _hLocal = document.createElement('div');
+  _hLocal.className = 'msg-time';
+  _hLocal.textContent = hora;
+  divLocal.appendChild(_tLocal);
+  divLocal.appendChild(_hLocal);
+  if(container) { container.appendChild(divLocal); container.scrollTop = container.scrollHeight; }
+  var userId = auth.currentUser.uid;
+  var userName = localStorage.getItem('dcuser') || 'Vecino';
+  var provId = window._chatProveedorId || '';
+  if (!provId) { if(typeof toast==='function') toast('⚠️ Selecciona un proveedor para chatear.'); return; }
+  var idsOrdenados = [userId, provId].sort().join('_');
+  var chatId = 'chat_' + idsOrdenados;
+  try {
+    await fs.addDoc(fs.collection(db, 'chats', chatId, 'mensajes'), {
+      texto: texto, remitenteId: userId, remitenteNombre: userName,
+      timestamp: fs.serverTimestamp()
+    });
+    var _fb2 = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    await _fb2.setDoc(_fb2.doc(db, 'chats', chatId), {
+      participantes: [userId, provId],
+      ultimoMsg: texto,
+      ultimoNombre: userName,
+      nombreContacto: window._chatProveedorNombre || 'Usuario',
+      ultimoEmisor: userId,
+      respondido: false,
+      fecha: Date.now()
+    }, { merge: true });
+  } catch(e) { }
+};
+
+window.cargarMensajes = async function() {
+  var auth = window._fbAuth;
+  var db   = window._fbDb;
+  var fs   = window._fs;
+  var container = document.getElementById('chat-msgs-container');
+  if(!container) return;
+  var hora = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  container.innerHTML = '';
+  if (!auth || !db || !fs) return;
+  await new Promise(function(resolve) {
+    if(auth.currentUser) return resolve();
+    var unsub = auth.onAuthStateChanged(function(u) { unsub(); resolve(); });
+  });
+  var userId = auth.currentUser ? auth.currentUser.uid : 'anonimo';
+  window._chatUserId = userId;
+  var provId = window._chatProveedorId || '';
+  var chatId = window._chatIdExacto || (provId ? ('chat_' + [userId, provId].sort().join('_')) : null);
+  if (!chatId) return;
+  window._chatIdExacto = null;
+  try {
+    var msgsRef = fs.collection(db, 'chats', chatId, 'mensajes');
+    if(window._chatUnsubscribe) window._chatUnsubscribe();
+    window._chatUnsubscribe = fs.onSnapshot(fs.query(msgsRef, fs.orderBy('timestamp','asc')), function(snap) {
+      container.innerHTML = '';
+      if(snap.empty) {
+        var sys = document.createElement('div');
+        sys.className = 'msg msg-sys';
+        sys.textContent = 'Chat iniciado · ' + hora;
+        container.appendChild(sys);
+        var bienvenida = document.createElement('div');
+        bienvenida.className = 'msg msg-r';
+        bienvenida.innerHTML = '¡Hola! ¿En qué le puedo ayudar? 🔧<div class="msg-time">'+hora+'</div>';
+        container.appendChild(bienvenida);
+        return;
+      }
+      snap.forEach(function(d) {
+        var m = d.data();
+        var div = document.createElement('div');
+        div.className = 'msg ' + (m.remitenteId === userId ? 'msg-s' : 'msg-r');
+        var h = m.timestamp ? new Date(m.timestamp.toDate()).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : hora;
+        var _tMsg = document.createTextNode(m.texto||'');
+        var _hMsg = document.createElement('div');
+        _hMsg.className = 'msg-time';
+        _hMsg.textContent = h;
+        div.appendChild(_tMsg);
+        div.appendChild(_hMsg);
+        container.appendChild(div);
+      });
+      container.scrollTop = container.scrollHeight;
+    });
+  } catch(e) { }
+};
+
 // ============ MIS CHATS — BANDEJA DE ENTRADA ============
 window.cargarMisChats = async function() {
   const container = document.getElementById('lista-mis-chats');
@@ -382,7 +480,7 @@ function _goCore(id,dir){
     if(id==='v-ride')setTimeout(()=>window.cargarRepartidores&&window.cargarRepartidores(),200);
     if(id==='v-admin-solicitudes')setTimeout(()=>window.cargarSolicitudes&&window.cargarSolicitudes(),300);
     if(id==='v-admin-analytics')setTimeout(()=>window.cargarAnalytics&&window.cargarAnalytics(),300);
-    if(id==='v-home')setTimeout(()=>{window.renderHomePersonalizado&&window.renderHomePersonalizado();},50);
+    if(id==='v-home')setTimeout(()=>{window.renderHomeM2&&window.renderHomeM2();},50);
     if(id==='v-home'){var _t=(localStorage.getItem('dcuserTipo')||'').toLowerCase();if(_t==='restaurante'){window._restCargarHorariosYRepintar&&window._restCargarHorariosYRepintar();setTimeout(()=>{window._calcMetricasRest&&window._calcMetricasRest('hoy');},120);
 // B3: arrancar timer restaurante desde v-home si aún no está corriendo
 if(!window._rHoraTimer){window._rHoraTimer=setInterval(window._updateHora||function(){},30000);}}if(_t==='negocio'){window._vnegCargarHorariosYRepintar&&window._vnegCargarHorariosYRepintar();setTimeout(()=>{window._calcMetricasNeg&&window._calcMetricasNeg();},120);
@@ -564,8 +662,8 @@ function cargarFavoritos() {
     div.innerHTML = `
       <div style="width:44px;height:44px;border-radius:14px;background:#E8F5EE;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">${ic}</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;">${f.nombre||'—'}</div>
-        <div style="font-size:11px;color:#888;">${f.categoria||'Proveedor'}</div>
+        <div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;">${window.dcEscHTML(f.nombre||'—')}</div>
+        <div style="font-size:11px;color:#888;">${window.dcEscHTML(f.categoria||'Proveedor')}</div>
       </div>`;
 
     // Botón quitar
@@ -1117,67 +1215,6 @@ document.querySelectorAll('.code-inp').forEach((inp,i,arr)=>{
 });
 
 
-/* go() → ver función maestra arriba */
-
-// CARRITO
-const items={bistec:{n:'Taco de Bistec',p:85,q:0},pastor:{n:'Taco de Pastor',p:75,q:0},arrachera:{n:'Taco de Arrachera',p:90,q:0},agua:{n:'Agua Fresca',p:35,q:0},refresco:{n:'Refresco',p:25,q:0}};
-function changeQty(k,d,p){
-  items[k].q=Math.max(0,items[k].q+d);
-  document.getElementById('q-'+k).textContent=items[k].q;
-  updateCartBar();
-}
-function updateCartBar(){
-  const total=Object.values(items).reduce((a,i)=>a+i.q*i.p,0);
-  const count=Object.values(items).reduce((a,i)=>a+i.q,0);
-  const bar=document.getElementById('cart-bar');
-  if(count>0){
-    bar.style.display='flex';
-    document.getElementById('cart-count').textContent=count;
-    document.getElementById('cart-total').textContent='$'+total;
-  } else {
-    bar.style.display='none';
-  }
-}
-function renderCarrito(){
-  const container=document.getElementById('carrito-items');
-  const active=Object.entries(items).filter(([k,v])=>v.q>0);
-  if(!active.length){
-    // demo por defecto
-    items.bistec.q=2;items.pastor.q=1;items.agua.q=1;
-    document.getElementById('q-bistec').textContent=2;
-    document.getElementById('q-pastor').textContent=1;
-    document.getElementById('q-agua').textContent=1;
-    updateCartBar();
-    return renderCarrito();
-  }
-  const sub=active.reduce((a,[k,v])=>a+v.q*v.p,0);
-  container.innerHTML=active.map(([k,v])=>`
-    <div class="carrito-item">
-      <div style="font-size:24px;width:40px;text-align:center;">🌮</div>
-      <div class="si03"><div class="si33">${v.n}</div><div class="si01">${v.q} x $${v.p}</div></div>
-      <div class="si29">$${v.q*v.p}</div>
-      <button class="del-btn" onclick="removeItem('${k}')">✕</button>
-    </div>`).join('');
-  document.getElementById('sub-txt').textContent='$'+sub;
-  document.getElementById('total-txt').textContent='$'+(sub+25);
-}
-function removeItem(k){items[k].q=0;document.getElementById('q-'+k).textContent=0;updateCartBar();renderCarrito();}
-
-function setFilter(btn){document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
-function setCat(btn){
-  document.querySelectorAll('.cat-ic').forEach(c=>c.classList.remove('on'));
-  document.querySelectorAll('.cat-nm').forEach(c=>c.classList.remove('on'));
-  btn.querySelector('.cat-ic').classList.add('on');
-  btn.querySelector('.cat-nm').classList.add('on');
-}
-function setPago(el){
-  document.querySelectorAll('.pago-opt').forEach(p=>{p.classList.remove('on');p.querySelector('.radio-c').classList.remove('on');});
-  el.classList.add('on');el.querySelector('.radio-c').classList.add('on');
-}
-function toggleFav(id){const b=document.getElementById(id);b.textContent=b.textContent==='🤍'?'❤️':'🤍';}
-
-
-/* go() → ver función maestra arriba */
 function setSvc(el){document.querySelectorAll('.svc-tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');}
 function selRider(el,price,name,time){
   document.querySelectorAll('.rider-chip').forEach(r=>r.classList.remove('on'));
@@ -1827,4 +1864,36 @@ function showAdminTab(i,btn){
     }
     errEl.style.display = 'none';
     go('v-home', 'right');
+  };
+
+// ══════════════════════════════════════════════════════════════
+// EXTRAÍDO DE firebase.js — cargarRepartidores
+// ══════════════════════════════════════════════════════════════
+  // ===== CARGAR REPARTIDORES (Ride) con acceso directo a window._fbDb =====
+  window.cargarRepartidores = async function() {
+    const demoChips = document.getElementById('ride-demo-chips');
+    const container = document.querySelector('#v-ride .rider-chips-container');
+    try {
+      const { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      const snap = await getDocs(query(collection(window._fbDb,'usuarios'), where('tipo','==','repartidor')));
+      const docs = [];
+      snap.forEach(d => { const r=d.data(); if(r.estado==='activo') docs.push({_id:d.id,...r}); });
+      if(docs.length === 0) {
+        // No hay reales — mostrar demo
+        if(demoChips) demoChips.style.display='flex';
+        return;
+      }
+      // Hay reales — ocultar demo y mostrar reales
+      if(demoChips) demoChips.style.display='none';
+      // Crear chips reales
+      docs.forEach((r,i) => {
+        const chip = document.createElement('div');
+        chip.className = 'rider-chip' + (i===0?' on':'');
+        chip.innerHTML = '<div class="si11">🏍️</div><div class="si49">'+window.dcEscHTML(r.nombre||'—')+'</div><div class="si50">~'+(3+i*2)+' min</div><div class="si63">★ Nuevo</div>';
+        chip.onclick = () => selRider(chip, 55+i*5, r.nombre||'Repartidor', '~'+(3+i*2)+' min');
+        if(container) container.appendChild(chip);
+      });
+    } catch(e) {
+      if(demoChips) demoChips.style.display='flex';
+    }
   };

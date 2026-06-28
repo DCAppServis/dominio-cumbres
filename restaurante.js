@@ -3,6 +3,8 @@
    ════════════════════════════════════════════════════════ */
 
 'use strict';
+function _resc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
 /* ── Cache de pedidos reales para Centro Operativo (Firestore) ── */
 var _vrPedidosCache = [];
 
@@ -482,7 +484,7 @@ window._vnegCargarHorariosYRepintar = async function() {
     // Repintar tarjeta del v-home si está activo
     var _vh = document.getElementById('v-home');
     if (_vh && _vh.classList.contains('active')) {
-      if (window.renderHomePersonalizado) window.renderHomePersonalizado();
+      if (window.renderHomeM2) window.renderHomeM2();
     }
   } catch(e) { }
 };
@@ -522,7 +524,7 @@ window._restCargarHorariosYRepintar = async function() {
     // Repintar el v-home completo con el estado correcto recién cargado de Firebase
     var _vh = document.getElementById('v-home');
     if (_vh && _vh.classList.contains('active')) {
-      if (window.renderHomePersonalizado) window.renderHomePersonalizado();
+      if (window.renderHomeM2) window.renderHomeM2();
     }
     if (window.dcPintarEstado) window.dcPintarEstado();
   } catch(e) { }
@@ -620,8 +622,8 @@ window.vnegRenderPedidos = async function(){
     arr.sort(function(a,b){return (b.fecha||0)-(a.fecha||0);});
     if(!arr.length){cont.innerHTML='<div style="text-align:center;color:#aaa;padding:40px 20px;font-size:13px;">Sin pedidos en esta categoría.</div>';return;}
     cont.innerHTML=arr.map(function(p){
-      var items=(p.items||[]).map(function(it){return it.cantidad+'x '+it.nombre;}).join(', ');
-      return '<div style="background:#fff;border-radius:12px;padding:14px;margin:0 14px 10px;box-shadow:0 1px 3px rgba(0,0,0,.06);"><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-weight:800;font-size:13px;">'+(p.vecinoNombre||'Cliente')+'</span><span style="font-weight:800;color:#7B3FA0;">$'+(p.total||0)+'</span></div><div style="font-size:12px;color:#666;">'+items+'</div></div>';
+      var items=(p.items||[]).map(function(it){return _resc(it.cantidad)+'x '+_resc(it.nombre);}).join(', ');
+      return '<div style="background:#fff;border-radius:12px;padding:14px;margin:0 14px 10px;box-shadow:0 1px 3px rgba(0,0,0,.06);"><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-weight:800;font-size:13px;">'+_resc(p.vecinoNombre||'Cliente')+'</span><span style="font-weight:800;color:#7B3FA0;">$'+_resc(p.total||0)+'</span></div><div style="font-size:12px;color:#666;">'+items+'</div></div>';
     }).join('');
   }catch(e){cont.innerHTML='<div style="text-align:center;color:#c00;padding:30px;font-size:12px;">Error.</div>';}
 };
@@ -1207,7 +1209,7 @@ window.vnegGuardarConfig = async function() {
         if (_sel) _sel.value = _estSel;
         vnegSyncCfgUI(_estSel);
         // Repintar home
-        window.renderHomePersonalizado && window.renderHomePersonalizado();
+        window.renderHomeM2 && window.renderHomeM2();
         _vnegSyncHomeBadge();
         if (window.dcPintarEstado) window.dcPintarEstado();
         if (typeof window.setEstadoOperativo === 'function') window.setEstadoOperativo(_vnegEstadoOp);
@@ -1570,23 +1572,23 @@ function _renderPedidos() {
   }
   cont.innerHTML = grupo.map(function(p) {
     var hora = new Date(p.fecha).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-    var its  = p.items.map(function(i){ return i.cantidad+'× '+i.nombre; }).join(', ');
+    var its  = p.items.map(function(i){ return _resc(i.cantidad)+'× '+_resc(i.nombre); }).join(', ');
     var esNuevo = p.estado === 'nuevo';
     var cardStyle = esNuevo
       ? 'background:#fff5f5;border:1.5px solid rgba(214,58,42,.3);border-radius:16px;margin:0 14px 10px;padding:14px;cursor:pointer;'
       : '';
-    return '<div class="card' + (esNuevo ? '' : '') + '" style="' + cardStyle + '" onclick="abrirDetalle(\'' + p._id + '\')">'
+    return '<div class="card' + (esNuevo ? '' : '') + '" style="' + cardStyle + '" onclick="abrirDetalle(\''+_resc(p._id)+'\')">'
       + (esNuevo ? '<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#D63A2A;display:inline-block;animation:pulse-red 1.2s infinite;"></span><span style="font-size:10px;font-weight:800;color:#D63A2A;letter-spacing:.4px;">NUEVO</span></div>' : '')
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;">'
-      + '<div style="font-size:13px;font-weight:700;color:var(--tx);">👤 ' + p.vecinoNombre + '</div>'
+      + '<div style="font-size:13px;font-weight:700;color:var(--tx);">👤 ' + _resc(p.vecinoNombre) + '</div>'
       + '<span style="font-size:10px;color:var(--tx4);">' + hora + '</span>'
       + '</div>'
       + '<div style="font-size:11px;color:var(--tx3);margin-bottom:6px;">' + its + '</div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-      + '<span style="font-size:13px;font-weight:700;color:var(--tx2);">$' + p.total + ' · ' + p.metodoPago + '</span>'
-      + '<span class="badge b-' + p.estado + '">' + lbl(p.estado) + '</span>'
+      + '<span style="font-size:13px;font-weight:700;color:var(--tx2);">$' + _resc(p.total) + ' · ' + _resc(p.metodoPago) + '</span>'
+      + '<span class="badge b-' + _resc(p.estado) + '">' + lbl(p.estado) + '</span>'
       + '</div>'
-      + (p.notas ? '<div style="font-size:11px;color:#777;margin-top:6px;font-style:italic;">📝 ' + p.notas + '</div>' : '')
+      + (p.notas ? '<div style="font-size:11px;color:#777;margin-top:6px;font-style:italic;">📝 ' + _resc(p.notas) + '</div>' : '')
       + '</div>';
   }).join('');
 }
@@ -2757,7 +2759,7 @@ function guardarConfig() {
       // Badge vr-home: usa estado efectivo (horario + manual)
       var _ef = _estadoEfectivo();
       // Actualizar tarjeta de estado en v-home (la grande clicable)
-      if (window.renderHomePersonalizado) window.renderHomePersonalizado();
+      if (window.renderHomeM2) window.renderHomeM2();
       var _cfg = DC_ESTADOS[_ef] || DC_ESTADOS.activo;
       var _dot = document.getElementById('home-estado-dot');
       var _lbl = document.getElementById('home-estado-lbl');
@@ -2969,7 +2971,7 @@ function _vnegCmvFinalFeliz() {
   }
 }
 
-var _cmvFotoData     = null; // DEPRECATED — se mantiene para cmvRenderPreview (lee esta var)
+var _cmvFotoData     = null;
 var _cmvFotoExistente = null; // foto cargada desde Firestore del usuario actual
 var _cmvFotoNueva     = null; // foto recién seleccionada por el usuario en esta sesión
 
@@ -3216,3 +3218,101 @@ if (typeof window.go !== 'function') {
   window.dcRest_init();
 };
 
+
+// ══════════════════════════════════════════════════════════════
+// EXTRAÍDO DE firebase.js — métricas restaurante
+// ══════════════════════════════════════════════════════════════
+  // offset 0 = mes actual, -1 = mes anterior, etc.
+  window._vmrMesOffset = 0;
+  window._cargarRestStats = function() {
+    window._vmrMesOffset = 0;
+    window._calcMetricasMes && window._calcMetricasMes();
+  };
+  window._vmrMesCambiar = function(dir) {
+    var nuevo = window._vmrMesOffset + dir;
+    if (nuevo > 0) nuevo = 0;               // no hay futuro
+    window._vmrMesOffset = nuevo;
+    window._calcMetricasMes && window._calcMetricasMes();
+  };
+  // Métricas del MES seleccionado + acumulado total. Todo Firestore real.
+  window._calcMetricasMes = async function() {
+    var user = window._fbAuth && window._fbAuth.currentUser;
+    var _db = window._fbDb;
+    if (!user || !_db) return;
+    var uid = user.uid;
+    var setTxt = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+    var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var hoy = new Date();
+    var ref = new Date(hoy.getFullYear(), hoy.getMonth() + window._vmrMesOffset, 1);
+    var ini = ref.getTime();
+    var fin = new Date(ref.getFullYear(), ref.getMonth() + 1, 1).getTime();
+    setTxt('vmr-mes-label', MESES[ref.getMonth()] + ' ' + ref.getFullYear());
+    var btnNext = document.getElementById('vmr-mes-next');
+    if (btnNext) btnNext.style.opacity = window._vmrMesOffset >= 0 ? '.35' : '1';
+    try {
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      var snap = await _fb.getDocs(_fb.query(_fb.collection(_db,'pedidos'), _fb.where('restauranteId','==',uid)));
+      var nPed=0, venta=0, acum=0;
+      snap.forEach(function(d){
+        var p = d.data();
+        if (p.estado !== 'entregado') return;
+        acum += (p.total||0);                          // acumulado de siempre
+        var fch = p.fecha||0;
+        if (fch >= ini && fch < fin) { nPed++; venta += (p.total||0); } // del mes
+      });
+      setTxt('vmr-pedidos', nPed);
+      setTxt('vmr-ventas', '$'+venta);
+      setTxt('vmr-acumulado', '$'+acum);
+      var vs = await _fb.getDocs(_fb.query(_fb.collection(_db,'valoraciones'), _fb.where('restauranteId','==',uid)));
+      var tr=0, cr=0; vs.forEach(function(d){ var v=d.data(); if(v.ratingRestaurante){ tr+=v.ratingRestaurante; cr++; } });
+      setTxt('vmr-rating', cr>0 ? (tr/cr).toFixed(1)+'\u2605' : '—');
+    } catch(e) { }
+  };
+
+  // Métricas reales del restaurante desde Firestore. modo: 'hoy' | 'acumulado'
+  window._calcMetricasRest = async function(modo) {
+    var user = window._fbAuth && window._fbAuth.currentUser;
+    var _db = window._fbDb;
+    if (!user || !_db) return;
+    var uid = user.uid;
+    var setTxt = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+    try {
+      var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+      var snap = await _fb.getDocs(_fb.query(_fb.collection(_db,'pedidos'), _fb.where('restauranteId','==',uid)));
+      var hoy0 = new Date(); hoy0.setHours(0,0,0,0); var hoyMs = hoy0.getTime();
+      var nPed = 0, venta = 0;
+      snap.forEach(function(d){
+        var p = d.data();
+        if (p.estado !== 'entregado') return;            // solo entregados cuentan
+        if (modo === 'hoy' && (p.fecha||0) < hoyMs) return; // solo de hoy
+        nPed++; venta += (p.total||0);
+      });
+      // Rating: promedio acumulado real (mismo en ambos modos)
+      var vs = await _fb.getDocs(_fb.query(_fb.collection(_db,'valoraciones'), _fb.where('restauranteId','==',uid)));
+      var tr=0, cr=0; vs.forEach(function(d){ var v=d.data(); if(v.ratingRestaurante){ tr+=v.ratingRestaurante; cr++; } });
+      var rating = cr>0 ? (tr/cr).toFixed(1) : '—';
+      if (modo === 'hoy') {
+        setTxt('rhome-pedidos', nPed);  // entregados hoy (lo ya vendido)
+        // Por aceptar y En proceso: mismos grupos que Mis Pedidos (coinciden exacto)
+        var GP_NUEVO = ['nuevo'];
+        var GP_PROC  = ['aceptado','preparando','listo','buscando_repartidor','repartidor_asignado','en_camino','recogido'];
+        var nAcep=0, nProc=0;
+        snap.forEach(function(d){
+          var e = (d.data().estado)||'';
+          if (GP_NUEVO.indexOf(e)!==-1) nAcep++;
+          else if (GP_PROC.indexOf(e)!==-1) nProc++;
+        });
+        setTxt('rhome-poraceptar', nAcep);
+        setTxt('rhome-enproceso', nProc);
+        var ledSet = function(cardId, on){ var c=document.getElementById(cardId); if(c){ c.classList.toggle('led-on', !!on); } };
+        ledSet('card-poraceptar', nAcep>0);
+        ledSet('card-pedidoshoy', nPed>0);
+        ledSet('card-enproceso', nProc>0);
+      } else {
+        setTxt('vmr-pedidos', nPed);
+        setTxt('vmr-ventas', '$'+venta);
+        setTxt('vmr-rating', rating==='—'?'—':rating+'\u2605');
+      }
+    } catch(e) { }
+  };
+  // ── FIN M2-F helpers ─────────────────────────────────────────
