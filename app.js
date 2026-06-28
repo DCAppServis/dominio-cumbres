@@ -619,11 +619,10 @@ function goSeguimiento(){
   return false;
 }
 
-// Interceptar popstate que regresaría a comprando con carrito vacío (compra ya completada)
+// v-plaza-comprando nunca es destino de Atrás — igual que seguimiento (chat.js:634)
+// El usuario llega a comprando solo por acción explícita ("Continuar compra"), nunca por historial
 window.addEventListener('popstate',function(e){
   if(!e.state||e.state.viewId!=='v-plaza-comprando') return;
-  try{var c=JSON.parse(localStorage.getItem('dcPlazaCartV61')||'[]');if(Array.isArray(c)&&c.length>0) return;}catch(_){}
-  // Carrito vacío + intentando ir a comprando = compra ya realizada → redirigir a v-plaza
   e.stopImmediatePropagation();
   try{history.replaceState({viewId:'v-plaza'},'','');}catch(_){}
   try{if(typeof window._goCore==='function') window._goCore('v-plaza','left'); else if(typeof _goCore==='function') _goCore('v-plaza','left');}catch(_){}
