@@ -951,17 +951,19 @@ function renderSeguimiento(ord){
   var el=document.getElementById('v-plaza-seguimiento-lista'); if(!el) return false;
   var rows=items.map(function(x){return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:.5px solid #eee;"><div><div style="font-size:12px;font-weight:900;color:#111;line-height:1.25;">'+qty(x.cantidad)+'× '+esc(x.nombre)+'</div><div style="font-size:10px;color:#777;margin-top:2px;">'+money(num(x.precio))+' c/u</div></div><div style="font-size:12px;font-weight:900;color:#111;white-space:nowrap;">'+money(num(x.precio)*qty(x.cantidad))+'</div></div>';}).join('');
   var estado=String((o.estado)||'en_proceso').toLowerCase();
-  var PASOS=['recibido','en_proceso','listo','en_camino','entregado'];
-  var pasoActual=0;
-  if(['aceptado','preparando','en_proceso'].indexOf(estado)!==-1) pasoActual=1;
+  // Mapeo igual que Food: estado → paso (en_proceso≡nuevo, preparando≡aceptado+preparando)
+  var pasoActual=0; // en_proceso = recibida, esperando aceptación del negocio
+  if(estado==='preparando') pasoActual=1;
   if(estado==='listo') pasoActual=2;
-  if(['en_camino','repartidor_asignado','buscando_repartidor'].indexOf(estado)!==-1) pasoActual=3;
-  if(['entregado','recogido','finalizado','completado','anterior'].indexOf(estado)!==-1) pasoActual=4;
+  if(estado==='en_camino') pasoActual=3;
+  if(['entregado','finalizado','completado'].indexOf(estado)!==-1) pasoActual=4;
   if(['cancelado','rechazado'].indexOf(estado)!==-1) pasoActual=-1;
   function stepBg(n){return n<=pasoActual?'#20c76a':'#f0f2f3';}
   function stepTx(n){return n<=pasoActual?'#111':'#99a1aa';}
-  var titulo=pasoActual===4?'¡Compra entregada!':pasoActual===-1?'Compra cancelada':'Compra recibida';
-  var sub=pasoActual===4?'Tu pedido fue entregado exitosamente.':pasoActual===-1?'Esta compra fue cancelada.':'Esperando confirmación del negocio';
+  var _T=['Compra recibida','Preparando tu pedido','¡Listo para entrega!','En camino','¡Compra entregada!'];
+  var _S2=['Esperando confirmación del negocio','Tu pedido está en preparación','Ya puede ser recogido o entregado','Tu pedido va en camino','Tu pedido fue entregado exitosamente.'];
+  var titulo=pasoActual===-1?'Compra cancelada':(_T[pasoActual]||'Compra recibida');
+  var sub=pasoActual===-1?'Esta compra fue cancelada.':(_S2[pasoActual]||'');
   var headBg=pasoActual===4?'#e8f9f0':pasoActual===-1?'#fff0f0':'#fff';
   var headBorder=pasoActual===4?'#20c76a':pasoActual===-1?'#e53935':'#dfe5eb';
   el.innerHTML=
