@@ -631,38 +631,31 @@ function _vnegEnsureDetView() {
 // Renderiza el contenido de la vista de detalle (reutilizable para actualizar)
 function _vnegRenderDetView(p) {
   var view = document.getElementById('vn-det-pedido'); if (!view) return;
-  var ESTADOS = ['en_proceso','preparando','listo','en_camino','entregado'];
-  var DOTS_LBL = ['Recibido','Aceptado','Preparando','Listo','En camino','Entregado'];
-  var DOTS_EST = [null,'preparando','listo','en_camino','entregado','entregado'];
-  // dot: done if current idx >= dot threshold, current if exact
-  var estIdx = ESTADOS.indexOf(String(p.estado||'en_proceso'));
-
-  function dotColor(i) {
-    // dot 0 = Recibido (always done), dot 1..5 match states
-    if (i === 0) return '#5B2C8A';
-    var threshold = i - 1; // index in ESTADOS that must be reached
-    if (estIdx > threshold) return '#5B2C8A';
-    if (estIdx === threshold) return '#D97706';
-    return '#ddd';
-  }
-  function dotLine(i) {
-    if (i === 0) return '#5B2C8A';
-    var threshold = i - 1;
-    if (estIdx > threshold) return '#5B2C8A';
-    return '#ddd';
-  }
-
-  var dotsHtml = '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:0 4px;margin-bottom:6px;">';
-  for (var i = 0; i < 6; i++) {
-    var dc = dotColor(i);
-    var isLast = i === 5;
-    dotsHtml += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;position:relative;">'
-      +'<div style="width:14px;height:14px;border-radius:50%;background:'+dc+';border:2px solid '+dc+';z-index:1;"></div>'
-      +'<div style="font-size:9px;color:'+dc+';font-weight:'+(dc==='#D97706'?'900':'600')+';margin-top:4px;text-align:center;line-height:1.2;">'+DOTS_LBL[i]+'</div>'
-      +(isLast?'':'<div style="position:absolute;top:6px;left:50%;width:100%;height:2px;background:'+dotLine(i+1)+';z-index:0;"></div>')
+  // Tracker vertical igual que Food (_PASOS + .tstep/.tdot/.tline), colores morados
+  var PASOS = [
+    {est:['en_proceso','preparando','listo','en_camino','entregado'], ic:'📦', lbl:'Recibido'},
+    {est:['preparando','listo','en_camino','entregado'],              ic:'✅', lbl:'Aceptado'},
+    {est:['listo','en_camino','entregado'],                           ic:'👷', lbl:'Preparando'},
+    {est:['en_camino','entregado'],                                   ic:'🛎️', lbl:'Listo'},
+    {est:['entregado'],                                               ic:'🏍️', lbl:'En camino'},
+    {est:['entregado'],                                               ic:'🏠', lbl:'Entregado'}
+  ];
+  var est = String(p.estado||'en_proceso');
+  // mismo patrón que Food: done si el estado actual está en la lista del paso
+  var dotsHtml = PASOS.map(function(paso, i) {
+    var done = paso.est.indexOf(est) !== -1;
+    var dotBg = done ? '#5B2C8A' : '#f0f0f0';
+    var dotColor = done ? '#fff' : '#aaa';
+    var lineBg = done ? '#5B2C8A' : '#f0f0f0';
+    var lblColor = done ? '#111' : '#aaa';
+    var lblWeight = done ? 700 : 500;
+    var isLast = i === PASOS.length - 1;
+    return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;position:relative;">'
+      +(!isLast?'<div style="position:absolute;left:14px;top:30px;width:2px;height:calc(100% + 2px);background:'+lineBg+';z-index:0;"></div>':'')
+      +'<div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;position:relative;z-index:1;background:'+dotBg+';color:'+dotColor+';">'+paso.ic+'</div>'
+      +'<div style="font-size:13px;font-weight:'+lblWeight+';color:'+lblColor+';">'+paso.lbl+'</div>'
       +'</div>';
-  }
-  dotsHtml += '</div>';
+  }).join('');
 
   var AVANCE_SIG = {en_proceso:'preparando',preparando:'listo',listo:'en_camino',en_camino:'entregado'};
   var AVANCE_LBL = {en_proceso:'✅ Aceptar pedido',preparando:'🏪 Marcar como listo',listo:'🏍️ Salió a entregar',en_camino:'🏠 Marcar como entregado'};
