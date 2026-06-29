@@ -3634,6 +3634,14 @@ window.renderHomeM2 = function() {
           + '<div class="ni-ic">📋</div><div class="ni-lb">Solicitudes</div></div>'
           + '<div class="ni" onclick="go(\'v-mipanel\',\'right\')">'
           + '<div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>';
+      } else {
+        nav.innerHTML =
+          '<div class="ni"><div class="ni-ic">🏠</div><div class="si04 ni-lb">Inicio</div></div>'
+          + '<div class="ni" onclick="var _t=(localStorage.getItem(\'dcuserTipo\')||\'vecino\').toLowerCase();go(_t===\'vecino\'?\'v-mis-pedidos-food\':\'vr-pedidos\',\'right\')">'
+          + '<div class="notif-w"><div class="ni-ic">🍽️</div><span class="notif-dot nav-ped-dot" style="display:none;"></span></div><div class="ni-lb">Pedidos</div></div>'
+          + '<div class="ni" onclick="go(\'v-mis-compras-plaza\',\'right\')"><div class="ni-ic">🛍️</div><div class="ni-lb">Mis Compras</div></div>'
+          + '<div class="ni" onclick="go(\'v-mi-agenda\',\'right\');setTimeout(function(){window._renderMiAgenda&&window._renderMiAgenda();},200);"><div class="ni-ic">📅</div><div class="ni-lb">Reservaciones</div></div>'
+          + '<div class="ni" onclick="go(\'v-mipanel\',\'right\')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>';
       }
     }
   };
