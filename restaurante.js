@@ -606,6 +606,8 @@ window._calcMetricasNeg = async function(){
 
 // ══════ FUNCIONES DE PANTALLAS DEL NEGOCIO (IDs vn- propios, datos por uid) ══════
 var _vnegPedTab = 'pedidos';
+var _vnegPedidosCache = [];
+
 window.vnegTabPedidos = function(tab, btn){
   _vnegPedTab = tab;
   document.querySelectorAll('#vn-pedidos .chip').forEach(function(b){ b.classList.remove('on'); });
@@ -613,18 +615,87 @@ window.vnegTabPedidos = function(tab, btn){
   window.vnegRenderPedidos();
 };
 
-// Avanzar estado de un pedido Plaza desde vn-pedidos (no redirige a restaurante)
+// Avanzar estado — actualiza Firestore, cierra hoja de detalle y refresca lista
 window._vnegAvanzarPedVn = async function(docId, nuevoEstado) {
   var _db = window._fbDb; if (!_db || !docId) return;
+  var btn = document.getElementById('vneg-det-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
   try {
     var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
     await _fb.updateDoc(_fb.doc(_db,'pedidosPlaza',docId), {
       estado: nuevoEstado, actualizado: Date.now(),
       historialEstados: _fb.arrayUnion({estado:nuevoEstado, fecha:Date.now()})
     });
+    _vnegCerrarDetPed();
     window.vnegRenderPedidos();
     window._calcMetricasNeg && window._calcMetricasNeg();
-  } catch(e) { if(typeof toast==='function') toast('⚠️ Error: '+e.message); }
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Reintentar'; }
+    if (typeof toast === 'function') toast('⚠️ Error: ' + e.message);
+  }
+};
+
+// Abrir hoja de detalle de pedido (igual que Food: dcFood_abrirDetallePedido)
+window._vnegAbrirDetPed = function(docId) {
+  var p = _vnegPedidosCache.find(function(x){ return x._id === docId; });
+  if (!p) return;
+  var prev = document.getElementById('vneg-det-sheet');
+  if (prev) prev.remove();
+
+  var EST_LBL = {en_proceso:'📦 Nuevo',preparando:'👨‍💼 Preparando',listo:'✅ Listo',en_camino:'🏍️ En camino',entregado:'🎉 Entregado'};
+  var EST_COL = {en_proceso:'#D97706',preparando:'#7B3FA0',listo:'#1a8a4a',en_camino:'#1a5a9a',entregado:'#555'};
+  var AVANCE_LBL = {en_proceso:'✅ Aceptar pedido',preparando:'🏪 Marcar como listo',listo:'🏍️ Salió a entregar',en_camino:'🏠 Marcar como entregado'};
+  var AVANCE_SIG = {en_proceso:'preparando',preparando:'listo',listo:'en_camino',en_camino:'entregado'};
+
+  var est = String(p.estado || 'en_proceso');
+  var estCol = EST_COL[est] || '#555';
+  var estLbl = EST_LBL[est] || est;
+  var sig = AVANCE_SIG[est];
+  var sigLbl = AVANCE_LBL[est];
+  var fch = p.fecha ? new Date(p.fecha).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+  var items = (p.items||[]).map(function(it){
+    return '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:.5px solid #f5f5f5;">'
+      +'<span style="font-size:12px;color:#111;">'+_resc(it.cantidad)+'× '+_resc(it.nombre)+'</span>'
+      +'<span style="font-size:12px;font-weight:700;">$'+_resc((it.precio||0)*(it.cantidad||1))+'</span></div>';
+  }).join('');
+
+  var sheet = document.createElement('div');
+  sheet.id = 'vneg-det-sheet';
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:flex-end;';
+  sheet.innerHTML = '<div onclick="_vnegCerrarDetPed()" style="flex:1;background:rgba(0,0,0,.5);"></div>'
+    +'<div style="background:#fff;border-radius:22px 22px 0 0;padding:0 0 34px;max-height:85vh;overflow-y:auto;animation:vnDetUp .25s ease;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:18px 18px 0;">'
+    +'<div style="font-size:15px;font-weight:900;color:#111;">Detalle del pedido</div>'
+    +'<button onclick="_vnegCerrarDetPed()" style="background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;padding:0;line-height:1;">×</button></div>'
+    +'<div style="padding:14px 18px;">'
+    // Cliente + estado
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+    +'<div><div style="font-size:14px;font-weight:800;color:#111;">'+_resc(p.clienteNombre||p.vecinoNombre||'Cliente')+'</div>'
+    +'<div style="font-size:11px;color:#aaa;margin-top:2px;">'+fch+'</div></div>'
+    +'<span style="font-size:11px;font-weight:800;color:'+estCol+';background:'+estCol+'1a;border-radius:20px;padding:4px 12px;">'+estLbl+'</span></div>'
+    // Items
+    +'<div style="background:#fafafa;border-radius:14px;padding:10px 14px;margin-bottom:12px;">'+items
+    +'<div style="display:flex;justify-content:space-between;padding:10px 0 0;"><span style="font-size:13px;font-weight:700;">Total</span>'
+    +'<span style="font-size:15px;font-weight:900;color:#5B2C8A;">$'+_resc(p.total||0)+'</span></div></div>'
+    // Entrega + pago
+    +'<div style="background:#f5f5f5;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#555;line-height:1.8;">'
+    +'📦 Entrega: '+_resc(p.entrega==='domicilio'?'A domicilio':'Recoger en tienda')+'<br>'
+    +'💳 Pago: '+_resc(p.pago||'—')
+    +(p.referenciaTransferencia?'<br>🔖 Ref: '+_resc(p.referenciaTransferencia):'')+'</div>'
+    // Botón acción
+    +(sig?'<button id="vneg-det-btn" onclick="window._vnegAvanzarPedVn(\''+_resc(p._id)+'\',\''+_resc(sig)+'\')" style="width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#5B2C8A,#7B3FA0);color:#fff;font-size:14px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:.3px;">'+sigLbl+'</button>':'<div style="text-align:center;padding:10px;font-size:13px;color:#aaa;">Pedido finalizado</div>')
+    +'</div></div>';
+
+  if (!document.getElementById('vneg-det-kf')) {
+    var st = document.createElement('style'); st.id = 'vneg-det-kf';
+    st.textContent = '@keyframes vnDetUp{from{transform:translateY(100%);}to{transform:translateY(0);}}';
+    document.head.appendChild(st);
+  }
+  document.body.appendChild(sheet);
+};
+
+window._vnegCerrarDetPed = function() {
+  var s = document.getElementById('vneg-det-sheet'); if (s) s.remove();
 };
 
 window.vnegRenderPedidos = async function(){
@@ -635,33 +706,28 @@ window.vnegRenderPedidos = async function(){
   try{
     var _fb=await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
     var snap=await _fb.getDocs(_fb.query(_fb.collection(_db,'pedidosPlaza'),_fb.where('negocioId','==',user.uid)));
+    _vnegPedidosCache=[];
+    snap.forEach(function(d){var p=d.data();p._id=d.id;_vnegPedidosCache.push(p);});
+    _vnegPedidosCache.sort(function(a,b){return (b.fecha||0)-(a.fecha||0);});
     var G={pedidos:['en_proceso'],en_proceso:['preparando','listo','en_camino'],entregados:['entregado']};
-    var perm=G[_vnegPedTab]||[]; var arr=[];
-    snap.forEach(function(d){var p=d.data();p._id=d.id;if(perm.indexOf(p.estado)!==-1)arr.push(p);});
-    arr.sort(function(a,b){return (b.fecha||0)-(a.fecha||0);});
-    if(!arr.length){cont.innerHTML='<div style="text-align:center;color:#aaa;padding:40px 20px;font-size:13px;">Sin pedidos en esta categoría.</div>';return;}
-    var AVANCE_LBL={'en_proceso':'✅ Aceptar y preparar','preparando':'Marcar como listo →','listo':'Marcar en camino →','en_camino':'Marcar entregado ✓'};
-    var AVANCE_SIG={'en_proceso':'preparando','preparando':'listo','listo':'en_camino','en_camino':'entregado'};
-    var EST_LBL={'en_proceso':'Nuevo','preparando':'Preparando','listo':'Listo','en_camino':'En camino','entregado':'Entregado'};
+    var perm=G[_vnegPedTab]||[];
+    var arr=_vnegPedidosCache.filter(function(p){return perm.indexOf(p.estado)!==-1;});
+    var EST_LBL={'en_proceso':'📦 Nuevo','preparando':'👨‍💼 Preparando','listo':'✅ Listo','en_camino':'🏍️ En camino','entregado':'🎉 Entregado'};
     var EST_COL={'en_proceso':'#D97706','preparando':'#7B3FA0','listo':'#1a8a4a','en_camino':'#1a5a9a','entregado':'#555'};
+    if(!arr.length){cont.innerHTML='<div style="text-align:center;color:#aaa;padding:50px 20px;font-size:13px;font-weight:700;">📭 Sin pedidos aquí</div>';return;}
     cont.innerHTML=arr.map(function(p){
       var est=String(p.estado||'en_proceso');
-      var sig=AVANCE_SIG[est]; var sigLbl=AVANCE_LBL[est];
-      var items=(p.items||[]).map(function(it){return _resc(it.cantidad)+'× '+_resc(it.nombre);}).join(', ');
-      var fch=p.fecha?new Date(p.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
       var estCol=EST_COL[est]||'#555'; var estLbl=EST_LBL[est]||est;
-      return '<div style="background:#fff;border-radius:14px;padding:14px 16px;margin:0 14px 10px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-left:4px solid '+estCol+';">'
-        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'
-        +'<div><div style="font-weight:800;font-size:13px;color:#111;">'+_resc(p.clienteNombre||p.vecinoNombre||'Cliente')+'</div>'
-        +'<div style="font-size:10px;color:#aaa;margin-top:1px;">'+fch+'</div></div>'
-        +'<div style="font-weight:900;font-size:15px;color:#5B2C8A;">$'+_resc(p.total||0)+'</div></div>'
-        +'<div style="font-size:12px;color:#555;margin-bottom:8px;line-height:1.4;">'+items+'</div>'
-        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(sig?'10':'0')+'px;">'
+      var items=(p.items||[]).slice(0,3).map(function(it){return _resc(it.cantidad)+'× '+_resc(it.nombre);}).join(', ');
+      var hora=p.fecha?new Date(p.fecha).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}):'';
+      return '<div onclick="window._vnegAbrirDetPed(\''+_resc(p._id)+'\')" style="background:#fff;border-radius:14px;padding:14px 16px;margin:0 14px 10px;box-shadow:0 2px 8px rgba(0,0,0,.07);cursor:pointer;border-left:4px solid '+estCol+';">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;">'
+        +'<div style="font-weight:800;font-size:13px;color:#111;">'+_resc(p.clienteNombre||p.vecinoNombre||'Cliente')+'</div>'
+        +'<div style="font-weight:900;font-size:14px;color:#5B2C8A;">$'+_resc(p.total||0)+'</div></div>'
+        +'<div style="font-size:11px;color:#777;margin-bottom:8px;line-height:1.4;">'+items+'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;">'
         +'<span style="font-size:10px;font-weight:800;color:'+estCol+';background:'+estCol+'1a;border-radius:20px;padding:3px 10px;">'+estLbl+'</span>'
-        +(p.entrega?'<span style="font-size:10px;color:#888;">'+_resc(p.entrega==='domicilio'?'🏠 A domicilio':'🏪 Recoger')+'</span>':'')
-        +'</div>'
-        +(sig?'<button onclick="window._vnegAvanzarPedVn(\''+_resc(p._id)+'\',\''+_resc(sig)+'\')" style="width:100%;padding:11px;border:none;border-radius:11px;background:linear-gradient(135deg,#5B2C8A,#7B3FA0);color:#fff;font-size:12px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:.3px;">'+sigLbl+'</button>':'')
-        +'</div>';
+        +'<span style="font-size:10px;color:#bbb;">'+hora+'</span></div></div>';
     }).join('');
   }catch(e){cont.innerHTML='<div style="text-align:center;color:#c00;padding:30px;font-size:12px;">Error: '+_resc(e.message)+'</div>';}
 };
