@@ -683,7 +683,7 @@ function _vnegRenderDetView(p) {
     +'<div><div style="font-size:16px;font-weight:900;color:#fff;">Detalle del pedido</div>'
     +'<div style="font-size:11px;color:rgba(255,255,255,.75);">#'+pedNum+'</div></div></div>'
     // Scroll body
-    +'<div class="scr" style="flex:1;overflow-y:auto;padding:16px 14px 120px;">'
+    +'<div class="scr" style="flex:1;overflow-y:auto;padding:16px 14px 24px;">'
     // Cliente card
     +'<div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(91,44,138,.08);">'
     +'<div style="font-size:11px;color:#7B3FA0;font-weight:800;letter-spacing:.5px;margin-bottom:8px;">👤 CLIENTE</div>'
@@ -709,11 +709,9 @@ function _vnegRenderDetView(p) {
     +dotsHtml
     +'</div>'
     +(p.notas?'<div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(91,44,138,.08);font-size:12px;color:#555;">📝 <strong>Notas:</strong> '+_resc(p.notas)+'</div>':'')
-    +'</div>'
-    // Botón flotante
-    +'<div style="position:absolute;bottom:0;left:0;right:0;padding:14px 14px 30px;background:linear-gradient(to top,#f7f3fa 70%,transparent);">'
+    // Botón dentro del scroll (no absoluto)
     +(sig
-      ?'<button id="vneg-det-btn" onclick="window._vnegAvanzarPedVn(\''+_resc(p._id)+'\',\''+_resc(sig)+'\')" style="width:100%;padding:16px;border:none;border-radius:16px;background:linear-gradient(135deg,#5B2C8A,#7B3FA0);color:#fff;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:.3px;box-shadow:0 4px 16px rgba(91,44,138,.35);">'+sigLbl+'</button>'
+      ?'<button id="vneg-det-btn" onclick="window._vnegAvanzarPedVn(\''+_resc(p._id)+'\',\''+_resc(sig)+'\')" style="width:100%;padding:16px;border:none;border-radius:16px;background:linear-gradient(135deg,#5B2C8A,#7B3FA0);color:#fff;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:.3px;box-shadow:0 4px 16px rgba(91,44,138,.35);box-sizing:border-box;margin-bottom:8px;">'+sigLbl+'</button>'
       :'<div style="text-align:center;padding:14px;font-size:14px;font-weight:800;color:#5B2C8A;background:#f5f0fa;border-radius:16px;">🎉 Pedido finalizado</div>')
     +'</div>';
 }
@@ -728,50 +726,28 @@ window._vnegAbrirDetPed = function(docId) {
   dcNeg_navTo('vn-det-pedido');
 };
 
-// Avanzar estado — actualiza Firestore, muestra confirmación inline, re-renderiza detalle
+// Avanzar estado — igual que dcFood_cambiarEstado: update → volver a la lista
 window._vnegAvanzarPedVn = async function(docId, nuevoEstado) {
   var _db = window._fbDb; if (!_db || !docId) return;
   var btn = document.getElementById('vneg-det-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
-  var CONF_MSG = {
-    preparando: {ico:'✅', tit:'Pedido aceptado', sub:'Ya aparece en preparación.'},
-    listo:      {ico:'🏪', tit:'Pedido listo', sub:'El vecino fue notificado.'},
-    en_camino:  {ico:'🏍️', tit:'En camino', sub:'El vecino ya puede ver el avance.'},
-    entregado:  {ico:'🎉', tit:'Entregado', sub:'Pedido completado.'}
-  };
   try {
     var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var snap = await _fb.getDoc(_fb.doc(_db,'pedidosPlaza',docId));
+    if (!snap.exists()) return;
+    var pd = snap.data();
     await _fb.updateDoc(_fb.doc(_db,'pedidosPlaza',docId), {
       estado: nuevoEstado, actualizado: Date.now(),
       historialEstados: _fb.arrayUnion({estado:nuevoEstado, fecha:Date.now()})
     });
-    // Actualizar cache local
-    var idx = _vnegPedidosCache.findIndex(function(x){ return x._id === docId; });
-    if (idx !== -1) _vnegPedidosCache[idx].estado = nuevoEstado;
-    // Mostrar overlay de confirmación sobre la vista de detalle
-    var view = document.getElementById('vn-det-pedido');
-    if (view) {
-      var cm = CONF_MSG[nuevoEstado] || {ico:'✅', tit:'Pedido actualizado', sub:'El vecino puede ver el avance.'};
-      var ov = document.createElement('div');
-      ov.style.cssText = 'position:absolute;inset:0;background:rgba(91,44,138,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;animation:vnFadeIn .2s ease;';
-      ov.innerHTML = '<div style="background:#fff;border-radius:24px;padding:32px 28px;text-align:center;max-width:280px;box-shadow:0 8px 40px rgba(0,0,0,.3);">'
-        +'<div style="font-size:48px;margin-bottom:12px;">'+cm.ico+'</div>'
-        +'<div style="font-size:17px;font-weight:900;color:#5B2C8A;margin-bottom:6px;">'+cm.tit+'</div>'
-        +'<div style="font-size:13px;color:#555;">'+cm.sub+'</div></div>';
-      view.style.position = 'relative';
-      view.appendChild(ov);
-      setTimeout(function(){
-        if (ov.parentNode) ov.remove();
-        // Re-renderizar con nuevo estado
-        var p2 = _vnegPedidosCache.find(function(x){ return x._id === docId; });
-        if (p2) _vnegRenderDetView(p2);
-        window.vnegRenderPedidos();
-        window._calcMetricasNeg && window._calcMetricasNeg();
-      }, 2000);
-    } else {
-      window.vnegRenderPedidos();
-      window._calcMetricasNeg && window._calcMetricasNeg();
+    // Notificar al cliente (igual que Food notifica al vecino)
+    var MSGS = {preparando:'Tu pedido fue aceptado.',listo:'Tu pedido está listo.',en_camino:'Tu pedido va en camino.',entregado:'¡Tu pedido fue entregado!'};
+    if (MSGS[nuevoEstado] && pd.clienteId) {
+      try { await _fb.addDoc(_fb.collection(_db,'notificaciones'),{uid:pd.clienteId,tipo:'pedido',modulo:'pedidos',titulo:'Actualización',mensaje:MSGS[nuevoEstado],leida:false,eliminada:false,prioridad:'normal',pedidoId:docId,fecha:_fb.serverTimestamp()}); } catch(ne){}
     }
+    // Igual que Food: volver a la lista y recargar
+    dcNeg_navBack();
+    setTimeout(function(){ window.vnegRenderPedidos(); window._calcMetricasNeg && window._calcMetricasNeg(); }, 150);
   } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Reintentar'; }
     if (typeof toast === 'function') toast('⚠️ Error: ' + e.message);
