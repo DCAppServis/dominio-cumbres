@@ -607,6 +607,7 @@ window._calcMetricasNeg = async function(){
 // ══════ FUNCIONES DE PANTALLAS DEL NEGOCIO (IDs vn- propios, datos por uid) ══════
 var _vnegPedTab = 'pedidos';
 var _vnegPedidosCache = [];
+var _vnegDetDocId = null;
 
 window.vnegTabPedidos = function(tab, btn){
   _vnegPedTab = tab;
@@ -615,88 +616,180 @@ window.vnegTabPedidos = function(tab, btn){
   window.vnegRenderPedidos();
 };
 
-// Avanzar estado — actualiza Firestore, cierra hoja de detalle y refresca lista
+// Crea la vista de detalle dentro de vn-shell si no existe
+function _vnegEnsureDetView() {
+  if (document.getElementById('vn-det-pedido')) return;
+  var shell = document.getElementById('vn-shell');
+  if (!shell) return;
+  var v = document.createElement('div');
+  v.id = 'vn-det-pedido';
+  v.className = 'view';
+  v.style.cssText = 'background:#f7f3fa;display:flex;flex-direction:column;height:100%;overflow:hidden;';
+  shell.appendChild(v);
+}
+
+// Renderiza el contenido de la vista de detalle (reutilizable para actualizar)
+function _vnegRenderDetView(p) {
+  var view = document.getElementById('vn-det-pedido'); if (!view) return;
+  var ESTADOS = ['en_proceso','preparando','listo','en_camino','entregado'];
+  var DOTS_LBL = ['Recibido','Aceptado','Preparando','Listo','En camino','Entregado'];
+  var DOTS_EST = [null,'preparando','listo','en_camino','entregado','entregado'];
+  // dot: done if current idx >= dot threshold, current if exact
+  var estIdx = ESTADOS.indexOf(String(p.estado||'en_proceso'));
+
+  function dotColor(i) {
+    // dot 0 = Recibido (always done), dot 1..5 match states
+    if (i === 0) return '#5B2C8A';
+    var threshold = i - 1; // index in ESTADOS that must be reached
+    if (estIdx > threshold) return '#5B2C8A';
+    if (estIdx === threshold) return '#D97706';
+    return '#ddd';
+  }
+  function dotLine(i) {
+    if (i === 0) return '#5B2C8A';
+    var threshold = i - 1;
+    if (estIdx > threshold) return '#5B2C8A';
+    return '#ddd';
+  }
+
+  var dotsHtml = '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:0 4px;margin-bottom:6px;">';
+  for (var i = 0; i < 6; i++) {
+    var dc = dotColor(i);
+    var isLast = i === 5;
+    dotsHtml += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;position:relative;">'
+      +'<div style="width:14px;height:14px;border-radius:50%;background:'+dc+';border:2px solid '+dc+';z-index:1;"></div>'
+      +'<div style="font-size:9px;color:'+dc+';font-weight:'+(dc==='#D97706'?'900':'600')+';margin-top:4px;text-align:center;line-height:1.2;">'+DOTS_LBL[i]+'</div>'
+      +(isLast?'':'<div style="position:absolute;top:6px;left:50%;width:100%;height:2px;background:'+dotLine(i+1)+';z-index:0;"></div>')
+      +'</div>';
+  }
+  dotsHtml += '</div>';
+
+  var AVANCE_SIG = {en_proceso:'preparando',preparando:'listo',listo:'en_camino',en_camino:'entregado'};
+  var AVANCE_LBL = {en_proceso:'✅ Aceptar pedido',preparando:'🏪 Marcar como listo',listo:'🏍️ Salió a entregar',en_camino:'🏠 Marcar como entregado'};
+  var est = String(p.estado||'en_proceso');
+  var sig = AVANCE_SIG[est];
+  var sigLbl = AVANCE_LBL[est];
+  var fch = p.fecha ? new Date(p.fecha).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+  var pedNum = String(p._id||'').slice(-6).toUpperCase();
+
+  var itemsHtml = (p.items||[]).map(function(it, idx){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid #ede8f3;">'
+      +'<div style="display:flex;align-items:center;gap:8px;">'
+      +'<span style="background:#5B2C8A;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0;">'+(idx+1)+'</span>'
+      +'<span style="font-size:12px;color:#111;">'+_resc(it.nombre)+'</span></div>'
+      +'<div style="text-align:right;flex-shrink:0;">'
+      +'<div style="font-size:11px;color:#777;">'+_resc(it.cantidad)+'× $'+_resc(it.precio||0)+'</div>'
+      +'<div style="font-size:12px;font-weight:800;color:#111;">$'+_resc((it.precio||0)*(it.cantidad||1))+'</div>'
+      +'</div></div>';
+  }).join('');
+
+  view.innerHTML =
+    // Header
+    '<div style="background:linear-gradient(135deg,#5B2C8A,#7B3FA0);padding:52px 18px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;">'
+    +'<button onclick="dcNeg_navBack()" style="background:rgba(255,255,255,.18);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">‹</button>'
+    +'<div><div style="font-size:16px;font-weight:900;color:#fff;">Detalle del pedido</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.75);">#'+pedNum+'</div></div></div>'
+    // Scroll body
+    +'<div class="scr" style="flex:1;overflow-y:auto;padding:16px 14px 120px;">'
+    // Cliente card
+    +'<div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(91,44,138,.08);">'
+    +'<div style="font-size:11px;color:#7B3FA0;font-weight:800;letter-spacing:.5px;margin-bottom:8px;">👤 CLIENTE</div>'
+    +'<div style="font-size:14px;font-weight:900;color:#111;">'+_resc(p.clienteNombre||p.vecinoNombre||'Cliente')+'</div>'
+    +(p.telefono?'<div style="font-size:12px;color:#555;margin-top:3px;">📞 '+_resc(p.telefono)+'</div>':'')
+    +(p.direccion?'<div style="font-size:12px;color:#555;margin-top:3px;">📍 '+_resc(p.direccion)+'</div>':'')
+    +'<div style="font-size:11px;color:#aaa;margin-top:4px;">'+fch+'</div>'
+    +'<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<span style="font-size:11px;background:#f5f0fa;color:#5B2C8A;border-radius:20px;padding:3px 10px;font-weight:700;">📦 '+(p.entrega==='domicilio'?'A domicilio':'Recoger')+'</span>'
+    +'<span style="font-size:11px;background:#f5f0fa;color:#5B2C8A;border-radius:20px;padding:3px 10px;font-weight:700;">💳 '+_resc(p.pago||'—')+'</span>'
+    +(p.referenciaTransferencia?'<span style="font-size:11px;background:#f5f0fa;color:#5B2C8A;border-radius:20px;padding:3px 10px;font-weight:700;">🔖 '+_resc(p.referenciaTransferencia)+'</span>':'')
+    +'</div></div>'
+    // Comanda
+    +'<div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(91,44,138,.08);">'
+    +'<div style="font-size:11px;color:#7B3FA0;font-weight:800;letter-spacing:.5px;margin-bottom:10px;">🧾 COMANDA</div>'
+    +itemsHtml
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 0;border-top:1.5px solid #ede8f3;margin-top:4px;">'
+    +'<span style="font-size:14px;font-weight:800;color:#111;">Total a cobrar</span>'
+    +'<span style="font-size:18px;font-weight:900;color:#5B2C8A;">$'+_resc(p.total||0)+'</span></div></div>'
+    // Progreso
+    +'<div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(91,44,138,.08);">'
+    +'<div style="font-size:11px;color:#7B3FA0;font-weight:800;letter-spacing:.5px;margin-bottom:14px;">📍 PROGRESO</div>'
+    +dotsHtml
+    +'</div>'
+    +(p.notas?'<div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(91,44,138,.08);font-size:12px;color:#555;">📝 <strong>Notas:</strong> '+_resc(p.notas)+'</div>':'')
+    +'</div>'
+    // Botón flotante
+    +'<div style="position:absolute;bottom:0;left:0;right:0;padding:14px 14px 30px;background:linear-gradient(to top,#f7f3fa 70%,transparent);">'
+    +(sig
+      ?'<button id="vneg-det-btn" onclick="window._vnegAvanzarPedVn(\''+_resc(p._id)+'\',\''+_resc(sig)+'\')" style="width:100%;padding:16px;border:none;border-radius:16px;background:linear-gradient(135deg,#5B2C8A,#7B3FA0);color:#fff;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:.3px;box-shadow:0 4px 16px rgba(91,44,138,.35);">'+sigLbl+'</button>'
+      :'<div style="text-align:center;padding:14px;font-size:14px;font-weight:800;color:#5B2C8A;background:#f5f0fa;border-radius:16px;">🎉 Pedido finalizado</div>')
+    +'</div>';
+}
+
+// Abrir detalle de pedido — vista full-screen dentro de vn-shell
+window._vnegAbrirDetPed = function(docId) {
+  var p = _vnegPedidosCache.find(function(x){ return x._id === docId; });
+  if (!p) return;
+  _vnegDetDocId = docId;
+  _vnegEnsureDetView();
+  _vnegRenderDetView(p);
+  dcNeg_navTo('vn-det-pedido');
+};
+
+// Avanzar estado — actualiza Firestore, muestra confirmación inline, re-renderiza detalle
 window._vnegAvanzarPedVn = async function(docId, nuevoEstado) {
   var _db = window._fbDb; if (!_db || !docId) return;
   var btn = document.getElementById('vneg-det-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+  var CONF_MSG = {
+    preparando: {ico:'✅', tit:'Pedido aceptado', sub:'Ya aparece en preparación.'},
+    listo:      {ico:'🏪', tit:'Pedido listo', sub:'El vecino fue notificado.'},
+    en_camino:  {ico:'🏍️', tit:'En camino', sub:'El vecino ya puede ver el avance.'},
+    entregado:  {ico:'🎉', tit:'Entregado', sub:'Pedido completado.'}
+  };
   try {
     var _fb = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
     await _fb.updateDoc(_fb.doc(_db,'pedidosPlaza',docId), {
       estado: nuevoEstado, actualizado: Date.now(),
       historialEstados: _fb.arrayUnion({estado:nuevoEstado, fecha:Date.now()})
     });
-    _vnegCerrarDetPed();
-    window.vnegRenderPedidos();
-    window._calcMetricasNeg && window._calcMetricasNeg();
+    // Actualizar cache local
+    var idx = _vnegPedidosCache.findIndex(function(x){ return x._id === docId; });
+    if (idx !== -1) _vnegPedidosCache[idx].estado = nuevoEstado;
+    // Mostrar overlay de confirmación sobre la vista de detalle
+    var view = document.getElementById('vn-det-pedido');
+    if (view) {
+      var cm = CONF_MSG[nuevoEstado] || {ico:'✅', tit:'Pedido actualizado', sub:'El vecino puede ver el avance.'};
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:absolute;inset:0;background:rgba(91,44,138,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;animation:vnFadeIn .2s ease;';
+      ov.innerHTML = '<div style="background:#fff;border-radius:24px;padding:32px 28px;text-align:center;max-width:280px;box-shadow:0 8px 40px rgba(0,0,0,.3);">'
+        +'<div style="font-size:48px;margin-bottom:12px;">'+cm.ico+'</div>'
+        +'<div style="font-size:17px;font-weight:900;color:#5B2C8A;margin-bottom:6px;">'+cm.tit+'</div>'
+        +'<div style="font-size:13px;color:#555;">'+cm.sub+'</div></div>';
+      view.style.position = 'relative';
+      view.appendChild(ov);
+      setTimeout(function(){
+        if (ov.parentNode) ov.remove();
+        // Re-renderizar con nuevo estado
+        var p2 = _vnegPedidosCache.find(function(x){ return x._id === docId; });
+        if (p2) _vnegRenderDetView(p2);
+        window.vnegRenderPedidos();
+        window._calcMetricasNeg && window._calcMetricasNeg();
+      }, 2000);
+    } else {
+      window.vnegRenderPedidos();
+      window._calcMetricasNeg && window._calcMetricasNeg();
+    }
   } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Reintentar'; }
     if (typeof toast === 'function') toast('⚠️ Error: ' + e.message);
   }
 };
 
-// Abrir hoja de detalle de pedido (igual que Food: dcFood_abrirDetallePedido)
-window._vnegAbrirDetPed = function(docId) {
-  var p = _vnegPedidosCache.find(function(x){ return x._id === docId; });
-  if (!p) return;
-  var prev = document.getElementById('vneg-det-sheet');
-  if (prev) prev.remove();
-
-  var EST_LBL = {en_proceso:'📦 Nuevo',preparando:'👨‍💼 Preparando',listo:'✅ Listo',en_camino:'🏍️ En camino',entregado:'🎉 Entregado'};
-  var EST_COL = {en_proceso:'#D97706',preparando:'#7B3FA0',listo:'#1a8a4a',en_camino:'#1a5a9a',entregado:'#555'};
-  var AVANCE_LBL = {en_proceso:'✅ Aceptar pedido',preparando:'🏪 Marcar como listo',listo:'🏍️ Salió a entregar',en_camino:'🏠 Marcar como entregado'};
-  var AVANCE_SIG = {en_proceso:'preparando',preparando:'listo',listo:'en_camino',en_camino:'entregado'};
-
-  var est = String(p.estado || 'en_proceso');
-  var estCol = EST_COL[est] || '#555';
-  var estLbl = EST_LBL[est] || est;
-  var sig = AVANCE_SIG[est];
-  var sigLbl = AVANCE_LBL[est];
-  var fch = p.fecha ? new Date(p.fecha).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
-  var items = (p.items||[]).map(function(it){
-    return '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:.5px solid #f5f5f5;">'
-      +'<span style="font-size:12px;color:#111;">'+_resc(it.cantidad)+'× '+_resc(it.nombre)+'</span>'
-      +'<span style="font-size:12px;font-weight:700;">$'+_resc((it.precio||0)*(it.cantidad||1))+'</span></div>';
-  }).join('');
-
-  var sheet = document.createElement('div');
-  sheet.id = 'vneg-det-sheet';
-  sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:flex-end;';
-  sheet.innerHTML = '<div onclick="_vnegCerrarDetPed()" style="flex:1;background:rgba(0,0,0,.5);"></div>'
-    +'<div style="background:#fff;border-radius:22px 22px 0 0;padding:0 0 34px;max-height:85vh;overflow-y:auto;animation:vnDetUp .25s ease;">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:18px 18px 0;">'
-    +'<div style="font-size:15px;font-weight:900;color:#111;">Detalle del pedido</div>'
-    +'<button onclick="_vnegCerrarDetPed()" style="background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;padding:0;line-height:1;">×</button></div>'
-    +'<div style="padding:14px 18px;">'
-    // Cliente + estado
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
-    +'<div><div style="font-size:14px;font-weight:800;color:#111;">'+_resc(p.clienteNombre||p.vecinoNombre||'Cliente')+'</div>'
-    +'<div style="font-size:11px;color:#aaa;margin-top:2px;">'+fch+'</div></div>'
-    +'<span style="font-size:11px;font-weight:800;color:'+estCol+';background:'+estCol+'1a;border-radius:20px;padding:4px 12px;">'+estLbl+'</span></div>'
-    // Items
-    +'<div style="background:#fafafa;border-radius:14px;padding:10px 14px;margin-bottom:12px;">'+items
-    +'<div style="display:flex;justify-content:space-between;padding:10px 0 0;"><span style="font-size:13px;font-weight:700;">Total</span>'
-    +'<span style="font-size:15px;font-weight:900;color:#5B2C8A;">$'+_resc(p.total||0)+'</span></div></div>'
-    // Entrega + pago
-    +'<div style="background:#f5f5f5;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#555;line-height:1.8;">'
-    +'📦 Entrega: '+_resc(p.entrega==='domicilio'?'A domicilio':'Recoger en tienda')+'<br>'
-    +'💳 Pago: '+_resc(p.pago||'—')
-    +(p.referenciaTransferencia?'<br>🔖 Ref: '+_resc(p.referenciaTransferencia):'')+'</div>'
-    // Botón acción
-    +(sig?'<button id="vneg-det-btn" onclick="window._vnegAvanzarPedVn(\''+_resc(p._id)+'\',\''+_resc(sig)+'\')" style="width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#5B2C8A,#7B3FA0);color:#fff;font-size:14px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:.3px;">'+sigLbl+'</button>':'<div style="text-align:center;padding:10px;font-size:13px;color:#aaa;">Pedido finalizado</div>')
-    +'</div></div>';
-
-  if (!document.getElementById('vneg-det-kf')) {
-    var st = document.createElement('style'); st.id = 'vneg-det-kf';
-    st.textContent = '@keyframes vnDetUp{from{transform:translateY(100%);}to{transform:translateY(0);}}';
-    document.head.appendChild(st);
-  }
-  document.body.appendChild(sheet);
-};
-
-window._vnegCerrarDetPed = function() {
-  var s = document.getElementById('vneg-det-sheet'); if (s) s.remove();
-};
+if (!document.getElementById('vneg-det-kf')) {
+  var _vnegDetKf = document.createElement('style'); _vnegDetKf.id = 'vneg-det-kf';
+  _vnegDetKf.textContent = '@keyframes vnFadeIn{from{opacity:0;}to{opacity:1;}}';
+  document.head.appendChild(_vnegDetKf);
+}
 
 window.vnegRenderPedidos = async function(){
   var cont = document.getElementById('vn-ped-cont'); if(!cont) return;
