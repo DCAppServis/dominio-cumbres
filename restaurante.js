@@ -619,7 +619,7 @@ window.vnegRenderPedidos = async function(){
   cont.innerHTML='<div style="text-align:center;color:#aaa;padding:30px;font-size:12px;">Cargando…</div>';
   try{
     var _fb=await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    var snap=await _fb.getDocs(_fb.query(_fb.collection(_db,'pedidosPlaza'),_fb.where('negocioId','==',user.uid),_fb.orderBy('fecha','desc')));
+    var snap=await _fb.getDocs(_fb.query(_fb.collection(_db,'pedidosPlaza'),_fb.where('negocioId','==',user.uid)));
     var G={pedidos:['en_proceso'],en_proceso:['preparando','listo','en_camino'],entregados:['entregado']};
     var perm=G[_vnegPedTab]||[]; var arr=[];
     snap.forEach(function(d){var p=d.data();p._id=d.id;if(perm.indexOf(p.estado)!==-1)arr.push(p);});
