@@ -3599,7 +3599,7 @@ window.renderHomeM2 = function() {
 
     html += '<div style="height:14px;"></div>';
     scroll.innerHTML = html;
-    if (_adsWrap) { _adsWrap.style.display = ''; var _ref = scroll.children[2]; _ref ? scroll.insertBefore(_adsWrap, _ref) : scroll.appendChild(_adsWrap); }
+    if (_adsWrap) { _adsWrap.style.display = ''; var _adIdx = (tipo==='restaurante'||tipo==='negocio') ? 3 : 2; var _ref = scroll.children[_adIdx]; _ref ? scroll.insertBefore(_adsWrap, _ref) : scroll.appendChild(_adsWrap); }
     // M2-G: poblar descubrimiento si el contenedor fue inyectado
     window.renderDescubrimiento && window.renderDescubrimiento('home-discover-list');
     // Actualizar nav inferior según rol del operador
