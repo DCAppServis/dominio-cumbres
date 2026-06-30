@@ -889,9 +889,8 @@
     </div>
   </div>
 
-  <!-- ── CARRUSEL DE ANUNCIOS ── -->
-  <!-- data-ads: preparado para targeting futuro por interés (comida/ride/servicios/plaza) -->
-  <div id="home-ads-wrap" style="margin:0 14px 14px;position:relative;flex-shrink:0;">
+  <!-- ── CARRUSEL DE ANUNCIOS — movido al final del scroll por renderHomeM2 ── -->
+  <div id="home-ads-wrap" style="margin:0 14px 14px;position:relative;flex-shrink:0;display:none;">
 
     <!-- pista deslizable -->
     <div id="home-ads-track" style="display:flex;overflow:hidden;border-radius:16px;cursor:grab;user-select:none;-webkit-user-select:none;">
@@ -2803,19 +2802,6 @@
             </div>
           </div>
 
-          <!-- ZONA 5 — Banners DC -->
-          <div>
-            <div class="sec-lbl">Dominio Cumbres — Comunidad</div>
-            <div class="banners-wrap">
-              <div class="banners-track-outer">
-                <div class="banners-track" id="banners-track">
-                  <!-- generado por JS -->
-                </div>
-              </div>
-              <div class="banner-dots" id="banner-dots"></div>
-            </div>
-          </div>
-
           <!-- ZONA 6 — Oportunidad contextual -->
           <div id="home-oportunidad"></div>
 
@@ -2838,6 +2824,19 @@
               <span class="semana-txt">Esta semana</span>
               <span class="semana-val" id="semana-resumen">— pedidos · $— · —★</span>
               <span class="semana-expand">›</span>
+            </div>
+          </div>
+
+          <!-- ZONA 5 — Banners DC (al final) -->
+          <div>
+            <div class="sec-lbl">Dominio Cumbres — Comunidad</div>
+            <div class="banners-wrap">
+              <div class="banners-track-outer">
+                <div class="banners-track" id="banners-track">
+                  <!-- generado por JS -->
+                </div>
+              </div>
+              <div class="banner-dots" id="banner-dots"></div>
             </div>
           </div>
 

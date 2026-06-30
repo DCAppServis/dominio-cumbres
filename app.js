@@ -3327,6 +3327,7 @@ window.renderHomeM2 = function() {
     // ── 3. Contenido del scroll ────────────────────────────────
     var scroll = document.querySelector('#v-home .scroll');
     if (!scroll) return;
+    var _adsWrap = document.getElementById('home-ads-wrap');
 
     // ══════════════════════════════════════════════════════════
     // ── M2-C: SISTEMA DE BADGES ───────────────────────────────
@@ -3598,6 +3599,7 @@ window.renderHomeM2 = function() {
 
     html += '<div style="height:14px;"></div>';
     scroll.innerHTML = html;
+    if (_adsWrap) { _adsWrap.style.display = ''; scroll.appendChild(_adsWrap); }
     // M2-G: poblar descubrimiento si el contenedor fue inyectado
     window.renderDescubrimiento && window.renderDescubrimiento('home-discover-list');
     // Actualizar nav inferior según rol del operador
