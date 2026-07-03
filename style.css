@@ -769,8 +769,8 @@ body{font-family:'Inter',sans-serif;background:radial-gradient(ellipse at 60% 40
   cursor:pointer;border:.5px solid #f0e8d0;
   box-shadow:0 2px 8px var(--shadow);transition:transform .15s;}
 .dcf-rcard:active{transform:scale(.98);}
-.rbanner{height:90px;display:flex;align-items:center;justify-content:center;
-  font-size:52px;position:relative;overflow:hidden;}
+.rbanner{height:130px;display:flex;align-items:center;justify-content:center;
+  font-size:64px;position:relative;overflow:hidden;}
 .rbadge{position:absolute;bottom:8px;left:10px;background:rgba(0,0,0,.55);
   color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;}
 .rbody{padding:10px 12px 12px;}
