@@ -81,6 +81,21 @@ function _dcfFiltrarSel(cat) {
   if (window._dcDirtyV === 'v-food') window._dcDirtyV = null;
 }
 
+/* ── Popup "necesitas pedir para calificar" ── */
+function _dcfMsgNoPuedeCal() {
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+  ov.innerHTML = '<div style="background:#fff;border-radius:22px;padding:28px 24px;max-width:300px;width:100%;text-align:center;">'
+    + '<div style="font-size:36px;margin-bottom:12px;">⭐</div>'
+    + '<div style="font-size:16px;font-weight:800;color:#111;margin-bottom:8px;">Para calificar primero tienes que pedir</div>'
+    + '<div style="font-size:13px;color:#666;margin-bottom:22px;line-height:1.5;">Solo puedes calificar un restaurante si has hecho un pedido aquí.</div>'
+    + '<button onclick="this.closest(\'.dcf-nopuede-ov\').remove()" style="width:100%;padding:13px;background:#c8940a;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Entendido</button>'
+    + '</div>';
+  ov.className = 'dcf-nopuede-ov';
+  ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov);
+}
+
 /* ── Restaurantes donde el vecino tiene pedido entregado ── */
 var _S_restConPedido = new Set();
 async function _cargarRestConPedido() {
@@ -240,7 +255,7 @@ function _dcfRenderLista(docs) {
     var puedeCal = _S_restConPedido.has(r._id);
     var calBtn = puedeCal
       ? '<button data-rate-id="'+_fesc(r._id)+'" onclick="event.stopPropagation();window.dcRatingAbrirPopup&&window.dcRatingAbrirPopup(\''+_fesc(r._id)+'\',\''+_fesc(r.nombreNegocio||r.nombre||'')+'\',event)" style="background:#FFF8DC;border:1px solid #F5C518;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#9a7020;cursor:pointer;font-family:inherit;white-space:nowrap;">⭐ Calificar</button>'
-      : '<span onclick="event.stopPropagation();(function(){var ov=document.createElement(\'div\');ov.style.cssText=\'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;\';ov.innerHTML=\'<div style=\\\"background:#fff;border-radius:22px;padding:28px 24px;max-width:300px;width:100%;text-align:center;\\\"><div style=\\\"font-size:36px;margin-bottom:12px;\\\">⭐</div><div style=\\\"font-size:16px;font-weight:800;color:#111;margin-bottom:8px;\\\">Para calificar primero tienes que pedir</div><div style=\\\"font-size:13px;color:#666;margin-bottom:22px;line-height:1.5;\\\">Solo puedes calificar un restaurante si has hecho un pedido aquí.</div><button onclick=\\\"this.closest(\\\\\\\"div[style*=\\\\\\\'position:fixed\\\\\\\']\\\\\\\").remove()\\\" style=\\\"width:100%;padding:13px;background:#c8940a;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;\\\">Entendido</button></div>\';document.body.appendChild(ov);})()" style="background:#f5f5f5;border:1px solid #e0e0e0;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#bbb;white-space:nowrap;cursor:pointer;" title="Pide aquí para poder calificar">⭐ Calificar</span>';
+      : '<span onclick="event.stopPropagation();_dcfMsgNoPuedeCal()" style="background:#f5f5f5;border:1px solid #e0e0e0;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#bbb;white-space:nowrap;cursor:pointer;" title="Pide aquí para poder calificar">⭐ Calificar</span>';
     return '<div class="dcf-rcard" onclick="dcFood_abrirRest(\''+r._id+'\')" style="'+(estOp==='cerrado'?'opacity:.6;filter:grayscale(.4);':'')+'">'
       +'<div class="rbanner" style="background:'+bg+';">'
       +(r.fotoPerfil && r.fotoPerfil.indexOf('data:image')===0
