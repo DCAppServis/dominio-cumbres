@@ -3654,7 +3654,7 @@ window.renderHomeM2 = function() {
           + '<div class="ni" onclick="var _t=(localStorage.getItem(\'dcuserTipo\')||\'vecino\').toLowerCase();go(_t===\'vecino\'?\'v-mis-pedidos-food\':\'vr-pedidos\',\'right\')">'
           + '<div class="notif-w"><div class="ni-ic">🍽️</div><span class="notif-dot nav-ped-dot" style="display:none;"></span></div><div class="ni-lb">Pedidos</div></div>'
           + '<div class="ni" onclick="go(\'v-mis-compras-plaza\',\'right\')"><div class="ni-ic">🛍️</div><div class="ni-lb">Mis Compras</div></div>'
-          + '<div class="ni" onclick="go(\'v-mi-agenda\',\'right\');setTimeout(function(){window._renderMiAgenda&&window._renderMiAgenda();},200);"><div class="ni-ic">📅</div><div class="ni-lb">Reservaciones</div></div>'
+          + '<div class="ni" onclick="go(\'v-mi-agenda\',\'right\');setTimeout(function(){window._renderMiAgenda&&window._renderMiAgenda();},200);"><div class="notif-w"><div class="ni-ic">📅</div><span class="notif-dot nav-agenda-dot" style="display:none;"></span></div><div class="ni-lb">Reservaciones</div></div>'
           + '<div class="ni" onclick="go(\'v-mipanel\',\'right\')"><div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>';
       }
     }
@@ -5450,15 +5450,29 @@ window.cargarMisComprasPlaza = function() {
         window.setBadge && window.setBadge(m, 0, 'normal'); // limpia
       }
     });
-    // Actualizar notif-dot en nav: mostrar si hay cualquier no leída
-    var total = notifs.filter(function(n){ var m=n.modulo||''; var t=n.tipo||''; return !n.leida && m!=='pedidos' && m!=='chat' && t!=='chat' && t!=='pedido'; }).length;
     window._lastBadgeCheck = Date.now();
+    // Badge pedidos
     var totPed = notifs.filter(function(n){ return !n.leida && (n.modulo||'') === 'pedidos'; }).length;
     document.querySelectorAll('.nav-ped-dot').forEach(function(el) {
       el.style.display = totPed > 0 ? 'inline-block' : 'none';
       el.textContent = totPed > 99 ? '99+' : (totPed || '');
     });
-    document.querySelectorAll('.notif-dot:not(.nav-ped-dot)').forEach(function(el) {
+    // Badge agenda: solo respuestas de reserva que le llegaron al vecino
+    var totAgenda = notifs.filter(function(n){
+      var m = (n.modulo||'').toLowerCase();
+      var t = (n.tipo||'').toLowerCase();
+      return !n.leida && (m==='reserva'||m==='agenda'||m==='proveedor_interesado'||t==='reserva'||t==='agenda'||t==='proveedor_interesado');
+    }).length;
+    document.querySelectorAll('.nav-agenda-dot').forEach(function(el) {
+      el.style.display = totAgenda > 0 ? 'inline-block' : 'none';
+    });
+    // Badge campana: solo sistema/admin/promocion
+    var total = notifs.filter(function(n){
+      var m = (n.modulo||'').toLowerCase();
+      var t = (n.tipo||'').toLowerCase();
+      return !n.leida && (m==='sistema'||m==='admin'||m==='promocion'||t==='sistema'||t==='admin'||t==='promocion');
+    }).length;
+    document.querySelectorAll('.notif-dot:not(.nav-ped-dot):not(.nav-agenda-dot)').forEach(function(el) {
       el.style.display = total > 0 ? 'inline-block' : 'none';
     });
     return notifs;
