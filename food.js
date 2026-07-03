@@ -240,7 +240,7 @@ function _dcfRenderLista(docs) {
     var puedeCal = _S_restConPedido.has(r._id);
     var calBtn = puedeCal
       ? '<button data-rate-id="'+_fesc(r._id)+'" onclick="event.stopPropagation();window.dcRatingAbrirPopup&&window.dcRatingAbrirPopup(\''+_fesc(r._id)+'\',\''+_fesc(r.nombreNegocio||r.nombre||'')+'\',event)" style="background:#FFF8DC;border:1px solid #F5C518;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#9a7020;cursor:pointer;font-family:inherit;white-space:nowrap;">⭐ Calificar</button>'
-      : '<span style="background:#f5f5f5;border:1px solid #e0e0e0;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#bbb;white-space:nowrap;" title="Pide aquí para poder calificar">⭐ Calificar</span>';
+      : '<span onclick="event.stopPropagation();alert(\'Solo puedes calificar si has comprado aquí\')" style="background:#f5f5f5;border:1px solid #e0e0e0;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#bbb;white-space:nowrap;cursor:pointer;" title="Pide aquí para poder calificar">⭐ Calificar</span>';
     return '<div class="dcf-rcard" onclick="dcFood_abrirRest(\''+r._id+'\')" style="'+(estOp==='cerrado'?'opacity:.6;filter:grayscale(.4);':'')+'">'
       +'<div class="rbanner" style="background:'+bg+';">'
       +(r.fotoPerfil && r.fotoPerfil.indexOf('data:image')===0
