@@ -2654,8 +2654,19 @@ window.cargarMembresia=async function(){
     lista.innerHTML = '<div style="text-align:center;padding:30px;color:#999;font-size:12px;">Cargando…</div>';
 
     var notifs = await (window.cargarNotificaciones ? window.cargarNotificaciones() : Promise.resolve([]));
-    // Campana = solo notificaciones de sistema/admin. Reservas, pedidos, proveedores, chats y compras van a sus secciones.
-    notifs = (notifs||[]).filter(function(n){ var m=n.modulo||''; var t=n.tipo||''; return m!=='pedidos' && m!=='chat' && m!=='compra' && m!=='reserva' && m!=='proveedor' && t!=='chat' && t!=='pedido' && t!=='compra' && t!=='reserva' && t!=='solicitud' && t!=='proveedor_interesado'; });
+    // Campana = solo notificaciones de sistema/admin/promocion.
+    notifs = (notifs||[]).filter(function(n){
+      var m = (n.modulo||'').toLowerCase();
+      var t = (n.tipo||'').toLowerCase();
+      var tit = (n.titulo||'').toLowerCase();
+      var EXCLUIR = ['pedido','chat','compra','reserva','proveedor','solicitud','proveedor_interesado','postulacion','agenda'];
+      if (EXCLUIR.indexOf(m) !== -1) return false;
+      if (EXCLUIR.indexOf(t) !== -1) return false;
+      if (tit.indexOf('proveedor') !== -1) return false;
+      if (tit.indexOf('reserva') !== -1) return false;
+      if (tit.indexOf('pedido') !== -1) return false;
+      return true;
+    });
 
     if (!notifs || notifs.length === 0) {
       if (sub) sub.textContent = 'Sin notificaciones';
