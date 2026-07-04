@@ -1060,6 +1060,9 @@ window.dcFood_verTracking=function(pid){
   _dcfNav('v-tracking');
   dcFood_iniciarTracking(pid);
 };
+window.dcFood_irMisPedidos=function(){
+  if(typeof window.go==='function') window.go('v-mis-pedidos-food','right');
+};
 
 /* ── Panel restaurante ───────────────────────────────── */
 window.dcFood_cargarPanelRest=async function(){
