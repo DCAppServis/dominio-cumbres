@@ -1799,7 +1799,7 @@ window.cargarMembresia=async function(){
 
   function _rpEstiloBtnCalificado(btn){
     btn.innerHTML='✅ Calificado';
-    btn.style.cssText='background:#FFEBEE;border:1px solid #E53935;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#C62828;cursor:pointer;font-family:inherit;white-space:nowrap;';
+    btn.style.cssText='background:#E8F5E9;border:1px solid #A5D6A7;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#388E3C;cursor:pointer;font-family:inherit;white-space:nowrap;';
   }
 
   function _rpMarcarBotonesCalificado(bizId){

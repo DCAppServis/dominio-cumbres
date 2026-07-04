@@ -981,6 +981,7 @@ window.dcFood_enviarCalificacion=async function(){
     var p=pSnap.data();
     await f.addDoc(f.collection(db,'valoraciones'),{pedidoId:pid,vecinoId:uid,restauranteId:p.restauranteId,repartidorId:p.repartidorId||null,ratingRestaurante:_S.starsRest,ratingRepartidor:_S.starsRep||null,comentario:document.getElementById('trk-comentario')?document.getElementById('trk-comentario').value.trim():'',fecha:Date.now()});
     await f.updateDoc(f.doc(db,'pedidos',pid),{calificadoRestaurante:true});
+    if(p.restauranteId) window._rpMarcarBotonesCalificado && window._rpMarcarBotonesCalificado(p.restauranteId);
     var cal=document.getElementById('trk-cal');
     if(cal)cal.innerHTML='<div style="text-align:center;padding:16px;"><div style="font-size:32px;">✅</div><div style="font-size:13px;font-weight:700;margin-top:8px;">¡Gracias por tu calificación!</div></div>';
   }catch(e){toast('⚠️ Error: '+e.message);}
