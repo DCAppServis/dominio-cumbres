@@ -1038,7 +1038,7 @@ function _postHooks(id){
         var nom=(el&&el.textContent||'').replace(/^\s*🏪\s*/,'').trim();
         if(nom&&Array.isArray(window._plazaDocsCache)){
           var s=window._plazaDocsCache.find(function(x){return nom===(x.nombrePublico||x.nombreNegocio||x.nombre||'');});
-          if(s){window._dcPlazaStoreActual=s;try{localStorage.setItem('dcPlazaNegNombreActual',s.nombrePublico||s.nombreNegocio||s.nombre||'');}catch(_){}}
+          if(s){s._dcModulo='negocio';window._dcPlazaStoreActual=s;try{localStorage.setItem('dcPlazaNegNombreActual',s.nombrePublico||s.nombreNegocio||s.nombre||'');}catch(_){}}
           var _pfBtn=document.getElementById('plaza-fav-btn');
           if(_pfBtn&&window._dcPlazaStoreActual){var _pfId=window._dcPlazaStoreActual._id||window._dcPlazaStoreActual.id||window._dcPlazaStoreActual.uid||window._dcPlazaStoreActual.nombre;var _pfIs=window.isFav&&window.isFav(_pfId);_pfBtn.textContent=_pfIs?'❤️':'🤍';}
         }
@@ -5295,7 +5295,7 @@ window.cargarMisComprasPlaza = function() {
       favs.splice(idx, 1); // quitar
     } else {
       // agregar sin duplicados
-      favs.unshift({ id:id, tipo:p._favTipo||'proveedor', nombre:p.nombreNegocio||p.nombrePublico||p.nombre||'—',
+      favs.unshift({ id:id, tipo:p._dcModulo||p._favTipo||'proveedor', nombre:p.nombreNegocio||p.nombrePublico||p.nombre||'—',
                      categoria:p.categoria||'', descripcion:p.descripcion||'',
                      datos: p, fecha: Date.now() });
     }

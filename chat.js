@@ -730,12 +730,8 @@ function cargarFavoritos() {
     + all.length + ' guardado' + (all.length !== 1 ? 's' : '') + '</div>';
 
   all.forEach((f) => {
-    // Auto-detectar tipo por campos del objeto si fue guardado antes del fix
-    let tipo = f.tipo || 'proveedor';
-    if (tipo === 'proveedor' && f.datos) {
-      if (f.datos.estadoOp !== undefined || f.datos.horarios || f.datos.entrega || f.datos.menu) tipo = 'restaurante';
-      else if (f.datos.nombrePublico !== undefined || f.datos.productos) tipo = 'negocio';
-    }
+    // Detectar tipo: primero _dcModulo en datos (más confiable), luego tipo guardado
+    let tipo = (f.datos && f.datos._dcModulo) || f.tipo || 'proveedor';
     const cfg  = TIPO_CFG[tipo] || TIPO_CFG.proveedor;
     const cat  = (f.categoria||'').toLowerCase();
     const ic   = tipo === 'proveedor' ? (ICONOS_PROV[cat] || '🔧') : cfg.ic;

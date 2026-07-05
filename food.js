@@ -312,6 +312,7 @@ window.dcFood_abrirRest = async function(restId) {
   _S.rest = _deriveFlags(r);
   _S.rest._estadoEfectivo = estEfect;
   window._dcfRestActual = r;
+  r._dcModulo = 'restaurante';
   _S._avisoOcupadoOk = false;
   window._dcfPintarBadgeEstado && window._dcfPintarBadgeEstado(estEfect);
   // REGLA UNIVERSAL #3: escuchar en vivo el estado del restaurante (sin refresh)
