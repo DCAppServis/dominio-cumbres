@@ -730,7 +730,12 @@ function cargarFavoritos() {
     + all.length + ' guardado' + (all.length !== 1 ? 's' : '') + '</div>';
 
   all.forEach((f) => {
-    const tipo = f.tipo || 'proveedor';
+    // Auto-detectar tipo por campos del objeto si fue guardado antes del fix
+    let tipo = f.tipo || 'proveedor';
+    if (tipo === 'proveedor' && f.datos) {
+      if (f.datos.estadoOp !== undefined || f.datos.horarios || f.datos.entrega || f.datos.menu) tipo = 'restaurante';
+      else if (f.datos.nombrePublico !== undefined || f.datos.productos) tipo = 'negocio';
+    }
     const cfg  = TIPO_CFG[tipo] || TIPO_CFG.proveedor;
     const cat  = (f.categoria||'').toLowerCase();
     const ic   = tipo === 'proveedor' ? (ICONOS_PROV[cat] || '🔧') : cfg.ic;
