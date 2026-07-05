@@ -311,6 +311,7 @@ window.dcFood_abrirRest = async function(restId) {
   if (_S.rest && _S.rest._id !== restId) _S.carrito = {};
   _S.rest = _deriveFlags(r);
   _S.rest._estadoEfectivo = estEfect;
+  window._dcfRestActual = r;
   _S._avisoOcupadoOk = false;
   window._dcfPintarBadgeEstado && window._dcfPintarBadgeEstado(estEfect);
   // REGLA UNIVERSAL #3: escuchar en vivo el estado del restaurante (sin refresh)
@@ -334,6 +335,14 @@ window.dcFood_abrirRest = async function(restId) {
     }
   }
   _dcfNav('v-food-det');
+  var _favBtnF = document.getElementById('dcf-fav-btn');
+  if (_favBtnF) {
+    var _fid = r._id || r.id || r.uid || r.nombre;
+    var _isFavF = window.isFav && window.isFav(_fid);
+    _favBtnF.textContent = _isFavF ? '❤️' : '🤍';
+    _favBtnF.style.background = _isFavF ? '#e53935' : '#fff';
+    _favBtnF.style.border = _isFavF ? '2px solid #e53935' : '2px solid #e53935';
+  }
   await dcFood_cargarMenu(restId);
 };
 

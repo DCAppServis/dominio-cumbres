@@ -1039,6 +1039,8 @@ function _postHooks(id){
         if(nom&&Array.isArray(window._plazaDocsCache)){
           var s=window._plazaDocsCache.find(function(x){return nom===(x.nombrePublico||x.nombreNegocio||x.nombre||'');});
           if(s){window._dcPlazaStoreActual=s;try{localStorage.setItem('dcPlazaNegNombreActual',s.nombrePublico||s.nombreNegocio||s.nombre||'');}catch(_){}}
+          var _pfBtn=document.getElementById('plaza-fav-btn');
+          if(_pfBtn&&window._dcPlazaStoreActual){var _pfId=window._dcPlazaStoreActual._id||window._dcPlazaStoreActual.id||window._dcPlazaStoreActual.uid||window._dcPlazaStoreActual.nombre;var _pfIs=window.isFav&&window.isFav(_pfId);_pfBtn.textContent=_pfIs?'❤️':'🤍';_pfBtn.style.background=_pfIs?'#e53935':'#fff';}
         }
       }catch(_){}
       try{_plazaUpdateCartBar();}catch(_){}
@@ -3681,7 +3683,10 @@ window.renderHomeM2 = function() {
     var btn = document.getElementById('det-fav-btn');
     if (btn) {
       var pid = p._id || p.id || p.uid || p.nombre;
-      btn.textContent = window.isFav && window.isFav(pid) ? '❤️' : '🤍';
+      var _isF = window.isFav && window.isFav(pid);
+      btn.textContent = _isF ? '❤️' : '🤍';
+      btn.style.background = _isF ? '#e53935' : '#fff';
+      btn.style.border = '2px solid #e53935';
     }
     // M2-J: cargar agenda del proveedor (clave por su uid)
     window._cargarAgendaProveedor(p);
@@ -5292,14 +5297,22 @@ window.cargarMisComprasPlaza = function() {
       favs.splice(idx, 1); // quitar
     } else {
       // agregar sin duplicados
-      favs.unshift({ id:id, tipo:'proveedor', nombre:p.nombre||'—',
+      favs.unshift({ id:id, tipo:'proveedor', nombre:p.nombreNegocio||p.nombre||p.nombrePublico||'—',
                      categoria:p.categoria||'', descripcion:p.descripcion||'',
                      datos: p, fecha: Date.now() });
     }
     localStorage.setItem(_favKey(), JSON.stringify(favs));
-    // Actualizar botón si está visible
-    var btn = document.getElementById('det-fav-btn');
-    if (btn) btn.textContent = window.isFav(id) ? '❤️' : '🤍';
+    // Actualizar botones de favorito visibles
+    var _isFavNow = window.isFav(id);
+    function _applyFavStyle(btn, active) {
+      if (!btn) return;
+      btn.textContent = active ? '❤️' : '🤍';
+      btn.style.background = active ? '#e53935' : '#fff';
+      btn.style.border = '2px solid #e53935';
+    }
+    _applyFavStyle(document.getElementById('det-fav-btn'), _isFavNow);
+    _applyFavStyle(document.getElementById('dcf-fav-btn'), _isFavNow);
+    _applyFavStyle(document.getElementById('plaza-fav-btn'), _isFavNow);
     // Actualizar contador en Mi Panel si está visible
     var panelFavs = document.getElementById('panel-favs');
     if (panelFavs) panelFavs.textContent = String(window.getFavs().length);
