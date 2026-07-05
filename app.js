@@ -1040,7 +1040,7 @@ function _postHooks(id){
           var s=window._plazaDocsCache.find(function(x){return nom===(x.nombrePublico||x.nombreNegocio||x.nombre||'');});
           if(s){window._dcPlazaStoreActual=s;try{localStorage.setItem('dcPlazaNegNombreActual',s.nombrePublico||s.nombreNegocio||s.nombre||'');}catch(_){}}
           var _pfBtn=document.getElementById('plaza-fav-btn');
-          if(_pfBtn&&window._dcPlazaStoreActual){var _pfId=window._dcPlazaStoreActual._id||window._dcPlazaStoreActual.id||window._dcPlazaStoreActual.uid||window._dcPlazaStoreActual.nombre;var _pfIs=window.isFav&&window.isFav(_pfId);_pfBtn.textContent=_pfIs?'❤️':'🤍';_pfBtn.style.background=_pfIs?'#e53935':'#fff';}
+          if(_pfBtn&&window._dcPlazaStoreActual){var _pfId=window._dcPlazaStoreActual._id||window._dcPlazaStoreActual.id||window._dcPlazaStoreActual.uid||window._dcPlazaStoreActual.nombre;var _pfIs=window.isFav&&window.isFav(_pfId);_pfBtn.textContent=_pfIs?'❤️':'🤍';}
         }
       }catch(_){}
       try{_plazaUpdateCartBar();}catch(_){}
@@ -1197,7 +1197,7 @@ document.addEventListener('click',function(ev){
   var favBtn=ev.target&&ev.target.closest&&ev.target.closest('#v-favoritos .si07 button');
   if(favBtn){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();return _goBack('v-home');}
   var detBtn=ev.target&&ev.target.closest&&ev.target.closest('#v-serv-det #det-header button');
-  if(detBtn){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();return _goBack('v-servicios');}
+  if(detBtn&&detBtn.id!=='det-fav-btn'){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();return _goBack('v-servicios');}
 },true);
 
 setTimeout(_patchFavBack,120); setTimeout(_patchFavBack,400);
@@ -3685,8 +3685,6 @@ window.renderHomeM2 = function() {
       var pid = p._id || p.id || p.uid || p.nombre;
       var _isF = window.isFav && window.isFav(pid);
       btn.textContent = _isF ? '❤️' : '🤍';
-      btn.style.background = _isF ? '#e53935' : '#fff';
-      btn.style.border = '2px solid #e53935';
     }
     // M2-J: cargar agenda del proveedor (clave por su uid)
     window._cargarAgendaProveedor(p);
@@ -5307,8 +5305,6 @@ window.cargarMisComprasPlaza = function() {
     function _applyFavStyle(btn, active) {
       if (!btn) return;
       btn.textContent = active ? '❤️' : '🤍';
-      btn.style.background = active ? '#e53935' : '#fff';
-      btn.style.border = '2px solid #e53935';
     }
     _applyFavStyle(document.getElementById('det-fav-btn'), _isFavNow);
     _applyFavStyle(document.getElementById('dcf-fav-btn'), _isFavNow);

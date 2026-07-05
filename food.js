@@ -340,8 +340,6 @@ window.dcFood_abrirRest = async function(restId) {
     var _fid = r._id || r.id || r.uid || r.nombre;
     var _isFavF = window.isFav && window.isFav(_fid);
     _favBtnF.textContent = _isFavF ? '❤️' : '🤍';
-    _favBtnF.style.background = _isFavF ? '#e53935' : '#fff';
-    _favBtnF.style.border = _isFavF ? '2px solid #e53935' : '2px solid #e53935';
   }
   await dcFood_cargarMenu(restId);
 };
