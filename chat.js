@@ -2003,18 +2003,21 @@ function showAdminTab(i,btn){
       await admuEnsureAuth();
       var { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
       var snap = await getDocs(collection(window._fbDb,'usuarios'));
-      var cVecino=0, cProv=0, activos=0, pendientes=0, suspendidos=0, total=0;
+      var cVecino=0, cProv=0, activos=0, pendientes=0, suspendidos=0;
       snap.forEach(function(d){
         var u=d.data();
-        total++;
-        if(u.tipo==='vecino') cVecino++;
-        else if(u.tipo==='restaurante'||u.tipo==='negocio'||u.tipo==='proveedor') cProv++;
+        var esVecino = u.tipo==='vecino';
+        var esProv = u.tipo==='restaurante'||u.tipo==='negocio'||u.tipo==='proveedor';
+        if(!esVecino && !esProv) return; // ignorar tipos desconocidos
+        if(esVecino) cVecino++;
+        else cProv++;
         var e=u.estado||'';
         if(e==='activo') activos++;
         else if(e==='pendiente'||e==='pendiente_revision') pendientes++;
         else if(e==='suspendido') suspendidos++;
       });
       var cAdmin = Object.keys(ADMIN_USERS).length;
+      var total = cVecino + cProv;
       var set = function(id,v){ var el=document.getElementById(id); if(el)el.textContent=v; };
       set('admu-cnt-vecino',cVecino);
       set('admu-cnt-proveedor',cProv);
