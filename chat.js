@@ -1640,15 +1640,11 @@ function showAdminTab(i,btn){
     try {
       await admuEnsureAuth();
       var { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-      var tipoFirestore = tipo === 'servicio' ? 'proveedor' : tipo;
-      var subtipo = tipo === 'servicio' ? 'servicios' : tipo === 'ride' ? 'ride' : null;
       var q;
-      if(subtipo) {
-        q = query(collection(window._fbDb,'usuarios'), where('tipo','==',tipoFirestore), where('subtipo','==',subtipo));
-      } else if(tipo === 'restaurante' || tipo === 'negocio') {
-        q = query(collection(window._fbDb,'usuarios'), where('tipo','==',tipo));
+      if(tipo === 'servicio') {
+        q = query(collection(window._fbDb,'usuarios'), where('tipo','==','proveedor'));
       } else {
-        q = query(collection(window._fbDb,'usuarios'), where('tipo','==',tipoFirestore));
+        q = query(collection(window._fbDb,'usuarios'), where('tipo','==',tipo));
       }
       var snap = await getDocs(q);
       window._admuDatos = [];
