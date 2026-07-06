@@ -1634,6 +1634,7 @@ function showAdminTab(i,btn){
     var lista = document.getElementById(listaId);
     if(lista) lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Cargando... ⏳</div>';
     try {
+      await admuEnsureAuth();
       var { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
       var tipoFirestore = tipo === 'servicio' ? 'proveedor' : tipo;
       var subtipo = tipo === 'servicio' ? 'servicios' : tipo === 'ride' ? 'ride' : null;
@@ -1672,52 +1673,128 @@ function showAdminTab(i,btn){
     var lista = document.getElementById('admu-lista-prov');
     if(!lista) return;
     if(!datos.length) { lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Sin resultados</div>'; return; }
-    lista.innerHTML = '<div style="border-radius:14px;overflow:hidden;border:.5px solid var(--card-border);">'
+    var total = datos.length;
+    lista.innerHTML = '<div style="font-size:11px;color:var(--white-40);padding:0 2px 10px 2px;">Mostrando '+total+' '+( window._admuTipo||'usuario')+(total!==1?'s':'')+' en total</div>'
+      + '<div style="border-radius:14px;overflow:hidden;border:.5px solid var(--card-border);">'
       + datos.map(function(u, i){
         var estado = u.estado || 'pendiente_revision';
         var color = ADMU_ESTADO_COLOR[estado] || '#aaa';
         var label = ADMU_ESTADO_LABEL[estado] || estado.toUpperCase();
-        var opts = ADMU_ESTADOS.map(function(s){ return '<option value="'+s+'"'+(s===estado?' selected':'')+'>'+ADMU_ESTADO_LABEL[s]+'</option>'; }).join('');
         var foto = u.foto||u.logoUrl||u.imagen||'';
         var fotoHtml = foto
-          ? '<img src="'+foto+'" style="width:40px;height:40px;border-radius:10px;object-fit:cover;flex-shrink:0;">'
-          : '<div style="width:40px;height:40px;border-radius:10px;background:#1A3A25;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🏪</div>';
+          ? '<img src="'+foto+'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">'
+          : '<div style="width:44px;height:44px;border-radius:50%;background:#1A2A20;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🏪</div>';
         var borde = i < datos.length-1 ? 'border-bottom:1px solid rgba(255,255,255,.06);' : '';
-        return '<div style="background:var(--card-dark);'+borde+'padding:11px 12px;display:flex;align-items:center;gap:10px;">'
+        return '<div style="background:var(--card-dark);'+borde+'padding:12px 14px;display:flex;align-items:center;gap:12px;">'
           + fotoHtml
           +'<div onclick="admuAbrirModal(\''+u.uid+'\')" style="flex:1;cursor:pointer;min-width:0;">'
           +'<div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(u.nombre||u.negocio||u.email||u.uid)+'</div>'
+          +(u.email?'<div style="font-size:11px;color:var(--white-40);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+u.email+'</div>':'')
           +'</div>'
-          +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">'
-          +'<div style="width:7px;height:7px;border-radius:50%;background:'+color+';flex-shrink:0;"></div>'
-          +'<select onchange="admuCambiarEstado(\''+u.uid+'\',this.value)" style="background:#0C1A10;border:1px solid '+color+'40;border-radius:8px;color:'+color+';font-size:10px;font-weight:700;padding:4px 4px;font-family:\'Inter\',sans-serif;outline:none;cursor:pointer;max-width:90px;">'+opts+'</select>'
-          +'</div>'
+          +'<button onclick="admuAbrirBottomEstado(\''+u.uid+'\')" style="background:'+color+'22;border:1.5px solid '+color+'80;border-radius:20px;color:'+color+';font-size:10px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;flex-shrink:0;letter-spacing:.5px;">'+label+'</button>'
           +'<button onclick="admuEliminarUsuario(\''+u.uid+'\',\''+encodeURIComponent(u.nombre||u.email||u.uid)+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:6px 8px;font-size:14px;color:#D63A2A;cursor:pointer;flex-shrink:0;">🗑</button>'
           +'</div>';
       }).join('')
       + '</div>';
   }
 
+  var ADMU_ESTADO_DESC = {
+    activo: 'El usuario puede operar normalmente',
+    pendiente_revision: 'Cuenta en revisión o esperando activación',
+    aprobado_pendiente_pago: 'Aprobado, pendiente de completar pago',
+    falta_pago_mensualidad: 'Mensualidad vencida o sin cubrir',
+    pausado: 'El usuario no puede operar temporalmente',
+    suspendido: 'Suspendido por incumplimiento',
+    rechazado: 'Solicitud rechazada definitivamente'
+  };
+
+  window.admuAbrirBottomEstado = function(uid) {
+    var u = window._admuDatos.find(function(x){ return x.uid===uid; });
+    if(!u) return;
+    window._admuBottomUid = uid;
+    var estadoActual = u.estado || 'pendiente_revision';
+    var sheet = document.getElementById('admu-bottom-estado');
+    if(!sheet) {
+      sheet = document.createElement('div');
+      sheet.id = 'admu-bottom-estado';
+      sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#131F17;border-top:1px solid rgba(255,255,255,.12);border-radius:18px 18px 0 0;z-index:9000;padding:16px 0 32px;max-width:430px;margin:0 auto;display:none;';
+      sheet.innerHTML = '<div style="text-align:center;margin-bottom:4px;"><div style="width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:4px;display:inline-block;"></div></div>'
+        +'<div style="font-size:13px;font-weight:700;color:#fff;text-align:center;padding:8px 16px 12px;">Cambiar estado</div>'
+        +'<div id="admu-bottom-opts"></div>'
+        +'<div style="padding:12px 16px 0;">'
+        +'<button onclick="admuCerrarBottomEstado()" style="width:100%;background:rgba(255,255,255,.06);border:none;border-radius:12px;color:rgba(255,255,255,.5);font-size:13px;font-weight:600;padding:14px;cursor:pointer;">Cancelar</button>'
+        +'</div>';
+      document.body.appendChild(sheet);
+      var overlay = document.createElement('div');
+      overlay.id = 'admu-bottom-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8999;display:none;';
+      overlay.onclick = admuCerrarBottomEstado;
+      document.body.appendChild(overlay);
+    }
+    var opts = document.getElementById('admu-bottom-opts');
+    if(opts) {
+      opts.innerHTML = ADMU_ESTADOS.map(function(s){
+        var color = ADMU_ESTADO_COLOR[s]||'#aaa';
+        var label = ADMU_ESTADO_LABEL[s]||s;
+        var desc = ADMU_ESTADO_DESC[s]||'';
+        var sel = s === estadoActual;
+        return '<div onclick="admuSelEstadoBottom(\''+s+'\')" style="display:flex;align-items:center;gap:12px;padding:12px 20px;cursor:pointer;'+(sel?'background:rgba(255,255,255,.04);':'')+'">'
+          +'<div style="width:20px;height:20px;border-radius:50%;border:2px solid '+(sel?color:'rgba(255,255,255,.2)')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+          +(sel?'<div style="width:10px;height:10px;border-radius:50%;background:'+color+';"></div>':'')
+          +'</div>'
+          +'<div style="flex:1;">'
+          +'<div style="font-size:13px;font-weight:700;color:'+color+';">'+label+'</div>'
+          +'<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px;">'+desc+'</div>'
+          +'</div>'
+          +'</div>';
+      }).join('');
+    }
+    sheet.style.display = 'block';
+    var ov = document.getElementById('admu-bottom-overlay');
+    if(ov) ov.style.display = 'block';
+  };
+
+  window.admuSelEstadoBottom = function(nuevoEstado) {
+    var uid = window._admuBottomUid;
+    if(!uid) return;
+    admuCerrarBottomEstado();
+    admuCambiarEstado(uid, nuevoEstado);
+    var u = window._admuDatos.find(function(x){ return x.uid===uid; });
+    if(u) {
+      u.estado = nuevoEstado;
+      if(ADMU_TIPOS_PROV.indexOf(window._admuTipo) >= 0) admuRenderListaProv(window._admuDatos);
+      else admuRenderLista(window._admuDatos);
+    }
+  };
+
+  window.admuCerrarBottomEstado = function() {
+    var sheet = document.getElementById('admu-bottom-estado');
+    var ov = document.getElementById('admu-bottom-overlay');
+    if(sheet) sheet.style.display = 'none';
+    if(ov) ov.style.display = 'none';
+    window._admuBottomUid = null;
+  };
+
   function admuRenderLista(datos) {
     var lista = document.getElementById('admu-lista');
     if(!lista) return;
     if(!datos.length) { lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Sin usuarios encontrados</div>'; return; }
-    lista.innerHTML = datos.map(function(u, i){
-      var estado = u.estado || 'pendiente';
-      var color = ADMU_ESTADO_COLOR[estado] || '#aaa';
-      var opts = ADMU_ESTADOS.map(function(s){ return '<option value="'+s+'"'+(s===estado?' selected':'')+'>'+ADMU_ESTADO_LABEL[s]+'</option>'; }).join('');
-      var borde = i < datos.length-1 ? 'border-bottom:1px solid rgba(255,255,255,.06);' : '';
-      return '<div style="background:var(--card-dark);'+borde+'padding:13px 14px;display:flex;align-items:center;gap:10px;">'
-        +'<div onclick="admuAbrirModal(\''+u.uid+'\')" style="flex:1;cursor:pointer;">'
-        +'<div style="font-size:13px;font-weight:600;color:#fff;">'+(u.nombre||u.negocio||u.email||u.uid)+'</div>'
-        +(u.email ? '<div style="font-size:11px;color:var(--white-40);margin-top:2px;">'+u.email+'</div>' : '')
-        +'</div>'
-        +'<select onchange="admuCambiarEstado(\''+u.uid+'\',this.value)" style="background:#0C1A10;border:1px solid '+color+'60;border-radius:8px;color:'+color+';font-size:11px;font-weight:700;padding:4px 6px;font-family:\'Inter\',sans-serif;outline:none;cursor:pointer;">'+opts+'</select>'
-        +'<button onclick="admuEliminarUsuario(\''+u.uid+'\',\''+encodeURIComponent(u.nombre||u.email||u.uid)+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:6px 9px;font-size:14px;color:#D63A2A;cursor:pointer;">🗑</button>'
-        +'</div>';
-    }).join('');
-    // Wrap en card
-    lista.innerHTML = '<div style="border-radius:14px;overflow:hidden;border:.5px solid var(--card-border);">'+lista.innerHTML+'</div>';
+    lista.innerHTML = '<div style="border-radius:14px;overflow:hidden;border:.5px solid var(--card-border);">'
+      + datos.map(function(u, i){
+        var estado = u.estado || 'activo';
+        var color = ADMU_ESTADO_COLOR[estado] || '#aaa';
+        var label = ADMU_ESTADO_LABEL[estado] || estado.toUpperCase();
+        var borde = i < datos.length-1 ? 'border-bottom:1px solid rgba(255,255,255,.06);' : '';
+        return '<div style="background:var(--card-dark);'+borde+'padding:13px 14px;display:flex;align-items:center;gap:10px;">'
+          +'<div onclick="admuAbrirModal(\''+u.uid+'\')" style="flex:1;cursor:pointer;min-width:0;">'
+          +'<div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(u.nombre||u.negocio||u.email||u.uid)+'</div>'
+          +(u.email ? '<div style="font-size:11px;color:var(--white-40);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+u.email+'</div>' : '')
+          +'</div>'
+          +'<button onclick="admuAbrirBottomEstado(\''+u.uid+'\')" style="background:'+color+'22;border:1.5px solid '+color+'80;border-radius:20px;color:'+color+';font-size:10px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;flex-shrink:0;letter-spacing:.5px;">'+label+'</button>'
+          +'<button onclick="admuEliminarUsuario(\''+u.uid+'\',\''+encodeURIComponent(u.nombre||u.email||u.uid)+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:6px 9px;font-size:14px;color:#D63A2A;cursor:pointer;">🗑</button>'
+          +'</div>';
+      }).join('')
+      + '</div>';
   }
 
   function admuRenderListaAdmins(datos) {
@@ -1905,6 +1982,7 @@ function showAdminTab(i,btn){
   // Cargar contadores en home de admu
   window.admuCargarContadores = async function() {
     try {
+      await admuEnsureAuth();
       var { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
       var snap = await getDocs(collection(window._fbDb,'usuarios'));
       var cVecino=0, cProv=0, activos=0, pendientes=0, suspendidos=0, total=0;
