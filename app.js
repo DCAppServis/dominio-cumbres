@@ -4551,7 +4551,7 @@ window.cargarMisComprasPlaza = function() {
       await window._fs.setDoc(window._fs.doc(window._fbDb,'usuarios',cred.user.uid),{
         nombre, usuario, correo,
         prefijoWhatsapp:_prefijo, telefono:_numLimpio, whatsapp:_telFull,
-        calle, numero, direccion: calle + ' ' + numero, tipo:'vecino',
+        calle, numero, direccion: calle + ' ' + numero, tipo:'vecino', estado:'activo',
         zona: document.getElementById('zona-sel')?.value||'',
         fraccionamiento: (function(){
           const sel = document.getElementById('frac-sel')?.value||'';

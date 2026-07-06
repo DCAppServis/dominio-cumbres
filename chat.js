@@ -1397,7 +1397,7 @@ function showAdminTab(i,btn){
         hideLoading();
         go(map[sec], 'right');
         if(sec === 'solicitudes') { setTimeout(()=>cargarSolicitudes(), 300); }
-        if(sec === 'usuarios') { admuShow('admu-home'); window.admuCargarContadores&&window.admuCargarContadores(); }
+        if(sec === 'usuarios') { admuShow('admu-home'); window.admuMigrarVecinosPendientes&&window.admuMigrarVecinosPendientes(); window.admuCargarContadores&&window.admuCargarContadores(); }
         if(sec === 'admins') { renderAdminsList(); }
         if(sec === 'analytics') { cargarAnalytics(); }
       }, 800);
@@ -1578,9 +1578,9 @@ function showAdminTab(i,btn){
   window._admuModalUid = null;   // uid en modal
   window._admuNavStack = [];     // para botón "volver"
 
-  const ADMU_ESTADOS = ['activo','pendiente','suspendido','en_revision','vacaciones','eliminado'];
-  const ADMU_ESTADO_COLOR = { activo:'#1FC26A', pendiente:'#F5C518', suspendido:'#D63A2A', en_revision:'#64B5F6', vacaciones:'#aaa', eliminado:'#666' };
-  const ADMU_ESTADO_LABEL = { activo:'ACTIVO', pendiente:'PENDIENTE', suspendido:'SUSPENDIDO', en_revision:'EN REVISIÓN', vacaciones:'VACACIONES', eliminado:'ELIMINADO' };
+  const ADMU_ESTADOS = ['activo','pendiente_revision','aprobado_pendiente_pago','falta_pago_mensualidad','pausado','suspendido','rechazado'];
+  const ADMU_ESTADO_COLOR = { activo:'#1FC26A', pendiente_revision:'#F5C518', aprobado_pendiente_pago:'#F5C518', falta_pago_mensualidad:'#F5A623', pausado:'#F5A623', suspendido:'#D63A2A', rechazado:'#D63A2A' };
+  const ADMU_ESTADO_LABEL = { activo:'ACTIVO', pendiente_revision:'EN REVISIÓN', aprobado_pendiente_pago:'PEND. PAGO', falta_pago_mensualidad:'FALTA PAGO', pausado:'PAUSADO', suspendido:'SUSPENDIDO', rechazado:'RECHAZADO' };
 
   function admuShow(id) {
     ['admu-home','admu-sub-prov','admu-lista-sec','admu-form-admin'].forEach(function(s){ var el=document.getElementById(s); if(el) el.style.display='none'; });
@@ -1711,10 +1711,35 @@ function showAdminTab(i,btn){
 
   window.admuEliminarUsuario = function(uid, nombreEnc) {
     var nombre = decodeURIComponent(nombreEnc);
-    window._dcConfirmar('¿Eliminar usuario "'+nombre+'" definitivamente?', async function() {
+    window._dcConfirmar('¿Eliminar usuario "'+nombre+'" definitivamente? Se borrará todo su contenido.', async function() {
       try {
-        var { doc, deleteDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-        await deleteDoc(doc(window._fbDb,'usuarios',uid));
+        var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+        var S = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js");
+        var db = window._fbDb;
+        var storage = window._fbStorage;
+        // Borrar subcolecciones conocidas
+        var subcols = ['notificaciones','reservas','agendas','mensajes','productos','menu','horarios','ordenes'];
+        for(var i=0;i<subcols.length;i++){
+          try{
+            var snap = await F.getDocs(F.collection(db,'usuarios',uid,subcols[i]));
+            var batch = F.writeBatch(db);
+            snap.forEach(function(d){ batch.delete(d.ref); });
+            if(!snap.empty) await batch.commit();
+          }catch(_){}
+        }
+        // Borrar archivos en Storage
+        try{
+          var listRef = S.ref(storage,'usuarios/'+uid);
+          var list = await S.listAll(listRef);
+          await Promise.all(list.items.map(function(item){ return S.deleteObject(item); }));
+        }catch(_){}
+        try{
+          var listRef2 = S.ref(storage,'proveedores/'+uid);
+          var list2 = await S.listAll(listRef2);
+          await Promise.all(list2.items.map(function(item){ return S.deleteObject(item); }));
+        }catch(_){}
+        // Borrar documento principal
+        await F.deleteDoc(F.doc(db,'usuarios',uid));
         window._admuDatos = window._admuDatos.filter(function(u){ return u.uid !== uid; });
         admuFiltrarLista();
       } catch(e) { alert('Error al eliminar: '+e.message); }
@@ -1801,6 +1826,19 @@ function showAdminTab(i,btn){
     admuBack2Form();
     var toast=document.getElementById('admin-toast');
     if(toast){ toast.textContent='✅ Admin @'+usr+' ('+rol+') agregado'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+  };
+
+  // Migrar vecinos con estado 'pendiente' → 'activo' en masa (una sola vez al cargar)
+  window.admuMigrarVecinosPendientes = async function() {
+    try {
+      var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      var q = F.query(F.collection(window._fbDb,'usuarios'), F.where('tipo','==','vecino'), F.where('estado','==','pendiente'));
+      var snap = await F.getDocs(q);
+      if(snap.empty) return;
+      var batch = F.writeBatch(window._fbDb);
+      snap.forEach(function(d){ batch.update(d.ref,{estado:'activo'}); });
+      await batch.commit();
+    } catch(e) { /* silencioso */ }
   };
 
   // Cargar contadores en home de admu
