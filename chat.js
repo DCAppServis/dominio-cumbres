@@ -1589,7 +1589,7 @@ function showAdminTab(i,btn){
   }
 
   window.admuTabProv = function(tipo) {
-    ['restaurante','negocio','servicio','ride'].forEach(function(t){
+    ['todos','restaurante','negocio','servicio','ride'].forEach(function(t){
       var btn = document.getElementById('admu-tab-'+t);
       if(btn){
         btn.style.borderBottomColor = t===tipo?'#1FC26A':'transparent';
@@ -1618,7 +1618,7 @@ function showAdminTab(i,btn){
     }
   };
 
-  var ADMU_TIPOS_PROV = ['restaurante','negocio','servicio','ride'];
+  var ADMU_TIPOS_PROV = ['todos','restaurante','negocio','servicio','ride'];
 
   window.admuCargar = async function(tipo) {
     window._admuTipo = tipo;
@@ -1639,10 +1639,12 @@ function showAdminTab(i,btn){
     if(lista) lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Cargando... ⏳</div>';
     try {
       await admuEnsureAuth();
-      var { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      var { getDocs, collection, query, where, or } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
       var q;
       if(tipo === 'servicio') {
         q = query(collection(window._fbDb,'usuarios'), where('tipo','==','proveedor'));
+      } else if(tipo === 'todos') {
+        q = query(collection(window._fbDb,'usuarios'), where('tipo','in',['restaurante','negocio','proveedor']));
       } else {
         q = query(collection(window._fbDb,'usuarios'), where('tipo','==',tipo));
       }
@@ -2006,7 +2008,7 @@ function showAdminTab(i,btn){
         var u=d.data();
         total++;
         if(u.tipo==='vecino') cVecino++;
-        else cProv++;
+        else if(u.tipo==='restaurante'||u.tipo==='negocio'||u.tipo==='proveedor') cProv++;
         var e=u.estado||'';
         if(e==='activo') activos++;
         else if(e==='pendiente'||e==='pendiente_revision') pendientes++;
