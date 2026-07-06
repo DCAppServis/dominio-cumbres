@@ -2,7 +2,7 @@
    DOMINIO CUMBRES — APP.JS  v1.0.0
    Una función por responsabilidad.
 ════════════════════════════════════════════════════════════ */
-window.DC_VERSION='1.0.0';
+window.DC_VERSION='1.0.1';
 // Suprimir diálogo "cambios sin guardar" del browser en este SPA
 window.onbeforeunload=null;
 window.addEventListener('beforeunload',function(e){delete e.returnValue;},true);

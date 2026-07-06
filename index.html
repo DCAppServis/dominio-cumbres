@@ -21,7 +21,7 @@
 <!-- ====== FIN FIREBASE ====== -->
 
 <!-- ====== REPORTES ====== -->
-<script src="reportes.js?v=20260706f"></script>
+<script src="reportes.js?v=20260706h"></script>
 <!-- ====== FIN REPORTES ====== -->
 
 <link rel="stylesheet" href="style.css">
@@ -4400,12 +4400,12 @@
         <div id="notif-solicitudes" class="si12 admin-notif">0</div>
       </div>
 
-      <!-- ADMINISTRADORES -->
-      <div class="admin-card" onclick="goAdminSec('admins')" id="card-admins">
+      <!-- ADMINISTRACIÓN DE USUARIOS -->
+      <div class="admin-card" onclick="goAdminSec('usuarios')" id="card-admins">
         <div>
-          <div class="admin-card-ic" style="background:rgba(31,194,106,.15);">👥</div>
-          <div class="admin-card-title">Admins</div>
-          <div class="admin-card-sub">Jr · Premium · Master</div>
+          <div class="admin-card-ic" style="background:rgba(139,92,246,.15);">👥</div>
+          <div class="admin-card-title">Usuarios</div>
+          <div class="admin-card-sub">Vecinos · Proveedores · Admins</div>
         </div>
       </div>
 
@@ -4517,6 +4517,138 @@
 
   <div class="scroll" style="padding:0 14px 14px;background:var(--green-bg);">
     <div id="admin-lista"><div class="si24">Cargando... ⏳</div></div>
+  </div>
+</div>
+
+<!-- ADMINISTRACIÓN DE USUARIOS -->
+<div class="si23 view go-right" id="v-admin-usuarios">
+  <div class="admin-sub-hdr">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="back-row"><button class="btn-back" onclick="go('v-admin-panel','left')">‹</button><div><div class="hdr-title">Administración de Usuarios</div><div class="hdr-sub">Gestiona y controla todos los usuarios</div></div></div>
+  </div>
+  <div class="scroll" style="padding:14px;">
+
+    <!-- TARJETAS PRINCIPALES -->
+    <div id="admu-home" style="display:block;">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div onclick="admuSelTipo('vecino')" style="background:var(--card-dark);border:1px solid var(--card-border);border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;active:opacity:.7;">
+          <div style="font-size:32px;background:rgba(139,92,246,.15);border-radius:14px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">👥</div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:700;color:#fff;">Vecinos</div>
+            <div style="font-size:12px;color:var(--white-50);margin-top:2px;">Usuarios vecinos de la comunidad</div>
+          </div>
+          <div id="admu-cnt-vecino" style="background:#1FC26A22;border-radius:10px;padding:4px 10px;font-size:13px;font-weight:700;color:#1FC26A;">—</div>
+        </div>
+        <div onclick="admuSelTipo('proveedor')" style="background:var(--card-dark);border:1px solid var(--card-border);border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+          <div style="font-size:32px;background:rgba(31,194,106,.15);border-radius:14px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🏪</div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:700;color:#fff;">Proveedores</div>
+            <div style="font-size:12px;color:var(--white-50);margin-top:2px;">Restaurantes, Negocios, Servicios y Ride</div>
+          </div>
+          <div id="admu-cnt-proveedor" style="background:#1FC26A22;border-radius:10px;padding:4px 10px;font-size:13px;font-weight:700;color:#1FC26A;">—</div>
+        </div>
+        <div onclick="admuSelTipo('admin')" style="background:var(--card-dark);border:1px solid var(--card-border);border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+          <div style="font-size:32px;background:rgba(245,197,24,.15);border-radius:14px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🛡</div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:700;color:#fff;">Administradores</div>
+            <div style="font-size:12px;color:var(--white-50);margin-top:2px;">Cuentas con acceso al sistema</div>
+          </div>
+          <div id="admu-cnt-admin" style="background:#F5C51822;border-radius:10px;padding:4px 10px;font-size:13px;font-weight:700;color:#F5C518;">—</div>
+        </div>
+      </div>
+
+      <!-- Resumen -->
+      <div id="admu-resumen" style="background:var(--card-dark);border:1px solid var(--card-border);border-radius:16px;margin-top:14px;padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:700;color:#fff;">Resumen general</div>
+          <div id="admu-cnt-total" style="font-size:15px;font-weight:700;color:#1FC26A;">—</div>
+        </div>
+        <div style="font-size:11px;color:var(--white-40);text-align:right;margin-bottom:-4px;">usuarios</div>
+        <div style="height:1px;background:var(--card-border);margin:8px 0;"></div>
+        <div id="admu-estados" style="display:flex;flex-direction:column;gap:6px;"></div>
+        <div style="font-size:10px;color:var(--white-30);text-align:center;margin-top:10px;padding:8px;background:#1FC26A10;border-radius:10px;">🛡 Administración segura<br><span style="font-size:9px;">Desde aquí puedes consultar, modificar<br>estados y eliminar usuarios cuando sea necesario.</span></div>
+      </div>
+    </div>
+
+    <!-- SUBFILTROS PROVEEDORES -->
+    <div id="admu-sub-prov" style="display:none;">
+      <button onclick="admuBack()" style="background:transparent;border:none;color:#1FC26A;font-size:13px;font-weight:700;cursor:pointer;padding:0 0 12px;font-family:'Inter',sans-serif;">‹ Volver</button>
+      <div style="font-size:12px;color:var(--white-40);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Tipo de proveedor</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div onclick="admuCargar('restaurante')" style="background:var(--card-dark);border:1px solid var(--card-border);border-radius:14px;padding:14px;text-align:center;cursor:pointer;">
+          <div style="font-size:26px;margin-bottom:6px;">🍔</div>
+          <div style="font-size:13px;font-weight:700;color:#fff;">Restaurantes</div>
+        </div>
+        <div onclick="admuCargar('negocio')" style="background:var(--card-dark);border:1px solid var(--card-border);border-radius:14px;padding:14px;text-align:center;cursor:pointer;">
+          <div style="font-size:26px;margin-bottom:6px;">🏪</div>
+          <div style="font-size:13px;font-weight:700;color:#fff;">Negocios</div>
+        </div>
+        <div onclick="admuCargar('servicio')" style="background:var(--card-dark);border:1px solid var(--card-border);border-radius:14px;padding:14px;text-align:center;cursor:pointer;">
+          <div style="font-size:26px;margin-bottom:6px;">🔧</div>
+          <div style="font-size:13px;font-weight:700;color:#fff;">Servicios</div>
+        </div>
+        <div onclick="admuCargar('ride')" style="background:var(--card-dark);border:1px solid var(--card-border);border-radius:14px;padding:14px;text-align:center;cursor:pointer;">
+          <div style="font-size:26px;margin-bottom:6px;">🚗</div>
+          <div style="font-size:13px;font-weight:700;color:#fff;">Ride</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LISTADO -->
+    <div id="admu-lista-sec" style="display:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <button onclick="admuBack()" style="background:transparent;border:none;color:#1FC26A;font-size:18px;font-weight:700;cursor:pointer;padding:0;font-family:'Inter',sans-serif;">‹</button>
+        <div style="font-size:14px;font-weight:700;color:#fff;" id="admu-lista-titulo">Usuarios</div>
+      </div>
+      <!-- Botón agregar admin (solo para tipo admin) -->
+      <div id="admu-add-admin-btn" style="display:none;margin-bottom:12px;">
+        <button onclick="admuAgregarAdmin()" style="width:100%;background:#1FC26A18;border:1px solid #1FC26A50;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:'Inter',sans-serif;">➕ Agregar administrador</button>
+      </div>
+      <!-- Buscador -->
+      <div style="position:relative;margin-bottom:12px;">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;">🔍</span>
+        <input id="admu-search" type="text" placeholder="Buscar usuario..." oninput="admuFiltrarLista()" style="width:100%;box-sizing:border-box;background:#162A1D;border:1px solid var(--card-border);border-radius:12px;padding:10px 12px 10px 36px;font-size:13px;color:#fff;font-family:'Inter',sans-serif;outline:none;">
+      </div>
+      <!-- Lista -->
+      <div id="admu-lista" style="display:flex;flex-direction:column;gap:0;"></div>
+    </div>
+
+    <!-- FORMULARIO AGREGAR ADMIN (reutilizado) -->
+    <div id="admu-form-admin" style="display:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <button onclick="admuBack2Form()" style="background:transparent;border:none;color:#1FC26A;font-size:18px;font-weight:700;cursor:pointer;padding:0;font-family:'Inter',sans-serif;">‹</button>
+        <div style="font-size:14px;font-weight:700;color:#fff;">Agregar administrador</div>
+      </div>
+      <div style="background:var(--card-dark);border-radius:16px;padding:16px;border:1px solid var(--card-border);">
+        <div class="form-g"><label class="form-l" style="color:var(--white-50);">Usuario</label><input class="inp" id="admu-new-usr" type="text" placeholder="Ej. adminJunior01" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
+        <div class="form-g"><label class="form-l" style="color:var(--white-50);">Contraseña</label><input class="inp" id="admu-new-pass" type="password" placeholder="Mínimo 6 caracteres" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
+        <div class="form-g">
+          <label class="form-l" style="color:var(--white-50);">Rol</label>
+          <select class="inp" id="admu-new-rol" style="background:#0C1A10;border-color:var(--card-border);color:#fff;">
+            <option value="junior">Junior — ver y aprobar usuarios</option>
+            <option value="premium">Premium — acceso avanzado</option>
+          </select>
+        </div>
+        <div id="admu-new-err" style="display:none;background:#D63A2A20;border-radius:10px;padding:9px;font-size:12px;color:#D63A2A;text-align:center;margin-bottom:10px;"></div>
+        <button class="btn btn-green" onclick="admuConfirmarAgregarAdmin()">Agregar admin →</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MODAL DETALLE USUARIO -->
+  <div id="admu-modal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
+    <div style="background:#111E14;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px;max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;color:#fff;">Detalle de usuario</div>
+        <button onclick="admuCerrarModal()" style="background:#ffffff18;border:none;border-radius:10px;padding:6px 12px;color:#fff;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;">✕</button>
+      </div>
+      <div id="admu-modal-body" style="display:flex;flex-direction:column;gap:10px;"></div>
+      <div style="margin-top:16px;display:flex;gap:10px;">
+        <button id="admu-modal-del" onclick="admuEliminarDesdeModal()" style="flex:1;background:#D63A2A18;border:1px solid #D63A2A50;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#D63A2A;cursor:pointer;font-family:'Inter',sans-serif;">🗑 Eliminar</button>
+        <button onclick="admuCerrarModal()" style="flex:1;background:#1FC26A18;border:1px solid #1FC26A50;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:'Inter',sans-serif;">Cerrar</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4666,7 +4798,7 @@
   </div>
 </div>
 
-<script src="chat.js?v=20260706f"></script>
+<script src="chat.js?v=20260706h"></script>
 
 
 <!-- ══ MI AGENDA (vecino) ══════════════════════════════════════
@@ -4682,7 +4814,7 @@
 
 <script src="negocio.js"></script>
 
-<script src="app.js?v=20260706g"></script>
+<script src="app.js?v=20260706h"></script>
 
 <!-- ═══ POPUP CALIFICACIÓN (restaurantes + negocios) ═══ -->
 <div id="dc-com-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9600;align-items:flex-end;justify-content:center;" onclick="window.dcComCerrar&&window.dcComCerrar()">
