@@ -1591,7 +1591,11 @@ function showAdminTab(i,btn){
   window.admuTabProv = function(tipo) {
     ['restaurante','negocio','servicio','ride'].forEach(function(t){
       var btn = document.getElementById('admu-tab-'+t);
-      if(btn){ btn.style.borderBottomColor = t===tipo?'#1FC26A':'transparent'; btn.style.color = t===tipo?'#1FC26A':'rgba(255,255,255,.4)'; }
+      if(btn){
+        btn.style.borderBottomColor = t===tipo?'#1FC26A':'transparent';
+        var span = btn.querySelector('span:last-child');
+        if(span) span.style.color = t===tipo?'#1FC26A':'rgba(255,255,255,.4)';
+      }
     });
     var s = document.getElementById('admu-search-prov'); if(s) s.value='';
     admuCargar(tipo);
@@ -1684,15 +1688,18 @@ function showAdminTab(i,btn){
         var fotoHtml = foto
           ? '<img src="'+foto+'" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">'
           : '<div style="width:44px;height:44px;border-radius:50%;background:#1A2A20;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🏪</div>';
-        var borde = i < datos.length-1 ? 'border-bottom:1px solid rgba(255,255,255,.06);' : '';
-        return '<div style="background:var(--card-dark);'+borde+'padding:12px 14px;display:flex;align-items:center;gap:12px;">'
+        var borde = i < datos.length-1 ? 'border-bottom:1px solid rgba(255,255,255,.07);' : '';
+        return '<div style="background:var(--card-dark);'+borde+'padding:13px 14px;display:flex;align-items:center;gap:12px;">'
           + fotoHtml
           +'<div onclick="admuAbrirModal(\''+u.uid+'\')" style="flex:1;cursor:pointer;min-width:0;">'
-          +'<div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(u.nombre||u.negocio||u.email||u.uid)+'</div>'
-          +(u.email?'<div style="font-size:11px;color:var(--white-40);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+u.email+'</div>':'')
+          +'<div style="font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(u.nombre||u.negocio||u.email||u.uid)+'</div>'
           +'</div>'
-          +'<button onclick="admuAbrirBottomEstado(\''+u.uid+'\')" style="background:'+color+'22;border:1.5px solid '+color+'80;border-radius:20px;color:'+color+';font-size:10px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;flex-shrink:0;letter-spacing:.5px;">'+label+'</button>'
-          +'<button onclick="admuEliminarUsuario(\''+u.uid+'\',\''+encodeURIComponent(u.nombre||u.email||u.uid)+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:6px 8px;font-size:14px;color:#D63A2A;cursor:pointer;flex-shrink:0;">🗑</button>'
+          +'<button onclick="admuAbrirBottomEstado(\''+u.uid+'\')" style="display:flex;align-items:center;gap:5px;background:'+color+'18;border:1px solid '+color+'55;border-radius:20px;padding:5px 10px;cursor:pointer;flex-shrink:0;">'
+          +'<div style="width:7px;height:7px;border-radius:50%;background:'+color+';flex-shrink:0;"></div>'
+          +'<span style="font-size:11px;font-weight:800;color:'+color+';letter-spacing:.4px;">'+label+'</span>'
+          +'<span style="font-size:9px;color:'+color+';opacity:.7;">▼</span>'
+          +'</button>'
+          +'<button onclick="admuEliminarUsuario(\''+u.uid+'\',\''+encodeURIComponent(u.nombre||u.email||u.uid)+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:7px 9px;font-size:15px;color:#D63A2A;cursor:pointer;flex-shrink:0;">🗑</button>'
           +'</div>';
       }).join('')
       + '</div>';
@@ -1790,8 +1797,12 @@ function showAdminTab(i,btn){
           +'<div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(u.nombre||u.negocio||u.email||u.uid)+'</div>'
           +(u.email ? '<div style="font-size:11px;color:var(--white-40);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+u.email+'</div>' : '')
           +'</div>'
-          +'<button onclick="admuAbrirBottomEstado(\''+u.uid+'\')" style="background:'+color+'22;border:1.5px solid '+color+'80;border-radius:20px;color:'+color+';font-size:10px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;flex-shrink:0;letter-spacing:.5px;">'+label+'</button>'
-          +'<button onclick="admuEliminarUsuario(\''+u.uid+'\',\''+encodeURIComponent(u.nombre||u.email||u.uid)+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:6px 9px;font-size:14px;color:#D63A2A;cursor:pointer;">🗑</button>'
+          +'<button onclick="admuAbrirBottomEstado(\''+u.uid+'\')" style="display:flex;align-items:center;gap:5px;background:'+color+'18;border:1px solid '+color+'55;border-radius:20px;padding:5px 10px;cursor:pointer;flex-shrink:0;">'
+          +'<div style="width:7px;height:7px;border-radius:50%;background:'+color+';flex-shrink:0;"></div>'
+          +'<span style="font-size:11px;font-weight:800;color:'+color+';letter-spacing:.4px;">'+label+'</span>'
+          +'<span style="font-size:9px;color:'+color+';opacity:.7;">▼</span>'
+          +'</button>'
+          +'<button onclick="admuEliminarUsuario(\''+u.uid+'\',\''+encodeURIComponent(u.nombre||u.email||u.uid)+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:7px 9px;font-size:15px;color:#D63A2A;cursor:pointer;">🗑</button>'
           +'</div>';
       }).join('')
       + '</div>';
