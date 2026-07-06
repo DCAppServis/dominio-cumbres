@@ -904,6 +904,9 @@ window.actualizarBtnSolicitudRol = function() {
   lbl.textContent = (t === 'proveedor' || t === 'transporte' || t === 'negocio')
     ? 'Ver solicitudes de clientes'
     : 'Publicar solicitud de servicio';
+  // Mostrar banner CMV solo para proveedores
+  const cmvBanner = document.getElementById('serv-cmv-banner');
+  if (cmvBanner) cmvBanner.style.display = (t === 'proveedor') ? 'block' : 'none';
 };
 
 // ── Exponer constante para Fase 2 ───────────────────────────
