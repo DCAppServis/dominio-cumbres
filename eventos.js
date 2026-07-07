@@ -1146,12 +1146,18 @@ async function evGuardarEvento(estado, tipoPub, promoData, sinAlert, noNav){
       console.time('[EV] evUploadImagen');
       imagenUrl = await evUploadImagen();
       console.timeEnd('[EV] evUploadImagen');
-      console.log('[EV] 3 ✓ imagenUrl=', imagenUrl ? 'OK' : 'VACÍA');
+      console.log('[EV] 3 ✓ imagenUrl=', imagenUrl ? 'OK' : 'VACÍA (CORS/red)');
       if(!imagenUrl){
-        if(!sinAlert) alert('Error al subir la imagen. Intenta de nuevo.');
-        if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
-        console.timeEnd('[EV] guardar-total');
-        return false;
+        if(sinAlert){
+          // Flujo promo: CORS bloquea Storage → guardar sin imagen, no abortar
+          console.warn('[EV] imagen falló (CORS), guardando sin imagen');
+          imagenUrl = '';
+        } else {
+          alert('Error al subir la imagen. Intenta de nuevo.');
+          if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
+          console.timeEnd('[EV] guardar-total');
+          return false;
+        }
       }
     } else {
       imagenUrl = window._evFormData._imagenUrl||'';
