@@ -829,7 +829,7 @@ window.evMostrarOpciones = function(){
     +'<div style="font-size:20px;font-weight:800;color:#fff;">$'+EV_PRECIOS.destacado30+' MXN</div>'
     +'</div>'
     // ─── TARJETA CÓDIGO PROMOCIONAL — estilo cupón punteado ──
-    +'<div style="background:rgba(124,58,237,.07);border:2.5px dashed rgba(124,58,237,.5);border-radius:16px;padding:16px;margin-top:12px;">'
+    +'<div style="background:rgba(124,58,237,.07);border:2.5px dashed rgba(180,140,255,.75);border-radius:16px;padding:16px;margin-top:12px;">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
     +'<div style="display:flex;align-items:center;gap:9px;">'
     +'<div style="width:32px;height:32px;background:rgba(124,58,237,.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🏷️</div>'
@@ -998,7 +998,7 @@ window.evConfirmarCodigoPromo = async function(){
   if(btn){ btn.disabled=true; btn.textContent='Guardando...'; }
   if(errEl){ errEl.style.display='none'; }
   var promoSnap = _evPromoActivo;
-  var eventoId = await evGuardarEvento('en_revision','codigo_promocional', promoSnap);
+  var eventoId = await evGuardarEvento('en_revision','codigo_promocional', promoSnap, true);
   if(eventoId){
     var modal = document.getElementById('ev-promo-modal');
     if(modal) modal.remove();
@@ -1060,7 +1060,7 @@ function evCalcFechasPremium(plan){
 
 // ─── GUARDAR EVENTO ───────────────────────────────────
 // Retorna el ID del evento guardado (string) si fue exitoso, false si falló
-async function evGuardarEvento(estado, tipoPub, promoData){
+async function evGuardarEvento(estado, tipoPub, promoData, sinAlert){
   var btn = get('ev-pub-btn');
   if(btn){ btn.disabled=true; btn.textContent='Guardando...'; }
   var d       = window._evFormData;
@@ -1080,7 +1080,7 @@ async function evGuardarEvento(estado, tipoPub, promoData){
     if(window._evFormData._imagenFile){
       imagenUrl = await evUploadImagen();
       if(!imagenUrl){
-        alert('Error al subir la imagen. Intenta de nuevo.');
+        if(!sinAlert) alert('Error al subir la imagen. Intenta de nuevo.');
         if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
         return false;
       }
@@ -1181,7 +1181,7 @@ async function evGuardarEvento(estado, tipoPub, promoData){
     return eventoIdResultado; // string truthy = éxito
   } catch(e){
     console.error('[Dominio Eventos] Error evGuardarEvento:', e);
-    alert('Error al guardar: '+e.message);
+    if(!sinAlert) alert('Error al guardar: '+e.message);
     if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
     return false;
   }
