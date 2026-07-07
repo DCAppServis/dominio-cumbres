@@ -1039,7 +1039,10 @@ window.evConfirmarCodigoPromo = async function(){
     var timeoutPromise = new Promise(function(resolve){
       timeoutId = setTimeout(function(){ timedOut=true; resolve(false); }, 12000);
     });
-    resultado = await Promise.race([savePromise, timeoutPromise]);
+    var minPromise = new Promise(function(r){ setTimeout(r, 2000); });
+    var saveResult = await Promise.race([savePromise, timeoutPromise]);
+    await minPromise;
+    resultado = saveResult;
   } catch(e){
     console.error('[promo] error inesperado:', e);
     resultado = false;
