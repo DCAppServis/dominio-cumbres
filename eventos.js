@@ -828,8 +828,8 @@ window.evMostrarOpciones = function(){
     +'<div style="font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;margin-bottom:8px;">Máxima exposición · '+EV_PRECIOS.diasDestacado30+' días · Mejor valor.</div>'
     +'<div style="font-size:20px;font-weight:800;color:#fff;">$'+EV_PRECIOS.destacado30+' MXN</div>'
     +'</div>'
-    // ─── TARJETA CÓDIGO PROMOCIONAL ───────────────────────
-    +'<div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.28);border-radius:16px;padding:16px;margin-top:12px;">'
+    // ─── TARJETA CÓDIGO PROMOCIONAL — estilo cupón punteado ──
+    +'<div style="background:rgba(124,58,237,.07);border:2.5px dashed rgba(124,58,237,.5);border-radius:16px;padding:16px;margin-top:12px;">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
     +'<div style="display:flex;align-items:center;gap:9px;">'
     +'<div style="width:32px;height:32px;background:rgba(124,58,237,.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🏷️</div>'
@@ -985,28 +985,33 @@ function evMostrarModalPromoOk(codigo, desc){
     +'<div style="font-size:12px;font-weight:700;color:#64B5F6;margin-bottom:4px;">ℹ️ Importante</div>'
     +'<div style="font-size:11px;color:rgba(255,255,255,.42);line-height:1.65;">Tu evento será enviado a revisión y no se publicará de inmediato. Te notificaremos por alerta cuando el administrador lo revise.</div>'
     +'</div>'
-    +'<button onclick="evConfirmarCodigoPromo()" style="width:100%;background:linear-gradient(135deg,#7C3AED,#5B21B6);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:700;padding:16px;cursor:pointer;font-family:inherit;">Continuar</button>'
+    +'<button id="ev-promo-cont-btn" onclick="evConfirmarCodigoPromo()" style="width:100%;background:linear-gradient(135deg,#7C3AED,#5B21B6);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:700;padding:16px;cursor:pointer;font-family:inherit;">Continuar</button>'
+    +'<div id="ev-promo-modal-err" style="display:none;margin-top:10px;font-size:12px;color:#ff6b6b;text-align:center;"></div>'
     +'</div>';
   document.body.appendChild(overlay);
 }
 
 window.evConfirmarCodigoPromo = async function(){
-  var modal = document.getElementById('ev-promo-modal');
-  if(modal) modal.remove();
-  if(!_evPromoActivo){ evMostrarOpciones(); return; }
-  // Guardar evento PRIMERO; marcar código como usado SOLO si el guardado fue exitoso
-  var promoSnap = _evPromoActivo; // guardar referencia antes de limpiar
+  if(!_evPromoActivo){ var m=document.getElementById('ev-promo-modal'); if(m)m.remove(); evMostrarOpciones(); return; }
+  var btn = document.getElementById('ev-promo-cont-btn');
+  var errEl = document.getElementById('ev-promo-modal-err');
+  if(btn){ btn.disabled=true; btn.textContent='Guardando...'; }
+  if(errEl){ errEl.style.display='none'; }
+  var promoSnap = _evPromoActivo;
   var eventoId = await evGuardarEvento('en_revision','codigo_promocional', promoSnap);
   if(eventoId){
-    // Guardado exitoso → evGuardarEvento ya llamó go('v-ev-ok')
+    var modal = document.getElementById('ev-promo-modal');
+    if(modal) modal.remove();
     if(!promoSnap.esMaster){
       var uid = window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid;
       await evConsumirCodigo(promoSnap, uid||'', eventoId);
     }
     _evPromoActivo = null;
+    // evGuardarEvento ya llamó go('v-ev-ok') internamente
   } else {
-    // Falló el guardado → NO consumir código, volver a mostrar modal para reintentar
-    evMostrarModalPromoOk(promoSnap.codigo, promoSnap.descripcion);
+    // Falló → mostrar error inline en el modal, no cerrar ni redirigir
+    if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
+    if(errEl){ errEl.textContent='❌ Error al guardar. Verifica tu conexión e intenta de nuevo.'; errEl.style.display='block'; }
   }
 };
 
