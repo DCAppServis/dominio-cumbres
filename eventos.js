@@ -673,10 +673,11 @@ async function evUploadImagen(){
     var uid = (window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid)||'anon';
     var ext = (window._evFormData._imagenFile.name.split('.').pop()||'jpg').toLowerCase();
     var ref = S.ref(window._fbStorage,'eventos/'+uid+'_'+Date.now()+'.'+ext);
-    await S.uploadBytes(ref, window._evFormData._imagenFile);
+    var timeout = new Promise(function(_,reject){ setTimeout(function(){ reject(new Error('timeout')); }, 8000); });
+    await Promise.race([S.uploadBytes(ref, window._evFormData._imagenFile), timeout]);
     return await S.getDownloadURL(ref);
   } catch(e){
-    console.error('[Dominio Eventos] Error subiendo imagen:', e);
+    console.error('[Dominio Eventos] Error subiendo imagen:', e.message||e);
     return '';
   }
 }
