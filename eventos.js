@@ -829,21 +829,22 @@ window.evMostrarOpciones = function(){
     +'<div style="font-size:20px;font-weight:800;color:#fff;">$'+EV_PRECIOS.destacado30+' MXN</div>'
     +'</div>'
     // ─── TARJETA CÓDIGO PROMOCIONAL ───────────────────────
-    +'<div style="background:rgba(255,255,255,.03);border:1px solid rgba(124,58,237,.22);border-radius:16px;padding:16px;margin-top:12px;">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">'
-    +'<span style="font-size:15px;">🏷️</span>'
-    +'<span style="font-size:13px;font-weight:700;color:#fff;">¿Tienes código promocional?</span>'
+    +'<div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.28);border-radius:16px;padding:16px;margin-top:12px;">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
+    +'<div style="display:flex;align-items:center;gap:9px;">'
+    +'<div style="width:32px;height:32px;background:rgba(124,58,237,.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🏷️</div>'
+    +'<span style="font-size:14px;font-weight:700;color:#fff;">¿Tienes código promocional?</span>'
     +'</div>'
-    +'<div style="font-size:11px;color:rgba(255,255,255,.38);margin-bottom:12px;">Ingresa tu código para aplicar beneficios a esta publicación.</div>'
-    +'<div style="display:flex;gap:8px;">'
-    +'<div style="flex:1;position:relative;">'
-    +'<span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;">🏷️</span>'
-    +'<input id="ev-promo-input" type="text" placeholder="Ejemplo: ABC123456" maxlength="9"'
-    +' style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:11px;color:#fff;font-size:13px;font-weight:700;padding:11px 10px 11px 34px;box-sizing:border-box;font-family:inherit;letter-spacing:1px;text-transform:uppercase;outline:none;"'
+    +'<span style="font-size:16px;color:rgba(255,255,255,.25);cursor:default;">ⓘ</span>'
+    +'</div>'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px;padding-left:41px;">Ingresa tu código para aplicar beneficios exclusivos.</div>'
+    +'<div style="position:relative;margin-bottom:10px;">'
+    +'<span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;color:rgba(255,255,255,.25);pointer-events:none;">🏷️</span>'
+    +'<input id="ev-promo-input" type="text" placeholder="Ej. ABC123456" maxlength="9"'
+    +' style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.14);border-radius:12px;color:#fff;font-size:14px;font-weight:600;padding:13px 13px 13px 40px;box-sizing:border-box;font-family:inherit;letter-spacing:1.5px;text-transform:uppercase;outline:none;"'
     +' oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,\'\')"></div>'
-    +'<button onclick="evAplicarCodigoPromo()" style="background:linear-gradient(135deg,#7C3AED,#5B21B6);border:none;border-radius:11px;color:#fff;font-size:12px;font-weight:700;padding:11px 14px;cursor:pointer;white-space:nowrap;font-family:inherit;">Aplicar código</button>'
-    +'</div>'
-    +'<div id="ev-promo-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:7px;"></div>'
+    +'<button onclick="evAplicarCodigoPromo()" style="width:100%;background:linear-gradient(135deg,#7C3AED,#5B21B6);border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:700;padding:13px;cursor:pointer;font-family:inherit;">Aplicar código</button>'
+    +'<div id="ev-promo-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:8px;"></div>'
     +'</div>'
     // ─── AVISO PAGO ────────────────────────────────────────
     +'<div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:10px;margin-top:16px;font-size:10px;color:rgba(255,255,255,.35);text-align:center;line-height:1.6;">'
@@ -994,12 +995,19 @@ window.evConfirmarCodigoPromo = async function(){
   if(modal) modal.remove();
   if(!_evPromoActivo){ evMostrarOpciones(); return; }
   // Guardar evento PRIMERO; marcar código como usado SOLO si el guardado fue exitoso
-  var eventoId = await evGuardarEvento('en_revision','codigo_promocional',_evPromoActivo);
-  if(eventoId && !_evPromoActivo.esMaster){
-    var uid = window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid;
-    await evConsumirCodigo(_evPromoActivo, uid||'', eventoId);
+  var promoSnap = _evPromoActivo; // guardar referencia antes de limpiar
+  var eventoId = await evGuardarEvento('en_revision','codigo_promocional', promoSnap);
+  if(eventoId){
+    // Guardado exitoso → evGuardarEvento ya llamó go('v-ev-ok')
+    if(!promoSnap.esMaster){
+      var uid = window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid;
+      await evConsumirCodigo(promoSnap, uid||'', eventoId);
+    }
+    _evPromoActivo = null;
+  } else {
+    // Falló el guardado → NO consumir código, volver a mostrar modal para reintentar
+    evMostrarModalPromoOk(promoSnap.codigo, promoSnap.descripcion);
   }
-  _evPromoActivo = null;
 };
 
 // Marca el código como utilizado en Firestore (solo códigos normales, no master)
