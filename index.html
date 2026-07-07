@@ -2222,21 +2222,23 @@
       </div>
       <div style="margin-bottom:14px;">
         <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:6px;">Categoría *</div>
-        <select id="ev-cat" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:12px 14px;font-size:13px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;">
+        <select id="ev-cat" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:12px 14px;font-size:13px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" onchange="var e=document.getElementById('ev-cat-err');if(e)e.style.display='none';this.style.borderColor='rgba(124,58,237,.4)'">
           <option value="">Selecciona categoría</option>
           <option>🎵 Música</option><option>🏃 Deportes</option><option>👶 Familiar</option>
           <option>🍽️ Gastronomía</option><option>📚 Cursos</option><option>🐾 Mascotas</option>
           <option>🎨 Cultura</option><option>🎭 Arte</option><option>🌿 Bienestar</option><option>🛒 Mercado</option>
         </select>
+        <div id="ev-cat-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:4px;"></div>
       </div>
       <div style="margin-bottom:20px;">
         <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:6px;">Tipo de evento *</div>
-        <select id="ev-tipo-ev" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:12px 14px;font-size:13px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;">
+        <select id="ev-tipo-ev" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:12px 14px;font-size:13px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" onchange="var e=document.getElementById('ev-tipo-ev-err');if(e)e.style.display='none';this.style.borderColor='rgba(124,58,237,.4)'">
           <option value="">Selecciona tipo</option>
           <option>Presencial</option><option>Virtual</option><option>Híbrido</option>
           <option>Paseo / Excursión</option><option>Concurso</option><option>Taller</option>
           <option>Exposición</option><option>Feria</option><option>Otro</option>
         </select>
+        <div id="ev-tipo-ev-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:4px;"></div>
       </div>
       <button onclick="evSiguienteStep()" style="width:100%;background:linear-gradient(135deg,#7C3AED,#5B21B6);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:700;padding:16px;cursor:pointer;font-family:inherit;">Siguiente →</button>
     </div>
@@ -2246,16 +2248,19 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         <div>
           <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:6px;">Fecha *</div>
-          <input id="ev-fecha" type="date" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;" />
+          <input id="ev-fecha" type="date" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" />
+          <div id="ev-fecha-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:4px;"></div>
         </div>
         <div>
           <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:6px;">Hora inicio *</div>
-          <input id="ev-hora-i" type="time" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;" />
+          <input id="ev-hora-i" type="time" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" />
+          <div id="ev-hora-i-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:4px;"></div>
         </div>
       </div>
       <div style="margin-bottom:14px;">
         <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:6px;">Hora fin (opcional)</div>
-        <input id="ev-hora-f" type="time" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;" />
+        <input id="ev-hora-f" type="time" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" />
+        <div id="ev-hora-f-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:4px;"></div>
       </div>
       <div style="margin-bottom:14px;">
         <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:6px;">Lugar *</div>
@@ -2278,7 +2283,7 @@
       </div>
       <!-- Imagen -->
       <div style="margin-bottom:20px;">
-        <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:8px;">Imagen del evento (opcional, máx 3 MB)</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:8px;">Imagen del evento <span style="color:#ff6b6b;">*</span> (máx 3 MB)</div>
         <label for="ev-img-input" style="display:block;cursor:pointer;">
           <div id="ev-img-preview" style="display:none;height:140px;border-radius:14px;background:rgba(255,255,255,.05);border:2px dashed rgba(124,58,237,.4);overflow:hidden;"></div>
           <div id="ev-img-label" style="height:100px;border-radius:14px;background:rgba(255,255,255,.04);border:2px dashed rgba(255,255,255,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">
@@ -2286,7 +2291,8 @@
             <div style="font-size:12px;color:rgba(255,255,255,.4);">Toca para agregar imagen</div>
           </div>
         </label>
-        <input id="ev-img-input" type="file" accept="image/*" onchange="evSubirImagen(this)" style="display:none;" />
+        <input id="ev-img-input" type="file" accept="image/*" onchange="evSubirImagen(this);var e=document.getElementById('ev-img-err');if(e)e.style.display='none';" style="display:none;" />
+        <div id="ev-img-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:6px;"></div>
       </div>
       <button onclick="evSiguienteStep()" style="width:100%;background:linear-gradient(135deg,#7C3AED,#5B21B6);border:none;border-radius:14px;color:#fff;font-size:14px;font-weight:700;padding:16px;cursor:pointer;font-family:inherit;">Vista previa →</button>
     </div>

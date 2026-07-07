@@ -18,15 +18,45 @@ var EV_ESTADOS = {
   cancelado:       { label:'Cancelado',          color:'#D63A2A', icon:'🚫' }
 };
 
-var EV_VALIDACIONES = [
-  { re: /https?:\/\//i,                                       msg: '⚠️ No se permiten links (http/https).' },
-  { re: /www\./i,                                             msg: '⚠️ No se permiten links (www).' },
-  { re: /bit\.ly|tinyurl|goo\.gl/i,                          msg: '⚠️ No se permiten links acortados.' },
-  { re: /whatsapp|t\.me\/|telegram\.me/i,                    msg: '⚠️ No se permiten links de mensajería (WhatsApp, Telegram).' },
-  { re: /instagram\.com|facebook\.com|tiktok\.com|twitter\.com|x\.com/i, msg: '⚠️ No se permiten links de redes sociales.' },
-  { re: /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i,           msg: '⚠️ No se permiten correos electrónicos.' },
-  { re: /\b\d{10,}\b/,                                        msg: '⚠️ No se permiten números de teléfono.' }
+// Validaciones bloqueantes (retornan mensaje de error)
+var EV_REGLAS_BLOQUEO = [
+  // @ menciones
+  { re: /@/, msg: '❌ No está permitido mencionar usuarios o redes sociales.' },
+  // Correo electrónico (antes que dominios genéricos)
+  { re: /[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/i, msg: '❌ No se permiten correos electrónicos.' },
+  // Links / URLs
+  { re: /https?:\/\//i,                               msg: '❌ No se permiten enlaces externos.' },
+  { re: /\bwww\./i,                                   msg: '❌ No se permiten enlaces externos.' },
+  { re: /\.(com|net|org|edu|gov|mx|io|co|ly|me)\b/i,  msg: '❌ No se permiten enlaces externos.' },
+  { re: /bit\.ly|tinyurl|cutt\.ly|linktr\.ee|wa\.me|t\.me|discord\.gg/i, msg: '❌ No se permiten enlaces externos.' },
+  // Teléfonos: 10+ dígitos con o sin espacios/guiones/paréntesis/+
+  { re: /(\+?[\d\s\-\(\)]{10,})/,                     msg: '❌ No se permiten números telefónicos.' },
+  // Redes sociales (palabras clave)
+  { re: /\b(facebook|instagram|tiktok|twitter|telegram|whatsapp|whats|discord|snapchat|youtube|canal de|grupo de)\b/i, msg: '❌ No se permite promocionar redes sociales.' },
+  // Venta engañosa / fraude
+  { re: /\b(gana dinero|hazte rico|hazte millonario|ingresos garantizados|trabaja desde casa|sin esfuerzo|inversión segura|forex|criptomonedas|bitcoin|casino|apuestas)\b/i, msg: '❌ No se permite contenido de venta engañosa.' },
+  // Contenido adulto
+  { re: /\b(sexo|porno|pornografía|desnudo|escort|prepago|only fans|onlyfans|xxx)\b/i, msg: '❌ No se permite contenido para adultos.' },
+  // Política
+  { re: /\b(vota por|partido político|campaña electoral|candidato|elecciones|sufragio|propaganda política)\b/i, msg: '❌ No se permite propaganda política.' },
+  // Palabras ofensivas (lista básica)
+  { re: /\b(idiota|imbécil|maldito|puta|puto|cabrón|pendejo|culero|chinga|verga|wey|pinche)\b/i, msg: '❌ No se permite lenguaje ofensivo.' }
 ];
+
+// Validaciones de advertencia (no bloquean pero muestran aviso)
+function evAdvertencias(val){
+  var msgs=[];
+  // Exceso de emojis
+  var emojis=(val.match(/[\u{1F300}-\u{1FFFF}]|\u{2600}-\u{26FF}|\u{2700}-\u{27BF}/gu)||[]).length;
+  if(emojis>6) msgs.push('⚠️ Demasiados emojis. Usa máximo 6.');
+  // Exceso de mayúsculas (>70% de letras)
+  var letras=(val.match(/[a-záéíóúA-ZÁÉÍÓÚ]/g)||[]);
+  var mayus=(val.match(/[A-ZÁÉÍÓÚ]/g)||[]).length;
+  if(letras.length>10 && mayus/letras.length>0.70) msgs.push('⚠️ Demasiadas mayúsculas. Evita escribir TODO EN MAYÚSCULAS.');
+  // Repetición de caracteres (4+ iguales seguidos)
+  if(/(.)\1{4,}/.test(val)) msgs.push('⚠️ Evita repetir el mismo carácter varias veces.');
+  return msgs.join(' ');
+}
 
 window._evDatos      = [];
 window._evCategoria  = 'Todos';
@@ -48,10 +78,12 @@ function evImgHtml(url, size, radius, placeholder){
   return '<div style="width:'+size+'px;height:'+size+'px;border-radius:'+radius+';background:linear-gradient(135deg,#2D1B69,#4C1D95);display:flex;align-items:center;justify-content:center;font-size:'+(size*0.45)+'px;flex-shrink:0;">'+placeholder+'</div>';
 }
 
-function evValidarTexto(txt){
-  for(var i=0;i<EV_VALIDACIONES.length;i++){
-    if(EV_VALIDACIONES[i].re.test(txt)) return EV_VALIDACIONES[i].msg;
+function evValidarTexto(val){
+  for(var i=0;i<EV_REGLAS_BLOQUEO.length;i++){
+    if(EV_REGLAS_BLOQUEO[i].re.test(val)) return { error: EV_REGLAS_BLOQUEO[i].msg };
   }
+  var warn=evAdvertencias(val);
+  if(warn) return { warn: warn };
   return null;
 }
 
@@ -251,41 +283,98 @@ function evIrFormStep(step){
 }
 
 window.evValidarCampo = function(el){
-  var val=el.value||'';
-  var err=get(el.id+'-err');
-  if(!val.trim()){ if(err){err.textContent='';err.style.display='none';} el.style.borderColor='rgba(255,255,255,.12)'; return; }
-  var msg=evValidarTexto(val);
-  if(msg){
+  var val=(el.value||'').trim();
+  var errEl=get(el.id+'-err');
+  if(!val){ if(errEl){errEl.textContent='';errEl.style.display='none';} el.style.borderColor='rgba(255,255,255,.12)'; return true; }
+  var res=evValidarTexto(val);
+  if(res&&res.error){
     el.style.borderColor='#D63A2A';
-    if(err){ err.textContent=msg; err.style.display='block'; }
-  } else {
-    el.style.borderColor='rgba(124,58,237,.4)';
-    if(err){ err.textContent=''; err.style.display='none'; }
+    if(errEl){ errEl.textContent=res.error; errEl.style.color='#ff6b6b'; errEl.style.display='block'; }
+    return false;
   }
+  if(res&&res.warn){
+    el.style.borderColor='#F5A623';
+    if(errEl){ errEl.textContent=res.warn; errEl.style.color='#F5C518'; errEl.style.display='block'; }
+    return true; // advertencia no bloquea
+  }
+  el.style.borderColor='rgba(124,58,237,.4)';
+  if(errEl){ errEl.textContent=''; errEl.style.display='none'; }
+  return true;
 };
+
+function evMostrarErrCampo(id, msg){
+  var el=get(id); if(!el) return;
+  el.style.borderColor='#D63A2A';
+  var errEl=get(id+'-err');
+  if(errEl){ errEl.textContent=msg; errEl.style.color='#ff6b6b'; errEl.style.display='block'; }
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function evCheckTexto(id){
+  var el=get(id); if(!el) return true;
+  var val=(el.value||'').trim();
+  var res=evValidarTexto(val);
+  if(res&&res.error){ evMostrarErrCampo(id, res.error); return false; }
+  return true;
+}
 
 window.evSiguienteStep = function(){
   var step=window._evFormStep||1;
   if(step===1){
-    var titulo=(get('ev-titulo')&&get('ev-titulo').value||'').trim();
-    var desc=(get('ev-desc')&&get('ev-desc').value||'').trim();
-    var cat=get('ev-cat')&&get('ev-cat').value;
-    var tipoEv=get('ev-tipo-ev')&&get('ev-tipo-ev').value;
-    if(!titulo||!desc||!cat||!tipoEv){ alert('Completa todos los campos requeridos.'); return; }
-    var errTit=evValidarTexto(titulo); if(errTit){ alert(errTit); return; }
-    var errDesc=evValidarTexto(desc);  if(errDesc){ alert(errDesc); return; }
+    var tituloEl=get('ev-titulo'), descEl=get('ev-desc'), catEl=get('ev-cat'), tipoEl=get('ev-tipo-ev');
+    var titulo=(tituloEl&&tituloEl.value||'').trim();
+    var desc=(descEl&&descEl.value||'').trim();
+    var cat=catEl&&catEl.value;
+    var tipoEv=tipoEl&&tipoEl.value;
+    var ok=true;
+    // Mínimos de longitud
+    if(!titulo||titulo.length<5){
+      evMostrarErrCampo('ev-titulo','❌ El título debe tener al menos 5 caracteres.'); ok=false;
+    } else if(!evCheckTexto('ev-titulo')){ ok=false; }
+    if(!desc||desc.length<30){
+      evMostrarErrCampo('ev-desc','❌ La descripción debe tener al menos 30 caracteres.'); ok=false;
+    } else if(!evCheckTexto('ev-desc')){ ok=false; }
+    if(!cat||cat===''){
+      var catErr=get('ev-cat-err'); if(catErr){catErr.textContent='❌ Selecciona una categoría.';catErr.style.color='#ff6b6b';catErr.style.display='block';} ok=false;
+    } else { var catErr2=get('ev-cat-err'); if(catErr2){catErr2.style.display='none';} }
+    if(!tipoEv||tipoEv===''){
+      var tipErr=get('ev-tipo-ev-err'); if(tipErr){tipErr.textContent='❌ Selecciona el tipo de evento.';tipErr.style.color='#ff6b6b';tipErr.style.display='block';} ok=false;
+    } else { var tipErr2=get('ev-tipo-ev-err'); if(tipErr2){tipErr2.style.display='none';} }
+    if(!ok) return;
     window._evFormData.titulo=titulo; window._evFormData.descripcion=desc;
     window._evFormData.categoria=cat; window._evFormData.tipoEvento=tipoEv;
     evIrFormStep(2);
   } else if(step===2){
-    var fecha=get('ev-fecha')&&get('ev-fecha').value;
-    var lugar=(get('ev-lugar')&&get('ev-lugar').value||'').trim();
-    var hi=get('ev-hora-i')&&get('ev-hora-i').value;
-    if(!fecha||!lugar||!hi){ alert('Fecha, lugar y hora de inicio son obligatorios.'); return; }
-    var errLug=evValidarTexto(lugar); if(errLug){ alert(errLug); return; }
+    var fechaEl=get('ev-fecha'), lugarEl=get('ev-lugar'), hiEl=get('ev-hora-i'), hfEl=get('ev-hora-f');
+    var fecha=fechaEl&&fechaEl.value;
+    var lugar=(lugarEl&&lugarEl.value||'').trim();
+    var hi=hiEl&&hiEl.value;
+    var hf=hfEl&&hfEl.value;
+    var ok2=true;
+    // Fecha no anterior a hoy
+    if(!fecha){
+      evMostrarErrCampo('ev-fecha','❌ La fecha es obligatoria.'); ok2=false;
+    } else {
+      var hoy=new Date(); hoy.setHours(0,0,0,0);
+      var fEv=new Date(fecha+'T00:00:00');
+      if(fEv<hoy){ evMostrarErrCampo('ev-fecha','❌ La fecha no puede ser anterior al día de hoy.'); ok2=false; }
+    }
+    // Hora inicio
+    if(!hi){ evMostrarErrCampo('ev-hora-i','❌ La hora de inicio es obligatoria.'); ok2=false; }
+    // Hora fin posterior a inicio
+    if(hi&&hf&&hf<=hi){ evMostrarErrCampo('ev-hora-f','❌ La hora de fin debe ser posterior a la de inicio.'); ok2=false; }
+    // Lugar
+    if(!lugar){ evMostrarErrCampo('ev-lugar','❌ El lugar es obligatorio.'); ok2=false; }
+    else if(!evCheckTexto('ev-lugar')){ ok2=false; }
+    // Imagen obligatoria
+    if(!window._evFormData._imagenFile && !window._evFormData._imagenUrl){
+      var imgErr=get('ev-img-err');
+      if(imgErr){imgErr.textContent='❌ Agrega una imagen para el evento.';imgErr.style.color='#ff6b6b';imgErr.style.display='block';}
+      ok2=false;
+    } else { var imgErr2=get('ev-img-err'); if(imgErr2) imgErr2.style.display='none'; }
+    if(!ok2) return;
     window._evFormData.fecha=fecha; window._evFormData.lugar=lugar;
-    window._evFormData.horaInicio=hi;
-    window._evFormData.horaFin=(get('ev-hora-f')&&get('ev-hora-f').value)||'';
+    window._evFormData.horaInicio=hi; window._evFormData.horaFin=hf||'';
     window._evFormData.precio=parseFloat(get('ev-precio')&&get('ev-precio').value)||0;
     window._evFormData.cupo=parseInt(get('ev-cupo')&&get('ev-cupo').value)||0;
     var org=(get('ev-org')&&get('ev-org').value||'').trim();
