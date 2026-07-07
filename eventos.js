@@ -1026,37 +1026,43 @@ function _evOcultarOverlayCargando(){
 }
 
 window.evConfirmarCodigoPromo = async function(){
-  if(!_evPromoActivo){ var m=document.getElementById('ev-promo-modal'); if(m)m.remove(); evMostrarOpciones(); return; }
-  var modal = document.getElementById('ev-promo-modal');
-  if(modal) modal.remove();
-  _evMostrarOverlayCargando();
+  if(!_evPromoActivo){ evMostrarOpciones(); return; }
   var promoSnap = _evPromoActivo;
+  _evMostrarOverlayCargando();
   var timedOut = false;
   var timeoutId;
-  var savePromise = evGuardarEvento('en_revision','codigo_promocional', promoSnap, true, true);
-  var timeoutPromise = new Promise(function(resolve){
-    timeoutId = setTimeout(function(){ timedOut=true; resolve(false); }, 12000);
-  });
-  var resultado = await Promise.race([savePromise, timeoutPromise]);
+  var resultado = false;
+  try {
+    var savePromise = evGuardarEvento('en_revision','codigo_promocional', promoSnap, true, true)
+      .catch(function(e){ console.error('[promo] evGuardarEvento threw:', e); return false; });
+    var timeoutPromise = new Promise(function(resolve){
+      timeoutId = setTimeout(function(){ timedOut=true; resolve(false); }, 12000);
+    });
+    resultado = await Promise.race([savePromise, timeoutPromise]);
+  } catch(e){
+    console.error('[promo] error inesperado:', e);
+    resultado = false;
+  }
   clearTimeout(timeoutId);
   _evOcultarOverlayCargando();
   if(resultado && resultado.id){
-    txt('ev-ok-msg', resultado.msgPrincipal);
-    txt('ev-ok-sub', resultado.msgSub);
+    _evPromoActivo = null;
+    txt('ev-ok-msg', resultado.msgPrincipal||'¡Evento enviado a revisión!');
+    txt('ev-ok-sub', resultado.msgSub||'Te notificaremos cuando sea aprobado.');
     go('v-ev-ok','right');
     if(!promoSnap.esMaster){
       var uid = window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid;
-      await evConsumirCodigo(promoSnap, uid||'', resultado.id);
+      evConsumirCodigo(promoSnap, uid||'', resultado.id);
     }
-    _evPromoActivo = null;
   } else {
-    // Falló o timeout → volver a pantalla de opciones con mensaje de error en el campo promo
     _evPromoActivo = null;
     evMostrarOpciones();
     setTimeout(function(){
       var errEl = get('ev-promo-err');
       if(errEl){
-        errEl.textContent = timedOut ? '❌ Tiempo agotado. Verifica tu conexión e intenta de nuevo.' : '❌ Error al guardar. Verifica tu conexión e intenta de nuevo.';
+        errEl.textContent = timedOut
+          ? '❌ Tiempo agotado (12 s). Verifica tu conexión e intenta de nuevo.'
+          : '❌ Error al guardar. Verifica tu conexión e intenta de nuevo.';
         errEl.style.color = '#ff6b6b';
         errEl.style.display = 'block';
       }
