@@ -1125,51 +1125,31 @@ async function evGuardarEvento(estado, tipoPub, promoData, sinAlert, noNav){
   var uid     = auth && auth.uid;
   var uNombre = localStorage.getItem('dcuserNombre')||'';
   var uTipo   = localStorage.getItem('dcuserTipo')||'vecino';
-  console.time('[EV] guardar-total');
   try {
-    console.log('[EV] 1 → evVerificarAdmin...');
-    console.time('[EV] evVerificarAdmin');
     var esAdminReal = await evVerificarAdmin();
-    console.timeEnd('[EV] evVerificarAdmin');
-    console.log('[EV] 1 ✓ esAdmin=', esAdminReal);
     var estadoFinal = esAdminReal ? 'publicado' : estado;
 
-    console.log('[EV] 2 → evDetectarDuplicado...');
-    console.time('[EV] evDetectarDuplicado');
     var esDup = await evDetectarDuplicado(uid, d.titulo, d.fecha, d.lugar);
-    console.timeEnd('[EV] evDetectarDuplicado');
-    console.log('[EV] 2 ✓ esDup=', esDup);
     if(esDup && estadoFinal==='publicado') estadoFinal='en_revision';
 
     var imagenUrl = '';
     if(window._evFormData._imagenFile){
-      console.log('[EV] 3 → evUploadImagen...');
-      console.time('[EV] evUploadImagen');
       imagenUrl = await evUploadImagen();
-      console.timeEnd('[EV] evUploadImagen');
-      console.log('[EV] 3 ✓ imagenUrl=', imagenUrl ? 'OK' : 'VACÍA (CORS/red)');
       if(!imagenUrl){
         if(sinAlert){
           // Flujo promo: CORS bloquea Storage → guardar sin imagen, no abortar
-          console.warn('[EV] imagen falló (CORS), guardando sin imagen');
           imagenUrl = '';
         } else {
           alert('Error al subir la imagen. Intenta de nuevo.');
           if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
-          console.timeEnd('[EV] guardar-total');
           return false;
         }
       }
     } else {
       imagenUrl = window._evFormData._imagenUrl||'';
-      console.log('[EV] 3 – sin imagen nueva, url=', imagenUrl?'tiene':'vacía');
     }
 
-    console.log('[EV] 4 → evLeerVerificado...');
-    console.time('[EV] evLeerVerificado');
     var verificado = uid ? await evLeerVerificado(uid) : false;
-    console.timeEnd('[EV] evLeerVerificado');
-    console.log('[EV] 4 ✓ verificado=', verificado);
     // Organizador verificado + plan pagado puede saltarse revisión al confirmar pago,
     // pero NO puede saltar el pago en sí. Eso lo gestiona el admin.
 
@@ -1238,19 +1218,12 @@ async function evGuardarEvento(estado, tipoPub, promoData, sinAlert, noNav){
       delete data.stats;
       delete data.eliminado;
       data.actualizadoEn = ahora;
-      console.log('[EV] 5 → updateDoc (edición)...');
-      console.time('[EV] updateDoc');
       await F.updateDoc(F.doc(window._fbDb,'eventos',window._evEditId), data);
-      console.timeEnd('[EV] updateDoc');
       eventoIdResultado = window._evEditId;
     } else {
-      console.log('[EV] 5 → addDoc (nuevo)...');
-      console.time('[EV] addDoc');
       var docRef = await F.addDoc(F.collection(window._fbDb,'eventos'), data);
-      console.timeEnd('[EV] addDoc');
       eventoIdResultado = docRef.id;
     }
-    console.log('[EV] 5 ✓ eventoId=', eventoIdResultado);
 
     var msgPrincipal, msgSub;
     if(estadoFinal==='publicado'){
@@ -1263,8 +1236,6 @@ async function evGuardarEvento(estado, tipoPub, promoData, sinAlert, noNav){
       msgPrincipal='¡Evento enviado a revisión!';
       msgSub='El proceso toma menos de 24 horas. Te notificaremos cuando sea aprobado.'+(esDup?' (posible duplicado detectado — revisión manual)':'');
     }
-    console.log('[EV] 6 ✓ guardar completo, navegando...');
-    console.timeEnd('[EV] guardar-total');
     if(!noNav){
       txt('ev-ok-msg', msgPrincipal);
       txt('ev-ok-sub', msgSub);
@@ -1272,8 +1243,7 @@ async function evGuardarEvento(estado, tipoPub, promoData, sinAlert, noNav){
     }
     return { id: eventoIdResultado, msgPrincipal: msgPrincipal, msgSub: msgSub };
   } catch(e){
-    console.error('[EV] ❌ evGuardarEvento catch:', e);
-    console.timeEnd('[EV] guardar-total');
+    console.error('[Dominio Eventos] Error evGuardarEvento:', e);
     if(!sinAlert) alert('Error al guardar: '+e.message);
     if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
     return false;
