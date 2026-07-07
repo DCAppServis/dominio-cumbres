@@ -4,7 +4,11 @@
 
 var EV_COLOR = '#7C3AED';
 
-var EV_CATS = ['Todos','🎵 Música','🏃 Deportes','👶 Familiar','🍽️ Gastronomía','📚 Cursos','🐾 Mascotas','🎨 Cultura','🎭 Arte','🌿 Bienestar','🛒 Mercado'];
+var EV_CATS_DEFAULT = ['Todos','🎵 Música','🏃 Deportes','👶 Familiar','🍽️ Gastronomía','📚 Cursos','🐾 Mascotas','🎨 Cultura','🎭 Arte','🌿 Bienestar','🛒 Mercado'];
+var EV_CATS = EV_CATS_DEFAULT.slice();
+
+// Precios con fallback (se sobreescriben desde configuracion/eventos)
+var EV_PRECIOS = { normal:79, premium:129, destacado30:199, diasPremium:15, diasDestacado30:30 };
 
 var EV_ESTADOS = {
   borrador:       { label:'Borrador',          color:'#64748b', icon:'📝' },
@@ -34,7 +38,6 @@ var EV_REGLAS_BLOQUEO = [
   { re: /\b(idiota|imb[eé]cil|maldito|put[ao]|cabr[oó]n|pendejo|culero|chinga|verga|pinche)\b/i, msg: '❌ No se permite lenguaje ofensivo.' }
 ];
 
-// ─── ANTI-SPAM: ADVERTENCIAS (no bloquean) ────────────
 function evAdvertencias(val){
   var msgs = [];
   var emojiRe = /\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu;
@@ -56,12 +59,16 @@ window._evMisActivos = [];
 window._evMisRev     = [];
 window._evMisPasados = [];
 
+var _evAdminCache  = null; // null=no verificado, true/false=resultado Firestore
+var _evBannerTimer = null;
+var _evBannerIdx   = 0;
+var _evBannerItems = [];
+
 // ─── HELPERS ──────────────────────────────────────────
 function get(id){ return document.getElementById(id); }
 function txt(id,val){ var el=get(id); if(el) el.textContent=val; }
 function html(id,val){ var el=get(id); if(el) el.innerHTML=val; }
 
-// Escape HTML para prevenir XSS
 function evEsc(s){
   return String(s==null?'':s)
     .replace(/&/g,'&amp;')
@@ -71,7 +78,6 @@ function evEsc(s){
     .replace(/'/g,'&#39;');
 }
 
-// Normalizar texto para detección de duplicados
 function evNorm(s){
   return String(s||'')
     .toLowerCase()
@@ -86,8 +92,51 @@ function evImgHtml(url, size, radius, placeholder){
   return '<div style="width:'+size+'px;height:'+size+'px;border-radius:'+radius+';background:linear-gradient(135deg,#2D1B69,#4C1D95);display:flex;align-items:center;justify-content:center;font-size:'+(size*0.45)+'px;flex-shrink:0;">'+placeholder+'</div>';
 }
 
-function evIsAdmin(){
-  return localStorage.getItem('dcAdminSes')==='1';
+function evFechaRelativa(ts){
+  if(!ts) return '';
+  try{
+    var ms = ts.toMillis ? ts.toMillis() : (typeof ts==='number'?ts:0);
+    var diff = Date.now()-ms;
+    if(diff<60000) return 'ahora';
+    if(diff<3600000) return Math.floor(diff/60000)+'m';
+    if(diff<86400000) return Math.floor(diff/3600000)+'h';
+    return Math.floor(diff/86400000)+'d';
+  }catch(_){ return ''; }
+}
+
+// ─── ADMIN VERIFICADO DESDE FIRESTORE ─────────────────
+// localStorage solo se usa como indicador visual, NUNCA como autorización real
+async function evVerificarAdmin(){
+  if(_evAdminCache !== null) return _evAdminCache;
+  try {
+    var uid = window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid;
+    if(!uid){ _evAdminCache=false; return false; }
+    var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    var snap = await F.getDoc(F.doc(window._fbDb,'usuarios',uid));
+    if(!snap.exists()){ _evAdminCache=false; return false; }
+    var data = snap.data();
+    _evAdminCache = data.rol==='admin' || data.rol==='maestro' || data.esAdmin===true;
+    return _evAdminCache;
+  } catch(_){ _evAdminCache=false; return false; }
+}
+
+// ─── CARGAR CONFIG DESDE FIRESTORE ────────────────────
+// configuracion/eventos: { categorias[], precioNormal, precioPremium, precioImpulsar30, diasPremium, diasImpulsar30 }
+async function evCargarConfig(){
+  try {
+    var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    var snap = await F.getDoc(F.doc(window._fbDb,'configuracion','eventos'));
+    if(!snap.exists()) return;
+    var cfg = snap.data();
+    if(cfg.categorias && Array.isArray(cfg.categorias) && cfg.categorias.length){
+      EV_CATS = ['Todos'].concat(cfg.categorias);
+    }
+    if(cfg.precioNormal)   EV_PRECIOS.normal      = cfg.precioNormal;
+    if(cfg.precioPremium)  EV_PRECIOS.premium     = cfg.precioPremium;
+    if(cfg.precioImpulsar30) EV_PRECIOS.destacado30 = cfg.precioImpulsar30;
+    if(cfg.diasPremium)    EV_PRECIOS.diasPremium    = cfg.diasPremium;
+    if(cfg.diasImpulsar30) EV_PRECIOS.diasDestacado30= cfg.diasImpulsar30;
+  } catch(_){} // silently use fallback defaults
 }
 
 // ─── VALIDACIÓN DE TEXTO ──────────────────────────────
@@ -100,7 +149,6 @@ function evValidarTexto(val){
   return null;
 }
 
-// Mostrar error en campo
 function evMostrarErrCampo(id, msg, color){
   var el = get(id); if(!el) return;
   el.style.borderColor = color||'#D63A2A';
@@ -114,7 +162,6 @@ function evLimpiarErr(id){
   var errEl=get(id+'-err'); if(errEl){ errEl.textContent=''; errEl.style.display='none'; }
 }
 
-// Valida campo en tiempo real (oninput)
 window.evValidarCampo = function(el){
   var val=(el.value||'').trim();
   var errEl=get(el.id+'-err');
@@ -137,18 +184,54 @@ window.evValidarCampo = function(el){
 
 // ─── PORTAL ───────────────────────────────────────────
 window.evCargarPortal = async function(){
+  _evAdminCache = null; // reset cache on each portal load
   html('ev-lista','<div style="text-align:center;padding:32px;color:rgba(255,255,255,.3);font-size:13px;">Cargando eventos... ⏳</div>');
   try {
+    await evCargarConfig();
     var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-    var q = F.query(F.collection(window._fbDb,'eventos'), F.where('estado','==','publicado'), F.orderBy('creadoEn','desc'));
-    var snap = await F.getDocs(q);
+    var snap;
+    try {
+      // Intento con índice compuesto (estado + orderBy creadoEn)
+      var q1 = F.query(
+        F.collection(window._fbDb,'eventos'),
+        F.where('estado','==','publicado'),
+        F.orderBy('creadoEn','desc')
+      );
+      snap = await F.getDocs(q1);
+    } catch(indexErr){
+      console.error('[Dominio Eventos] evCargarPortal índice no disponible, usando fallback:', indexErr.message||indexErr);
+      // Fallback: query sin orderBy, ordenar en JS
+      var q2 = F.query(
+        F.collection(window._fbDb,'eventos'),
+        F.where('estado','==','publicado')
+      );
+      snap = await F.getDocs(q2);
+    }
     window._evDatos = [];
-    snap.forEach(function(d){ window._evDatos.push(Object.assign({id:d.id},d.data())); });
+    snap.forEach(function(d){
+      var ev = Object.assign({id:d.id}, d.data());
+      if(!ev.eliminado) window._evDatos.push(ev);
+    });
+    // Ordenar por creadoEn desc en JS siempre (refuerzo del fallback)
+    window._evDatos.sort(function(a,b){
+      var ta = a.creadoEn&&a.creadoEn.toMillis ? a.creadoEn.toMillis() : 0;
+      var tb = b.creadoEn&&b.creadoEn.toMillis ? b.creadoEn.toMillis() : 0;
+      return tb - ta;
+    });
     evRenderCats();
     evRenderBanner();
     evRenderLista();
   } catch(e){
-    html('ev-lista','<div style="color:#D63A2A;font-size:12px;padding:12px;text-align:center;">Error al cargar eventos. Intenta de nuevo.</div>');
+    console.error('[Dominio Eventos] Error evCargarPortal:', e);
+    // Mostrar empty state bonito, no pantalla de error rota
+    evRenderBannerVacio(get('ev-banner'));
+    html('ev-lista',
+      '<div style="text-align:center;padding:40px 20px;">'
+      +'<div style="font-size:40px;margin-bottom:12px;">🎪</div>'
+      +'<div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px;">Dominio Eventos</div>'
+      +'<div style="font-size:12px;color:rgba(255,255,255,.25);">No hay eventos disponibles por el momento</div>'
+      +'</div>'
+    );
   }
 };
 
@@ -161,34 +244,58 @@ function evRenderCats(){
   }).join('');
 }
 
-function evRenderBanner(){
-  var cont = get('ev-banner');
+function evRenderBannerVacio(cont){
   if(!cont) return;
-  var dest = window._evDatos.filter(function(e){ return e.tipo==='oficial'||e.tipo==='premium'; });
-  if(!dest.length){
-    cont.innerHTML = '<div style="height:190px;background:linear-gradient(135deg,#1E0A3C,#4C1D95,#2D1B69);border-radius:18px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative;overflow:hidden;">'
-      +'<div style="position:absolute;inset:0;opacity:.3;background:radial-gradient(circle at 30% 50%,#7C3AED,transparent 60%)"></div>'
-      +'<div style="text-align:center;position:relative;"><div style="font-size:48px;">🎪</div>'
-      +'<div style="font-size:16px;font-weight:800;color:#fff;margin-top:8px;">Dominio Eventos</div>'
-      +'<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:4px;">Descubre y vive tu comunidad</div></div>'
-      +'</div>';
-    return;
-  }
-  var ev = dest[0];
-  var imgStyle = ev.imagen
-    ? 'url('+evEsc(ev.imagen)+') center/cover'
-    : 'linear-gradient(135deg,#2D1B69,#7C3AED)';
+  cont.innerHTML = '<div style="height:190px;background:linear-gradient(135deg,#1E0A3C,#4C1D95,#2D1B69);border-radius:18px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative;overflow:hidden;">'
+    +'<div style="position:absolute;inset:0;opacity:.3;background:radial-gradient(circle at 30% 50%,#7C3AED,transparent 60%)"></div>'
+    +'<div style="text-align:center;position:relative;"><div style="font-size:48px;">🎪</div>'
+    +'<div style="font-size:16px;font-weight:800;color:#fff;margin-top:8px;">Dominio Eventos</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:4px;">Descubre y vive tu comunidad</div></div>'
+    +'</div>';
+}
+
+function evRenderBannerSlide(cont){
+  if(!cont || !_evBannerItems.length) return;
+  var ev = _evBannerItems[_evBannerIdx];
+  var imgStyle = ev.imagen ? 'url('+evEsc(ev.imagen)+') center/cover' : 'linear-gradient(135deg,#2D1B69,#7C3AED)';
   var badge = ev.tipo==='oficial'
     ? '<div style="position:absolute;top:12px;left:12px;background:#7C3AED;color:#fff;font-size:9px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:.5px;">✦ OFICIAL</div>'
     : '<div style="position:absolute;top:12px;left:12px;background:#F5C518;color:#000;font-size:9px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:.5px;">⭐ PREMIUM</div>';
+  var dots = _evBannerItems.length > 1
+    ? '<div style="position:absolute;bottom:50px;left:0;right:0;display:flex;justify-content:center;gap:5px;pointer-events:none;">'
+      + _evBannerItems.map(function(_,i){
+          return '<div style="width:'+(i===_evBannerIdx?16:5)+'px;height:5px;border-radius:3px;background:'+(i===_evBannerIdx?'#fff':'rgba(255,255,255,.35)')+';"></div>';
+        }).join('')
+      +'</div>'
+    : '';
   cont.innerHTML = '<div style="height:200px;background:'+imgStyle+';border-radius:18px;position:relative;overflow:hidden;margin-bottom:16px;cursor:pointer;" onclick="evAbrirDetalle(\''+evEsc(ev.id)+'\')">'
     +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.1) 55%,transparent 100%);"></div>'
-    +badge
+    +badge+dots
     +'<div style="position:absolute;bottom:0;left:0;right:0;padding:14px 16px;">'
     +'<div style="font-size:17px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:4px;">'+evEsc(ev.titulo)+'</div>'
     +'<div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:8px;">📅 '+evEsc(ev.fecha)+(ev.horaInicio?' · '+evEsc(ev.horaInicio):'')+(ev.lugar?' · 📍 '+evEsc(ev.lugar):'')+'</div>'
     +'<button style="background:#7C3AED;border:none;border-radius:20px;color:#fff;font-size:11px;font-weight:700;padding:7px 18px;cursor:pointer;">Ver más →</button>'
     +'</div></div>';
+}
+
+function evRenderBanner(){
+  var cont = get('ev-banner');
+  if(!cont) return;
+  if(_evBannerTimer){ clearInterval(_evBannerTimer); _evBannerTimer=null; }
+  _evBannerItems = window._evDatos.filter(function(e){
+    return e.tipo==='oficial'||e.tipo==='premium'||e.esPremium||e.apareceEnBanner;
+  });
+  if(!_evBannerItems.length){ evRenderBannerVacio(cont); return; }
+  _evBannerIdx = 0;
+  evRenderBannerSlide(cont);
+  if(_evBannerItems.length > 1){
+    _evBannerTimer = setInterval(function(){
+      _evBannerIdx = (_evBannerIdx+1) % _evBannerItems.length;
+      var c = get('ev-banner');
+      if(c) evRenderBannerSlide(c);
+      else { clearInterval(_evBannerTimer); _evBannerTimer=null; }
+    }, 4000);
+  }
 }
 
 function evRenderLista(){
@@ -243,11 +350,16 @@ window.evAbrirDetalle = async function(id){
   var ev = window._evDatos.find(function(e){ return e.id===id; });
   if(!ev) return;
   window._evActual = ev;
+  var F;
   try {
-    var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-    F.updateDoc(F.doc(window._fbDb,'eventos',id),{'stats.vistas':F.increment(1)}).catch(function(){});
+    F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    F.updateDoc(F.doc(window._fbDb,'eventos',id),{
+      'stats.vistas': F.increment(1),
+      ultimaVistaEn:  F.serverTimestamp()
+    }).catch(function(){});
     if(ev.stats) ev.stats.vistas=(ev.stats.vistas||0)+1;
   } catch(_){}
+
   var badge = ev.tipo==='oficial'
     ? '<span style="background:#7C3AED;color:#fff;font-size:10px;font-weight:800;padding:4px 12px;border-radius:20px;">✦ EVENTO OFICIAL</span>'
     : ev.tipo==='premium'
@@ -259,6 +371,8 @@ window.evAbrirDetalle = async function(id){
   var imgTop = ev.imagen
     ? '<div style="height:240px;background:url('+evEsc(ev.imagen)+') center/cover;position:relative;"></div>'
     : '<div style="height:180px;background:linear-gradient(135deg,#1E0A3C,#4C1D95);display:flex;align-items:center;justify-content:center;font-size:72px;position:relative;">🎪</div>';
+  var eventoPublicId = ev.eventoPublicId ? '<div style="font-size:10px;color:rgba(255,255,255,.2);margin-bottom:14px;">Folio: '+evEsc(ev.eventoPublicId)+'</div>' : '';
+
   html('ev-det-cont',
     '<div style="position:relative;">'
     +imgTop
@@ -270,7 +384,7 @@ window.evAbrirDetalle = async function(id){
     +'<div style="background:var(--card-dark);border-radius:14px;padding:14px;margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">'
     +'<div style="font-size:13px;color:rgba(255,255,255,.75);display:flex;gap:8px;align-items:center;"><span style="font-size:16px;">📅</span><span>'+evEsc(ev.fecha)+(ev.horaInicio?' · '+evEsc(ev.horaInicio)+(ev.horaFin?' – '+evEsc(ev.horaFin):''):'')+'</span></div>'
     +'<div style="font-size:13px;color:rgba(255,255,255,.75);display:flex;gap:8px;align-items:center;"><span style="font-size:16px;">📍</span><span>'+evEsc(ev.lugar||'Por confirmar')+'</span></div>'
-    +(ev.organizador?'<div style="font-size:13px;color:rgba(255,255,255,.75);display:flex;gap:8px;align-items:center;"><span style="font-size:16px;">👤</span><span>'+evEsc(ev.organizador)+'</span></div>':'')
+    +(ev.organizador?'<div style="font-size:13px;color:rgba(255,255,255,.75);display:flex;gap:8px;align-items:center;"><span style="font-size:16px;">👤</span><span>'+evEsc(ev.organizador)+(ev.organizadorVerificado?' <span style="font-size:10px;background:rgba(124,58,237,.2);color:#a78bfa;border-radius:8px;padding:1px 6px;">✓ verificado</span>':'')+'</span></div>':'')
     +(ev.cupo?'<div style="font-size:13px;color:rgba(255,255,255,.75);display:flex;gap:8px;align-items:center;"><span style="font-size:16px;">👥</span><span>Cupo: '+evEsc(String(ev.cupo))+' personas</span></div>':'')
     +'</div>'
     +'<div style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);border-radius:14px;padding:14px;margin-bottom:14px;">'
@@ -283,19 +397,71 @@ window.evAbrirDetalle = async function(id){
       return '<div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:#fff;">'+(ev.stats&&ev.stats[keys[i]]||0)+'</div><div style="font-size:10px;color:rgba(255,255,255,.35);">'+lbl+'</div></div>';
     }).join('')
     +'</div>'
-    +'<button onclick="evCompartir()" style="width:100%;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.35);border-radius:14px;color:#a78bfa;font-size:13px;font-weight:700;padding:14px;cursor:pointer;margin-bottom:8px;">📤 Compartir evento</button>'
+    +'<button id="ev-interes-btn" onclick="evMeInteresa()" style="width:100%;background:rgba(214,58,42,.1);border:1px solid rgba(214,58,42,.3);border-radius:14px;color:#ff6b6b;font-size:13px;font-weight:700;padding:14px;cursor:pointer;margin-bottom:8px;font-family:inherit;">❤️ Me interesa</button>'
+    +'<button onclick="evCompartir()" style="width:100%;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.35);border-radius:14px;color:#a78bfa;font-size:13px;font-weight:700;padding:14px;cursor:pointer;margin-bottom:8px;font-family:inherit;">📤 Compartir evento</button>'
+    +eventoPublicId
     +'<div style="height:16px;"></div></div>'
   );
   go('v-ev-det','right');
+
+  // Verificar si el usuario ya marcó interés (async, actualiza botón)
+  var uid = window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid;
+  if(uid && F){
+    evVerificarInteres(id, uid, F).then(function(yaInteresa){
+      var btn = get('ev-interes-btn');
+      if(btn && yaInteresa){
+        btn.textContent='❤️ Ya te interesa';
+        btn.disabled=true;
+        btn.style.opacity='0.6';
+        btn.style.cursor='default';
+      }
+    }).catch(function(){});
+  }
 };
 
-// Compartir — incrementa contador solo si realmente se comparte
+async function evVerificarInteres(eventoId, uid, F){
+  try {
+    if(!F) F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    var snap = await F.getDoc(F.doc(window._fbDb,'eventos',eventoId,'interesados',uid));
+    return snap.exists();
+  } catch(_){ return false; }
+}
+
+window.evMeInteresa = async function(){
+  var ev = window._evActual||{};
+  if(!ev.id) return;
+  var auth = window._fbAuth && window._fbAuth.currentUser;
+  if(!auth){ alert('Inicia sesión para marcar interés.'); return; }
+  var uid = auth.uid;
+  var btn = get('ev-interes-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Registrando...'; }
+  try {
+    var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    var intRef = F.doc(window._fbDb,'eventos',ev.id,'interesados',uid);
+    var snap = await F.getDoc(intRef);
+    if(snap.exists()){
+      if(btn){ btn.textContent='❤️ Ya te interesa'; btn.style.opacity='0.6'; btn.style.cursor='default'; }
+      return;
+    }
+    await F.setDoc(intRef,{ uid:uid, en:F.serverTimestamp() });
+    await F.updateDoc(F.doc(window._fbDb,'eventos',ev.id),{
+      'stats.interesados': F.increment(1),
+      ultimaInteraccionEn: F.serverTimestamp()
+    });
+    if(ev.stats) ev.stats.interesados=(ev.stats.interesados||0)+1;
+    if(btn){ btn.textContent='❤️ Ya te interesa'; btn.style.opacity='0.6'; btn.style.cursor='default'; }
+  } catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='❤️ Me interesa'; }
+    console.error('[Dominio Eventos] evMeInteresa:', e);
+  }
+};
+
 window.evCompartir = async function(){
   var ev = window._evActual||{};
   var compartido = false;
   if(navigator.share){
     try{
-      await navigator.share({ title:ev.titulo||'Evento', text:(ev.titulo||'Evento')+'\n📅 '+(ev.fecha||'')+'\n📍 '+(ev.lugar||''), url: window.location.href });
+      await navigator.share({ title:ev.titulo||'Evento', text:(ev.titulo||'Evento')+'\n📅 '+(ev.fecha||'')+'\n📍 '+(ev.lugar||''), url:window.location.href });
       compartido = true;
     }catch(_){}
   } else {
@@ -304,7 +470,10 @@ window.evCompartir = async function(){
   if(compartido && ev.id){
     try{
       var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-      F.updateDoc(F.doc(window._fbDb,'eventos',ev.id),{'stats.compartidos':F.increment(1)}).catch(function(){});
+      F.updateDoc(F.doc(window._fbDb,'eventos',ev.id),{
+        'stats.compartidos': F.increment(1),
+        ultimaInteraccionEn: F.serverTimestamp()
+      }).catch(function(){});
       if(ev.stats) ev.stats.compartidos=(ev.stats.compartidos||0)+1;
     }catch(_){}
   }
@@ -313,14 +482,17 @@ window.evCompartir = async function(){
 // ─── CREAR EVENTO ─────────────────────────────────────
 window.evIniciarCrear = function(){
   var auth = window._fbAuth && window._fbAuth.currentUser;
-  if(!auth && !evIsAdmin()){ alert('Inicia sesión para crear un evento.'); return; }
+  if(!auth){ alert('Inicia sesión para crear un evento.'); return; }
   window._evFormData = {};
   window._evEditId   = null;
   go('v-ev-crear-tipo','right');
 };
 
-window.evElegirTipo = function(tipo){
-  if(tipo==='oficial' && !evIsAdmin()){ alert('Solo los administradores pueden crear eventos oficiales.'); return; }
+window.evElegirTipo = async function(tipo){
+  if(tipo==='oficial'){
+    var esAdmin = await evVerificarAdmin();
+    if(!esAdmin){ alert('Solo los administradores pueden crear eventos oficiales.'); return; }
+  }
   window._evFormData.tipo = tipo;
   go('v-ev-reglas','right');
 };
@@ -336,7 +508,6 @@ function evLimpiarFormulario(){
     var el=get(id); if(el) el.value='';
     evLimpiarErr(id);
   });
-  // Limpiar imagen
   var prev=get('ev-img-preview'), lbl=get('ev-img-label');
   if(prev){prev.style.display='none';prev.style.backgroundImage='';}
   if(lbl) lbl.style.display='flex';
@@ -358,7 +529,7 @@ function evIrFormStep(step){
   go('v-ev-form','right');
 }
 
-// ─── PASO 1: VALIDAR INFO ─────────────────────────────
+// ─── PASO 1 y 2: VALIDAR INFO ─────────────────────────
 window.evSiguienteStep = function(){
   var step = window._evFormStep||1;
   if(step===1){
@@ -368,7 +539,6 @@ window.evSiguienteStep = function(){
     var tipoEv  = (get('ev-tipo-ev')&&get('ev-tipo-ev').value)||'';
     var ok = true;
 
-    // Título
     if(!titulo){
       evMostrarErrCampo('ev-titulo','❌ El título es obligatorio.'); ok=false;
     } else if(titulo.length<5){
@@ -382,7 +552,6 @@ window.evSiguienteStep = function(){
       else evLimpiarErr('ev-titulo');
     }
 
-    // Descripción
     if(!desc){
       evMostrarErrCampo('ev-desc','❌ La descripción es obligatoria.'); ok=false;
     } else if(desc.length<30){
@@ -396,12 +565,10 @@ window.evSiguienteStep = function(){
       else evLimpiarErr('ev-desc');
     }
 
-    // Categoría
     if(!cat){
       var ce=get('ev-cat-err'); if(ce){ce.textContent='❌ Selecciona una categoría.';ce.style.color='#ff6b6b';ce.style.display='block';} ok=false;
     } else { var ce2=get('ev-cat-err'); if(ce2) ce2.style.display='none'; }
 
-    // Tipo de evento
     if(!tipoEv){
       var te=get('ev-tipo-ev-err'); if(te){te.textContent='❌ Selecciona el tipo de evento.';te.style.color='#ff6b6b';te.style.display='block';} ok=false;
     } else { var te2=get('ev-tipo-ev-err'); if(te2) te2.style.display='none'; }
@@ -423,7 +590,6 @@ window.evSiguienteStep = function(){
     var cupo   = parseInt(get('ev-cupo')&&get('ev-cupo').value)||0;
     var ok2 = true;
 
-    // Fecha
     if(!fecha){
       evMostrarErrCampo('ev-fecha','❌ La fecha es obligatoria.'); ok2=false;
     } else {
@@ -433,15 +599,12 @@ window.evSiguienteStep = function(){
       else evLimpiarErr('ev-fecha');
     }
 
-    // Hora inicio
     if(!hi){ evMostrarErrCampo('ev-hora-i','❌ La hora de inicio es obligatoria.'); ok2=false; }
     else evLimpiarErr('ev-hora-i');
 
-    // Hora fin posterior a inicio
     if(hi&&hf&&hf<=hi){ evMostrarErrCampo('ev-hora-f','❌ La hora de fin debe ser posterior a la de inicio.'); ok2=false; }
     else if(hf) evLimpiarErr('ev-hora-f');
 
-    // Lugar
     if(!lugar){
       evMostrarErrCampo('ev-lugar','❌ El lugar es obligatorio.'); ok2=false;
     } else if(lugar.length>200){
@@ -452,7 +615,6 @@ window.evSiguienteStep = function(){
       else evLimpiarErr('ev-lugar');
     }
 
-    // Organizador (opcional pero validado si se escribe)
     if(org){
       if(org.length>100){ evMostrarErrCampo('ev-org','❌ El nombre del organizador no puede superar 100 caracteres.'); ok2=false; }
       else {
@@ -462,12 +624,9 @@ window.evSiguienteStep = function(){
       }
     } else evLimpiarErr('ev-org');
 
-    // Precio válido
-    if(precio<0||precio>99999){ evMostrarErrCampo('ev-precio','❌ Precio inválido (0–99999).'); ok2=false; }
-    // Cupo válido
-    if(cupo<0||cupo>99999){ evMostrarErrCampo('ev-cupo','❌ Cupo inválido (0–99999).'); ok2=false; }
+    if(isNaN(precio)||precio<0||precio>99999){ evMostrarErrCampo('ev-precio','❌ Precio inválido (0–99,999).'); ok2=false; }
+    if(isNaN(cupo)||cupo<0||cupo>99999){ evMostrarErrCampo('ev-cupo','❌ Cupo inválido (0–99,999).'); ok2=false; }
 
-    // Imagen obligatoria
     if(!window._evFormData._imagenFile && !window._evFormData._imagenUrl){
       var ie=get('ev-img-err');
       if(ie){ie.textContent='❌ Agrega una imagen para el evento.';ie.style.color='#ff6b6b';ie.style.display='block';}
@@ -510,11 +669,14 @@ async function evUploadImagen(){
   try {
     var S   = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js");
     var uid = (window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid)||'anon';
-    var ext = window._evFormData._imagenFile.name.split('.').pop().toLowerCase()||'jpg';
+    var ext = (window._evFormData._imagenFile.name.split('.').pop()||'jpg').toLowerCase();
     var ref = S.ref(window._fbStorage,'eventos/'+uid+'_'+Date.now()+'.'+ext);
     await S.uploadBytes(ref, window._evFormData._imagenFile);
     return await S.getDownloadURL(ref);
-  } catch(e){ return ''; }
+  } catch(e){
+    console.error('[Dominio Eventos] Error subiendo imagen:', e);
+    return '';
+  }
 }
 
 // ─── PREVIEW ──────────────────────────────────────────
@@ -548,13 +710,44 @@ function evMostrarPreview(){
   go('v-ev-preview','right');
 }
 
-window.evContinuarDesdePreview = function(){
+window.evContinuarDesdePreview = async function(){
+  var auth = window._fbAuth && window._fbAuth.currentUser;
+  var uid  = auth && auth.uid;
+  if(uid){
+    var esAdmin = await evVerificarAdmin();
+    if(!esAdmin){
+      var uTipo = localStorage.getItem('dcuserTipo')||'vecino';
+      var limRes = await evVerificarLimiteActivos(uid, uTipo);
+      if(!limRes.ok){
+        alert('Has alcanzado el límite de '+limRes.limite+' evento(s) activo(s) para tu cuenta. Espera a que alguno finalice antes de publicar uno nuevo.');
+        return;
+      }
+    }
+  }
   go('v-ev-publicar','right');
   evRenderPublicar();
 };
 
+// ─── LÍMITE EVENTOS ACTIVOS ───────────────────────────
+// vecino: máx 1 activo. restaurante/negocio/servicio/ride: máx 3. admin: sin límite.
+async function evVerificarLimiteActivos(uid, uTipo){
+  var ACTIVOS = ['publicado','en_revision','pendiente_pago','pago_recibido'];
+  try {
+    var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    // Query sin orderBy para evitar índice compuesto
+    var snap = await F.getDocs(F.query(F.collection(window._fbDb,'eventos'), F.where('autorUid','==',uid)));
+    var count = 0;
+    snap.forEach(function(d){
+      var ev = d.data();
+      if(ACTIVOS.indexOf(ev.estado)!==-1 && !ev.eliminado) count++;
+    });
+    var limite = (uTipo==='vecino'||!uTipo) ? 1 : 3;
+    if(count>=limite) return { ok:false, limite:limite, activos:count };
+    return { ok:true };
+  } catch(_){ return { ok:true }; } // si falla, no bloquear
+}
+
 // ─── PUBLICAR ─────────────────────────────────────────
-// Lee cortesías desde Firestore (fuente de verdad)
 async function evLeerCortesia(uid){
   try {
     var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
@@ -567,16 +760,14 @@ async function evLeerCortesia(uid){
 async function evDescontarCortesia(uid){
   try {
     var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-    var ref = F.doc(window._fbDb,'usuarios',uid,'beneficios','eventos');
-    await F.updateDoc(ref,{
+    await F.updateDoc(F.doc(window._fbDb,'usuarios',uid,'beneficios','eventos'),{
       cortesiasDisponibles: F.increment(-1),
-      cortesiasUsadas: F.increment(1),
-      ultimaCortesiaUsada: F.serverTimestamp()
+      cortesiasUsadas:      F.increment(1),
+      ultimaCortesiaUsada:  F.serverTimestamp()
     });
   } catch(_){}
 }
 
-// Lee si el usuario tiene organizadorVerificado
 async function evLeerVerificado(uid){
   try {
     var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
@@ -586,8 +777,9 @@ async function evLeerVerificado(uid){
   } catch(_){ return false; }
 }
 
-function evRenderPublicar(){
-  if(evIsAdmin()){
+async function evRenderPublicar(){
+  var esAdmin = await evVerificarAdmin();
+  if(esAdmin){
     html('ev-pub-cont','<div style="text-align:center;padding:20px 0;">'
       +'<div style="font-size:40px;margin-bottom:12px;">🛡️</div>'
       +'<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px;">Publicación de Administrador</div>'
@@ -596,7 +788,6 @@ function evRenderPublicar(){
       +'</div>');
     return;
   }
-  // Verificar cortesía en Firestore
   var uid = window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid;
   if(!uid){ evMostrarOpciones(); return; }
   html('ev-pub-cont','<div style="text-align:center;padding:32px;color:rgba(255,255,255,.3);font-size:13px;">Verificando beneficios... ⏳</div>');
@@ -616,23 +807,24 @@ function evRenderPublicar(){
 }
 
 window.evMostrarOpciones = function(){
+  // Usa EV_PRECIOS que puede venir de Firestore o del fallback
   html('ev-pub-cont','<div>'
     +'<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:16px;">Elige cómo publicar tu evento:</div>'
     +'<div onclick="evSeleccionarPlan(\'normal\')" style="background:var(--card-dark);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px;margin-bottom:12px;cursor:pointer;">'
     +'<div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;">📋 Publicación Normal</div>'
     +'<div style="font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;margin-bottom:8px;">Aparece en el listado general. Pasa por revisión antes de publicarse.</div>'
-    +'<div style="font-size:20px;font-weight:800;color:#7C3AED;">$79 MXN</div>'
+    +'<div style="font-size:20px;font-weight:800;color:#7C3AED;">$'+EV_PRECIOS.normal+' MXN</div>'
     +'</div>'
     +'<div onclick="evSeleccionarPlan(\'premium\')" style="background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(91,33,182,.08));border:1.5px solid '+EV_COLOR+';border-radius:16px;padding:16px;cursor:pointer;position:relative;">'
     +'<div style="position:absolute;top:-1px;right:14px;background:#F5C518;color:#000;font-size:8px;font-weight:800;padding:3px 8px;border-radius:0 0 8px 8px;letter-spacing:.3px;">MÁS POPULAR</div>'
     +'<div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;">⭐ Destacar evento</div>'
-    +'<div style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.5;margin-bottom:8px;">Aparece en el banner principal · Insignia Premium · Prioridad en resultados.</div>'
-    +'<div style="font-size:20px;font-weight:800;color:#F5C518;">$129 MXN</div>'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.5;margin-bottom:8px;">Aparece en el banner principal · Insignia Premium · Prioridad en resultados · '+EV_PRECIOS.diasPremium+' días.</div>'
+    +'<div style="font-size:20px;font-weight:800;color:#F5C518;">$'+EV_PRECIOS.premium+' MXN</div>'
     +'</div>'
     +'<div onclick="evSeleccionarPlan(\'destacado30\')" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;margin-top:12px;cursor:pointer;">'
     +'<div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;">🚀 Impulsar 30 días</div>'
-    +'<div style="font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;margin-bottom:8px;">Máxima exposición · Mejor valor.</div>'
-    +'<div style="font-size:20px;font-weight:800;color:#fff;">$199 MXN</div>'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;margin-bottom:8px;">Máxima exposición · '+EV_PRECIOS.diasDestacado30+' días · Mejor valor.</div>'
+    +'<div style="font-size:20px;font-weight:800;color:#fff;">$'+EV_PRECIOS.destacado30+' MXN</div>'
     +'</div>'
     +'<div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:12px;padding:10px;margin-top:16px;font-size:10px;color:rgba(255,255,255,.35);text-align:center;line-height:1.6;">'
     +'⚠️ El pago se realiza por transferencia o en efectivo. Al confirmar, tu evento quedará en <strong>Pendiente de pago</strong> hasta que el administrador confirme el depósito.'
@@ -640,9 +832,8 @@ window.evMostrarOpciones = function(){
     +'</div>');
 };
 
-// Selección de plan → pendiente_pago (no pago real todavía)
 window.evSeleccionarPlan = function(plan){
-  var tipoPub = plan==='premium'||plan==='destacado30' ? plan : 'normal';
+  var tipoPub = (plan==='premium'||plan==='destacado30') ? plan : 'normal';
   evGuardarEvento('pendiente_pago', tipoPub);
 };
 
@@ -651,15 +842,32 @@ window.evPublicarCortesia = async function(){
   if(!uid){ alert('Debes iniciar sesión.'); return; }
   var disponibles = await evLeerCortesia(uid);
   if(disponibles<=0){ alert('Ya no tienes cortesías disponibles.'); evMostrarOpciones(); return; }
-  await evDescontarCortesia(uid);
-  evGuardarEvento('en_revision','normal');
+  // Guardar evento PRIMERO, descontar cortesía SOLO si el guardado tuvo éxito
+  var ok = await evGuardarEvento('en_revision','normal');
+  if(ok) await evDescontarCortesia(uid);
 };
 
 window.evPublicarDirecto = async function(estado, tipoPub){
   await evGuardarEvento(estado, tipoPub);
 };
 
+// ─── ID PÚBLICO DEL EVENTO ────────────────────────────
+function evGenerarPublicId(){
+  var year = new Date().getFullYear();
+  var rand = Math.floor(Math.random()*900000)+100000;
+  return 'DCE-'+year+'-'+rand;
+}
+
+// ─── FECHAS PREMIUM ───────────────────────────────────
+function evCalcFechasPremium(plan){
+  var dias = plan==='premium' ? (EV_PRECIOS.diasPremium||15) : (EV_PRECIOS.diasDestacado30||30);
+  var inicio = new Date();
+  var fin    = new Date(inicio.getTime() + dias*24*60*60*1000);
+  return { fechaInicioPremium: inicio.toISOString(), fechaFinPremium: fin.toISOString() };
+}
+
 // ─── GUARDAR EVENTO ───────────────────────────────────
+// Retorna true si el guardado fue exitoso, false si falló
 async function evGuardarEvento(estado, tipoPub){
   var btn = get('ev-pub-btn');
   if(btn){ btn.disabled=true; btn.textContent='Guardando...'; }
@@ -668,22 +876,36 @@ async function evGuardarEvento(estado, tipoPub){
   var uid     = auth && auth.uid;
   var uNombre = localStorage.getItem('dcuserNombre')||'';
   var uTipo   = localStorage.getItem('dcuserTipo')||'vecino';
-  var estadoFinal = evIsAdmin() ? 'publicado' : estado;
+  // Admin real verificado desde Firestore
+  var esAdminReal = await evVerificarAdmin();
+  var estadoFinal = esAdminReal ? 'publicado' : estado;
   try {
-    // Detección de duplicados
     var esDup = await evDetectarDuplicado(uid, d.titulo, d.fecha, d.lugar);
     if(esDup && estadoFinal==='publicado') estadoFinal='en_revision';
 
-    // Subir imagen
-    var imagenUrl = await evUploadImagen();
+    // Subir imagen primero; si falla no guardamos el evento
+    var imagenUrl = '';
+    if(window._evFormData._imagenFile){
+      imagenUrl = await evUploadImagen();
+      if(!imagenUrl){
+        alert('Error al subir la imagen. Intenta de nuevo.');
+        if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
+        return false;
+      }
+    } else {
+      imagenUrl = window._evFormData._imagenUrl||'';
+    }
 
-    // Verificar si organizador está verificado (salta revisión tras pago)
     var verificado = uid ? await evLeerVerificado(uid) : false;
+    // Organizador verificado + plan pagado puede saltarse revisión al confirmar pago,
+    // pero NO puede saltar el pago en sí. Eso lo gestiona el admin.
+
+    var esPremium = tipoPub==='premium'||tipoPub==='destacado30';
+    var fechasPremium = esPremium ? evCalcFechasPremium(tipoPub) : { fechaInicioPremium:null, fechaFinPremium:null };
 
     var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
     var ahora = F.serverTimestamp();
     var data = {
-      // Datos del evento
       titulo:       d.titulo,
       descripcion:  d.descripcion,
       categoria:    d.categoria,
@@ -696,42 +918,52 @@ async function evGuardarEvento(estado, tipoPub){
       cupo:         d.cupo||0,
       organizador:  d.organizador||'',
       imagen:       imagenUrl,
-      // Clasificación
       tipo:         tipoPub||d.tipo||'normal',
-      esPremium:    tipoPub==='premium'||tipoPub==='destacado30',
+      esPremium:    esPremium,
       destacado:    false,
-      destacadoHasta:   null,
-      apareceEnBanner:  tipoPub==='premium'||d.tipo==='oficial',
-      planDestacado:    tipoPub||'normal',
-      // Estado
-      estado:       estadoFinal,
+      destacadoHasta:       null,
+      apareceEnBanner:      tipoPub==='premium'||d.tipo==='oficial',
+      planDestacado:        tipoPub||'normal',
+      fechaInicioPremium:   fechasPremium.fechaInicioPremium,
+      fechaFinPremium:      fechasPremium.fechaFinPremium,
+      estado:               estadoFinal,
+      // Soft delete
+      eliminado:            false,
+      eliminadoEn:          null,
+      eliminadoPor:         null,
       // Moderación
-      motivoRechazo:    '',
-      revisadoPor:      null,
-      revisadoEn:       null,
-      // Campos para duplicados
-      tituloNorm:   evNorm(d.titulo),
-      lugarNorm:    evNorm(d.lugar),
+      motivoRechazo:        '',
+      revisadoPor:          null,
+      revisadoEn:           null,
+      // Campos normalizados para duplicados
+      tituloNorm:           evNorm(d.titulo),
+      lugarNorm:            evNorm(d.lugar),
       // Autor
-      autorUid:     uid||'',
-      autorNombre:  uNombre,
-      autorTipo:    uTipo,
+      autorUid:             uid||'',
+      autorNombre:          uNombre,
+      autorTipo:            uTipo,
       organizadorVerificado: verificado,
+      // ID público legible
+      eventoPublicId:       evGenerarPublicId(),
       // Timestamps
-      creadoEn:     ahora,
-      actualizadoEn: ahora,
+      creadoEn:             ahora,
+      actualizadoEn:        ahora,
+      ultimaVistaEn:        null,
+      ultimaInteraccionEn:  null,
       // Estadísticas
       stats: { vistas:0, interesados:0, confirmaciones:0, compartidos:0 }
     };
     if(window._evEditId){
-      data.actualizadoEn = ahora;
       delete data.creadoEn;
+      delete data.eventoPublicId; // no sobreescribir ID público en edición
+      delete data.stats;          // no reiniciar estadísticas en edición
+      delete data.eliminado;      // no tocar soft delete en edición normal
+      data.actualizadoEn = ahora;
       await F.updateDoc(F.doc(window._fbDb,'eventos',window._evEditId), data);
     } else {
       await F.addDoc(F.collection(window._fbDb,'eventos'), data);
     }
 
-    // Mensajes de éxito según estado
     var msgPrincipal, msgSub;
     if(estadoFinal==='publicado'){
       msgPrincipal='¡Tu evento está publicado! Ya puede verlo toda la comunidad.';
@@ -746,9 +978,12 @@ async function evGuardarEvento(estado, tipoPub){
     txt('ev-ok-msg', msgPrincipal);
     txt('ev-ok-sub', msgSub);
     go('v-ev-ok','right');
+    return true;
   } catch(e){
+    console.error('[Dominio Eventos] Error evGuardarEvento:', e);
     alert('Error al guardar: '+e.message);
     if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
+    return false;
   }
 }
 
@@ -769,10 +1004,10 @@ async function evDetectarDuplicado(uid, titulo, fecha, lugar){
     var dup = false;
     snap.forEach(function(d){
       var ev = d.data();
-      if(evNorm(ev.lugar)===lNorm && d.id!==(window._evEditId||'')) dup=true;
+      if(evNorm(ev.lugar)===lNorm && d.id!==(window._evEditId||'') && !ev.eliminado) dup=true;
     });
     return dup;
-  } catch(_){ return false; }
+  } catch(_){ return false; } // si falla el índice, no bloquear
 }
 
 // ─── MIS EVENTOS ──────────────────────────────────────
@@ -785,6 +1020,8 @@ window.evCargarMisEventos = async function(){
   var auth = window._fbAuth && window._fbAuth.currentUser;
   if(!auth){
     html('ev-mis-activos','<div style="text-align:center;padding:24px;color:rgba(255,255,255,.35);font-size:13px;">Inicia sesión para ver tus eventos</div>');
+    html('ev-mis-revision','');
+    html('ev-mis-pasados','');
     return;
   }
   var uid = auth.uid;
@@ -793,22 +1030,48 @@ window.evCargarMisEventos = async function(){
   });
   try {
     var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-    // Consulta restringida solo al uid del usuario autenticado
-    var q = F.query(F.collection(window._fbDb,'eventos'), F.where('autorUid','==',uid), F.orderBy('creadoEn','desc'));
-    var snap = await F.getDocs(q);
-    var activos=[], revision=[], pasados=[];
+    var snap;
+    try {
+      // Intento con orderBy (requiere índice compuesto)
+      var q1 = F.query(
+        F.collection(window._fbDb,'eventos'),
+        F.where('autorUid','==',uid),
+        F.orderBy('creadoEn','desc')
+      );
+      snap = await F.getDocs(q1);
+    } catch(indexErr){
+      console.error('[Dominio Eventos] evCargarMisEventos índice no disponible, usando fallback:', indexErr.message||indexErr);
+      // Fallback: sin orderBy, ordenar en JS
+      var q2 = F.query(F.collection(window._fbDb,'eventos'), F.where('autorUid','==',uid));
+      snap = await F.getDocs(q2);
+    }
+    var todos = [];
     snap.forEach(function(d){
-      var ev = Object.assign({id:d.id},d.data());
+      var ev = Object.assign({id:d.id}, d.data());
+      if(!ev.eliminado) todos.push(ev);
+    });
+    // Ordenar por creadoEn desc en JS
+    todos.sort(function(a,b){
+      var ta = a.creadoEn&&a.creadoEn.toMillis ? a.creadoEn.toMillis() : 0;
+      var tb = b.creadoEn&&b.creadoEn.toMillis ? b.creadoEn.toMillis() : 0;
+      return tb - ta;
+    });
+    var activos=[], revision=[], pasados=[];
+    todos.forEach(function(ev){
       if(ev.estado==='publicado'||ev.estado==='pausado') activos.push(ev);
       else if(['en_revision','pago_recibido','pendiente_pago','borrador'].indexOf(ev.estado)!==-1) revision.push(ev);
       else pasados.push(ev);
     });
     window._evMisActivos=activos; window._evMisRev=revision; window._evMisPasados=pasados;
-    evRenderMisTab('activos',activos,true,false);
-    evRenderMisTab('revision',revision,false,false);
-    evRenderMisTab('pasados',pasados,false,true);
+    evRenderMisTab('activos',  activos,  true,  false);
+    evRenderMisTab('revision', revision, false, false);
+    evRenderMisTab('pasados',  pasados,  false, true);
   } catch(e){
-    html('ev-mis-activos','<div style="color:#D63A2A;font-size:12px;padding:12px;text-align:center;">Error al cargar eventos.</div>');
+    console.error('[Dominio Eventos] Error evCargarMisEventos:', e);
+    // Mostrar empty state, no pantalla de error rota
+    ['activos','revision','pasados'].forEach(function(t){
+      html('ev-mis-'+t,'<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:10px;">📭</div><div style="font-size:13px;color:rgba(255,255,255,.3);">Sin eventos aquí</div></div>');
+    });
   }
 };
 
@@ -830,6 +1093,8 @@ function evRenderMisTab(tabId, datos, showStats, showRepublicar){
         +'</div>' : '';
     var motivoHtml = ev.motivoRechazo
       ? '<div style="font-size:10px;color:#ff6b6b;margin-top:4px;background:rgba(214,58,42,.08);border-radius:6px;padding:4px 8px;">Motivo: '+evEsc(ev.motivoRechazo)+'</div>' : '';
+    var publicIdHtml = ev.eventoPublicId
+      ? '<div style="font-size:9px;color:rgba(255,255,255,.18);margin-top:2px;">'+evEsc(ev.eventoPublicId)+'</div>' : '';
     var acciones = showRepublicar
       ? '<button onclick="evRepublicar(\''+evEsc(ev.id)+'\')" style="font-size:11px;font-weight:700;color:#7C3AED;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:8px;padding:5px 12px;cursor:pointer;margin-top:8px;font-family:inherit;">🔁 Republicar</button>'
       : (showStats ? '<button onclick="evImpulsarEvento(\''+evEsc(ev.id)+'\')" style="font-size:11px;font-weight:700;color:#F5C518;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.3);border-radius:8px;padding:5px 12px;cursor:pointer;margin-top:8px;font-family:inherit;">🚀 Impulsar</button>' : '');
@@ -840,7 +1105,7 @@ function evRenderMisTab(tabId, datos, showStats, showRepublicar){
       +'<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:2px;">📅 '+evEsc(ev.fecha||'—')+'</div>'
       +'<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px;">📍 '+evEsc(ev.lugar||'—')+'</div>'
       +'<span style="font-size:9px;font-weight:800;color:'+est.color+';background:'+est.color+'20;border:1px solid '+est.color+'40;border-radius:10px;padding:2px 8px;">'+est.icon+' '+evEsc(est.label.toUpperCase())+'</span>'
-      +motivoHtml+statsHtml+acciones
+      +publicIdHtml+motivoHtml+statsHtml+acciones
       +'</div></div>';
   }).join('');
 }
@@ -854,33 +1119,30 @@ window.evMisTab = function(tab){
 };
 
 // ─── REPUBLICAR ───────────────────────────────────────
-// Crea un evento NUEVO copiando datos del pasado. No modifica el original.
 window.evRepublicar = async function(id){
   try {
     var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
     var snap = await F.getDoc(F.doc(window._fbDb,'eventos',id));
     if(!snap.exists()){ alert('Evento no encontrado.'); return; }
     var ev = snap.data();
-    // Copiar datos al formData, limpiar fecha/hora/cupo
     window._evFormData = {
-      tipo:         ev.tipo||'normal',
-      titulo:       ev.titulo||'',
-      descripcion:  ev.descripcion||'',
-      categoria:    ev.categoria||'',
-      tipoEvento:   ev.tipoEvento||'',
-      lugar:        ev.lugar||'',
-      precio:       ev.precio||0,
-      organizador:  ev.organizador||'',
-      _imagenUrl:   ev.imagen||'',
+      tipo:           ev.tipo||'normal',
+      titulo:         ev.titulo||'',
+      descripcion:    ev.descripcion||'',
+      categoria:      ev.categoria||'',
+      tipoEvento:     ev.tipoEvento||'',
+      lugar:          ev.lugar||'',
+      precio:         ev.precio||0,
+      organizador:    ev.organizador||'',
+      _imagenUrl:     ev.imagen||'',
       _imagenPreview: ev.imagen||'',
-      _republicar:  true
+      _republicar:    true
     };
-    window._evEditId = null; // siempre nuevo
-    // Pre-llenar paso 1 y luego ir a paso 2 para pedir nueva fecha
+    window._evEditId = null;
     evIrFormStep(1);
     setTimeout(function(){
       var t=get('ev-titulo'); if(t) t.value=ev.titulo||'';
-      var d=get('ev-desc');   if(d) d.value=ev.descripcion||'';
+      var de=get('ev-desc');  if(de) de.value=ev.descripcion||'';
       var c=get('ev-cat');    if(c) c.value=ev.categoria||'';
       var te=get('ev-tipo-ev'); if(te) te.value=ev.tipoEvento||'';
     },80);
