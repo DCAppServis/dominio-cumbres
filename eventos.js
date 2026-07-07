@@ -1033,20 +1033,22 @@ window.evConfirmarCodigoPromo = async function(){
   var promoSnap = _evPromoActivo;
   var timedOut = false;
   var timeoutId;
-  var savePromise = evGuardarEvento('en_revision','codigo_promocional', promoSnap, true);
+  var savePromise = evGuardarEvento('en_revision','codigo_promocional', promoSnap, true, true);
   var timeoutPromise = new Promise(function(resolve){
-    timeoutId = setTimeout(function(){ timedOut=true; resolve(false); }, 30000);
+    timeoutId = setTimeout(function(){ timedOut=true; resolve(false); }, 12000);
   });
-  var eventoId = await Promise.race([savePromise, timeoutPromise]);
+  var resultado = await Promise.race([savePromise, timeoutPromise]);
   clearTimeout(timeoutId);
   _evOcultarOverlayCargando();
-  if(eventoId){
+  if(resultado && resultado.id){
+    txt('ev-ok-msg', resultado.msgPrincipal);
+    txt('ev-ok-sub', resultado.msgSub);
+    go('v-ev-ok','right');
     if(!promoSnap.esMaster){
       var uid = window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid;
-      await evConsumirCodigo(promoSnap, uid||'', eventoId);
+      await evConsumirCodigo(promoSnap, uid||'', resultado.id);
     }
     _evPromoActivo = null;
-    // evGuardarEvento ya llamó go('v-ev-ok') internamente
   } else {
     // Falló o timeout → volver a pantalla de opciones con mensaje de error en el campo promo
     _evPromoActivo = null;
@@ -1083,7 +1085,7 @@ window.evPublicarCortesia = async function(){
   if(disponibles<=0){ alert('Ya no tienes cortesías disponibles.'); evMostrarOpciones(); return; }
   // Guardar evento PRIMERO, descontar cortesía SOLO si el guardado tuvo éxito
   var ok = await evGuardarEvento('en_revision','normal',null);
-  if(ok) await evDescontarCortesia(uid);
+  if(ok && ok.id) await evDescontarCortesia(uid);
 };
 
 window.evPublicarDirecto = async function(estado, tipoPub){
@@ -1106,8 +1108,9 @@ function evCalcFechasPremium(plan){
 }
 
 // ─── GUARDAR EVENTO ───────────────────────────────────
-// Retorna el ID del evento guardado (string) si fue exitoso, false si falló
-async function evGuardarEvento(estado, tipoPub, promoData, sinAlert){
+// Retorna { id, msgPrincipal, msgSub } si fue exitoso, false si falló
+/// noNav=true: el llamador maneja la navegación (no llama go/txt internamente)
+async function evGuardarEvento(estado, tipoPub, promoData, sinAlert, noNav){
   var btn = get('ev-pub-btn');
   if(btn){ btn.disabled=true; btn.textContent='Guardando...'; }
   var d       = window._evFormData;
@@ -1115,10 +1118,10 @@ async function evGuardarEvento(estado, tipoPub, promoData, sinAlert){
   var uid     = auth && auth.uid;
   var uNombre = localStorage.getItem('dcuserNombre')||'';
   var uTipo   = localStorage.getItem('dcuserTipo')||'vecino';
+  try {
   // Admin real verificado desde Firestore
   var esAdminReal = await evVerificarAdmin();
   var estadoFinal = esAdminReal ? 'publicado' : estado;
-  try {
     var esDup = await evDetectarDuplicado(uid, d.titulo, d.fecha, d.lugar);
     if(esDup && estadoFinal==='publicado') estadoFinal='en_revision';
 
@@ -1222,10 +1225,12 @@ async function evGuardarEvento(estado, tipoPub, promoData, sinAlert){
       msgPrincipal='¡Evento enviado a revisión!';
       msgSub='El proceso toma menos de 24 horas. Te notificaremos cuando sea aprobado.'+(esDup?' (posible duplicado detectado — revisión manual)':'');
     }
-    txt('ev-ok-msg', msgPrincipal);
-    txt('ev-ok-sub', msgSub);
-    go('v-ev-ok','right');
-    return eventoIdResultado; // string truthy = éxito
+    if(!noNav){
+      txt('ev-ok-msg', msgPrincipal);
+      txt('ev-ok-sub', msgSub);
+      go('v-ev-ok','right');
+    }
+    return { id: eventoIdResultado, msgPrincipal: msgPrincipal, msgSub: msgSub };
   } catch(e){
     console.error('[Dominio Eventos] Error evGuardarEvento:', e);
     if(!sinAlert) alert('Error al guardar: '+e.message);
