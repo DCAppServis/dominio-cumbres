@@ -2248,18 +2248,18 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         <div>
           <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:6px;">Fecha *</div>
-          <input id="ev-fecha" type="date" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" />
+          <input id="ev-fecha" type="date" onchange="document.getElementById('ev-fecha-err').style.display='none';this.style.borderColor='rgba(255,255,255,.12)';" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" />
           <div id="ev-fecha-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:4px;"></div>
         </div>
         <div>
           <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:6px;">Hora inicio *</div>
-          <input id="ev-hora-i" type="time" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" />
+          <input id="ev-hora-i" type="time" onchange="document.getElementById('ev-hora-i-err').style.display='none';document.getElementById('ev-hora-f-err').style.display='none';this.style.borderColor='rgba(255,255,255,.12)';" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" />
           <div id="ev-hora-i-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:4px;"></div>
         </div>
       </div>
       <div style="margin-bottom:14px;">
         <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:6px;">Hora fin (opcional)</div>
-        <input id="ev-hora-f" type="time" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" />
+        <input id="ev-hora-f" type="time" onchange="document.getElementById('ev-hora-f-err').style.display='none';this.style.borderColor='rgba(255,255,255,.12)';" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:12px;color:#fff;font-family:inherit;outline:none;color-scheme:dark;" />
         <div id="ev-hora-f-err" style="display:none;font-size:11px;color:#ff6b6b;margin-top:4px;"></div>
       </div>
       <div style="margin-bottom:14px;">
