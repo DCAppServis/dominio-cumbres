@@ -4768,6 +4768,15 @@
         </div>
       </div>
 
+      <!-- CENTRO DE CONTENIDO -->
+      <div class="admin-card" onclick="go('v-cnt-contenido','right')">
+        <div>
+          <div class="admin-card-ic" style="background:rgba(26,122,181,.2);">🌐</div>
+          <div class="admin-card-title">Contenido</div>
+          <div class="admin-card-sub">Informa · Eventos · Emergencias</div>
+        </div>
+      </div>
+
       <!-- MONETIZACIÓN -->
       <div class="admin-card" onclick="goAdminSec('monetizacion')">
         <div>
@@ -4807,14 +4816,6 @@
         <div id="notif-alertas" class="si12 admin-notif">0</div>
       </div>
 
-      <!-- CENTRO DE CONTENIDO -->
-      <div class="admin-card" onclick="go('v-cnt-contenido','right')">
-        <div>
-          <div class="admin-card-ic" style="background:rgba(26,122,181,.2);">🌐</div>
-          <div class="admin-card-title">Contenido</div>
-          <div class="admin-card-sub">Informa · Eventos · Emergencias</div>
-        </div>
-      </div>
 
     </div>
 
@@ -5203,11 +5204,6 @@
 
 <!-- CNT STYLES -->
 <style>
-/* ── shared dark-admin overrides for Contenido ── */
-#v-cnt-contenido,#v-cnt-informa,#v-cnt-lista,#v-cnt-edit,
-#v-cnt-eventos,#v-cnt-ev-edit,#v-cnt-emergencias,#v-cnt-emerg-edit {
-  background: var(--dark,#0C1A10);
-}
 /* ── Item cards ── */
 .cnt-item-card{display:flex;align-items:center;gap:12px;background:var(--card-dark,#111c13);border:.5px solid var(--card-border,rgba(255,255,255,.07));border-radius:14px;padding:11px 12px;margin-bottom:8px;cursor:pointer;position:relative;transition:background .15s;}
 .cnt-item-card:active{background:rgba(255,255,255,.05);}
@@ -5292,7 +5288,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
       <div><div class="hdr-title">Centro de Contenido</div><div class="hdr-sub">Gestión de publicaciones y emergencias</div></div>
     </div>
   </div>
-  <div class="scroll" style="padding:14px;">
+  <div class="scroll" style="padding:14px;background:var(--green-bg);">
     <div style="display:flex;flex-direction:column;gap:10px;">
 
       <div class="cnt-hub-card" onclick="cntIrInforma()">
@@ -5335,7 +5331,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
       <div><div class="hdr-title">Dominio Informa</div><div class="hdr-sub">Gestionar publicaciones</div></div>
     </div>
   </div>
-  <div class="scroll" style="padding:14px;">
+  <div class="scroll" style="padding:14px;background:var(--green-bg);">
 
     <div class="cnt-menu-item-row" onclick="cntIrNoticias()">
       <div class="cnt-menu-item-ic">📰</div>
@@ -5373,7 +5369,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
 </div>
 
 <!-- v-cnt-lista — LISTA GENÉRICA (Noticias / Proyectos / Reportes) -->
-<div class="si23 view go-right" id="v-cnt-lista">
+<div class="si23 view go-right" id="v-cnt-lista" data-onenter="cntCargarLista">
   <div class="admin-sub-hdr">
     <div class="sbar dk"><span>9:41</span><span>▲</span></div>
     <div class="back-row">
@@ -5397,7 +5393,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
     </div>
   </div>
 
-  <div class="scroll" style="padding:10px 14px 14px;" id="cnt-lista-body">
+  <div class="scroll" style="padding:10px 14px 14px;background:var(--green-bg);" id="cnt-lista-body">
     <div style="padding:40px;text-align:center;color:rgba(255,255,255,.3);font-size:13px;">Cargando...</div>
   </div>
 </div>
@@ -5411,7 +5407,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
       <div><div class="hdr-title" id="cnt-edit-titulo">Editar</div><div class="hdr-sub" id="cnt-edit-sub">—</div></div>
     </div>
   </div>
-  <div class="scroll" style="padding:14px;" id="cnt-edit-body"></div>
+  <div class="scroll" style="padding:14px;background:var(--green-bg);" id="cnt-edit-body"></div>
 </div>
 
 <!-- v-cnt-eventos — EVENTOS ADMIN -->
@@ -5434,7 +5430,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
     </div>
   </div>
 
-  <div class="scroll" style="padding:10px 14px 14px;" id="cnt-ev-body">
+  <div class="scroll" style="padding:10px 14px 14px;background:var(--green-bg);" id="cnt-ev-body">
     <div style="padding:40px;text-align:center;color:rgba(255,255,255,.3);font-size:13px;">Cargando...</div>
   </div>
 </div>
@@ -5448,7 +5444,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
       <div><div class="hdr-title" id="cnt-ev-edit-titulo">Evento</div><div class="hdr-sub" id="cnt-ev-edit-sub">Detalle del evento</div></div>
     </div>
   </div>
-  <div class="scroll" style="padding:14px;" id="cnt-ev-edit-body"></div>
+  <div class="scroll" style="padding:14px;background:var(--green-bg);" id="cnt-ev-edit-body"></div>
 </div>
 
 <!-- v-cnt-emergencias — LISTA EMERGENCIAS -->
@@ -5465,7 +5461,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
     <button onclick="cntNuevaEmergencia()" style="background:#D63A2A;border:none;border-radius:10px;padding:8px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;">+ Agregar</button>
   </div>
 
-  <div class="scroll" style="padding:10px 14px 14px;" id="cnt-emerg-body">
+  <div class="scroll" style="padding:10px 14px 14px;background:var(--green-bg);" id="cnt-emerg-body">
     <div style="padding:40px;text-align:center;color:rgba(255,255,255,.3);font-size:13px;">Cargando...</div>
   </div>
 </div>
@@ -5479,7 +5475,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
       <div><div class="hdr-title" id="cnt-emerg-edit-titulo">Editar Contacto</div><div class="hdr-sub" id="cnt-emerg-edit-sub">—</div></div>
     </div>
   </div>
-  <div class="scroll" style="padding:14px;" id="cnt-emerg-edit-body"></div>
+  <div class="scroll" style="padding:14px;background:var(--green-bg);" id="cnt-emerg-edit-body"></div>
 </div>
 
 <!-- Context menu overlay (shared) -->
@@ -5491,7 +5487,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
 <div id="cnt-toast"></div>
 
 <!-- Script -->
-<script type="module" src="contenido.js?v=20260708a"></script>
+<script type="module" src="contenido.js?v=20260708b"></script>
 
 <!-- ═══ POPUP CALIFICACIÓN (restaurantes + negocios) ═══ -->
 <div id="dc-com-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9600;align-items:flex-end;justify-content:center;" onclick="window.dcComCerrar&&window.dcComCerrar()">

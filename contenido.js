@@ -51,7 +51,7 @@ function _estadoBadge(e){
 
 async function _cargarCol(col, filtro){
   var F = _F(), db = _db();
-  if(!F || !db) return [];
+  if(!F || !db) return {err:'Sin conexión a Firebase'};
   try {
     var q;
     if(filtro && filtro !== 'todas'){
@@ -61,12 +61,12 @@ async function _cargarCol(col, filtro){
     }
     var snap = await F.getDocs(q);
     return snap.docs.map(function(d){ return Object.assign({_id:d.id}, d.data()); });
-  } catch(_){
+  } catch(e1){
     try {
       var q2 = F.query(F.collection(db,col), F.limit(80));
       var snap2 = await F.getDocs(q2);
       return snap2.docs.map(function(d){ return Object.assign({_id:d.id}, d.data()); });
-    } catch(__){ return []; }
+    } catch(e2){ return {err: e2.message||'Error Firestore'}; }
   }
 }
 
@@ -122,14 +122,19 @@ window.cntCargarLista = async function(){
   if(!listEl) return;
   listEl.innerHTML = '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.3);font-size:13px;">Cargando...</div>';
 
-  _cntItems = await _cargarCol(m.col, _cntFiltro === 'todas' ? null : _cntFiltro);
+  var res = await _cargarCol(m.col, _cntFiltro === 'todas' ? null : _cntFiltro);
+  if(res && res.err){
+    listEl.innerHTML = '<div style="padding:30px 20px;text-align:center;"><div style="font-size:28px;margin-bottom:10px;">⚠️</div><div style="color:#D63A2A;font-size:12px;font-weight:700;">Error cargando datos</div><div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:6px;">'+_esc(res.err)+'</div></div>';
+    return;
+  }
+  _cntItems = res || [];
 
   // Filter by search
   var q = (get('cnt-lista-search')||{}).value || '';
   var items = q ? _cntItems.filter(function(it){ return (it.titulo||'').toLowerCase().includes(q.toLowerCase()); }) : _cntItems;
 
   if(!items.length){
-    listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:32px;margin-bottom:12px;">📭</div><div style="color:rgba(255,255,255,.35);font-size:13px;">Sin resultados</div></div>';
+    listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:32px;margin-bottom:12px;">📭</div><div style="color:rgba(255,255,255,.35);font-size:13px;">Sin resultados</div><div style="color:rgba(255,255,255,.2);font-size:11px;margin-top:6px;">Prueba con otro filtro</div></div>';
     return;
   }
 
@@ -346,7 +351,12 @@ window.cntCargarEventos = async function(filtro){
   if(!listEl) return;
   listEl.innerHTML = '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.3);font-size:13px;">Cargando...</div>';
 
-  _cntEvItems = await _cargarCol(COL_EVENTOS, _cntEvFiltro === 'todas' ? null : _cntEvFiltro);
+  var evRes = await _cargarCol(COL_EVENTOS, _cntEvFiltro === 'todas' ? null : _cntEvFiltro);
+  if(evRes && evRes.err){
+    listEl.innerHTML = '<div style="padding:30px 20px;text-align:center;"><div style="font-size:28px;margin-bottom:10px;">⚠️</div><div style="color:#D63A2A;font-size:12px;font-weight:700;">Error cargando eventos</div><div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:6px;">'+_esc(evRes.err)+'</div></div>';
+    return;
+  }
+  _cntEvItems = evRes || [];
 
   if(!_cntEvItems.length){
     listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:32px;margin-bottom:12px;">📭</div><div style="color:rgba(255,255,255,.35);font-size:13px;">Sin eventos</div></div>';
