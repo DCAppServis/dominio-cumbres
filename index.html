@@ -1767,7 +1767,7 @@
     <div style="padding:0 14px 14px;">
       <div style="background:#FFF8E1;border-radius:12px;padding:10px 12px;font-size:11px;color:#7a5800;margin-bottom:14px;line-height:1.5;">⏳ El administrador revisará tu publicación antes de hacerla pública.</div>
       <div style="display:flex;gap:10px;">
-        <button onclick="go('v-inf-crear','left')" style="flex:1;background:#f0f0f0;color:#555;border:none;border-radius:14px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">← Editar</button>
+        <button onclick="try{history.replaceState({viewId:'v-inf-crear'},'','');}catch(_){}if(window._goCore)window._goCore('v-inf-crear','left');else go('v-inf-crear','left');" style="flex:1;background:#f0f0f0;color:#555;border:none;border-radius:14px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">← Editar</button>
         <button id="in-pub-btn" onclick="window.inPublicar&&window.inPublicar()" style="flex:2;background:#1a1f7a;color:#fff;border:none;border-radius:14px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Enviar para revisión</button>
       </div>
     </div>
@@ -1785,7 +1785,7 @@
       <strong class="si20">24-48 horas.</strong><br><br>
       Te avisamos dentro de la app.
     </div>
-    <button class="btn btn-navy" onclick="try{history.replaceState({viewId:'v-informa'},'','');}catch(_){}go('v-informa','left');window.inCargarPortal&&window.inCargarPortal();">Volver a Dominio Informa</button>
+    <button class="btn btn-navy" onclick="if(window._goCore)window._goCore('v-informa','left');else go('v-informa','left');window.inCargarPortal&&window.inCargarPortal();">Volver a Dominio Informa</button>
   </div>
 </div>
 
@@ -5186,7 +5186,7 @@
 
 <script src="app.js?v=20260706j"></script>
 <script type="module" src="eventos.js?v=20260706t"></script>
-<script type="module" src="informa.js?v=20260707d"></script>
+<script type="module" src="informa.js?v=20260707e"></script>
 
 <!-- ═══ POPUP CALIFICACIÓN (restaurantes + negocios) ═══ -->
 <div id="dc-com-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9600;align-items:flex-end;justify-content:center;" onclick="window.dcComCerrar&&window.dcComCerrar()">

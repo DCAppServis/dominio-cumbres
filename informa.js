@@ -114,33 +114,33 @@ async function _inSubirImagen(file){
   }
 }
 
-// ─── LOADING OVERLAY (mismo SVG que Eventos, color azul) ─
+// ─── LOADING OVERLAY (mismo SVG oficial que Eventos) ─────
 function _inMostrarCargando(){
   if(get('in-save-overlay')) return;
   var ov = document.createElement('div');
   ov.id = 'in-save-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;background:#0a0f1a;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;';
+  ov.style.cssText = 'position:fixed;inset:0;background:#0a0f0a;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;';
   ov.innerHTML =
     '<div style="animation:in-spin 2s linear infinite;">'
     +'<svg width="90" height="90" viewBox="0 0 106 106" fill="none">'
-    +'<defs><radialGradient id="inbgl" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#1a2d5a"/><stop offset="100%" stop-color="#0a0f1a"/></radialGradient></defs>'
-    +'<circle cx="53" cy="53" r="50" fill="url(#inbgl)"/>'
-    +'<circle cx="53" cy="53" r="49" fill="none" stroke="#1A7AB5" stroke-width="1.5" stroke-dasharray="10 5" stroke-linecap="round"/>'
-    +'<polygon points="53,14 57,32 53,28 49,32" fill="#1A7AB5"/>'
-    +'<polygon points="53,14 57,32 53,28 49,32" fill="#1a1f7a" transform="rotate(60 53 53)"/>'
-    +'<polygon points="53,14 57,32 53,28 49,32" fill="#4B9FD6" transform="rotate(120 53 53)"/>'
-    +'<polygon points="53,14 57,32 53,28 49,32" fill="#ffffff" transform="rotate(180 53 53)"/>'
-    +'<polygon points="53,14 57,32 53,28 49,32" fill="#1a1f7a" transform="rotate(240 53 53)"/>'
-    +'<polygon points="53,14 57,32 53,28 49,32" fill="#4B9FD6" transform="rotate(300 53 53)"/>'
-    +'<circle cx="53" cy="53" r="14" fill="#0a0f1a"/>'
-    +'<circle cx="53" cy="53" r="14" fill="none" stroke="#1A7AB5" stroke-width="1"/>'
-    +'<polygon points="53,42 55,50 53,48 51,50" fill="#1A7AB5"/>'
-    +'<polygon points="53,42 55,50 53,48 51,50" fill="#4B9FD6" transform="rotate(120 53 53)"/>'
-    +'<polygon points="53,42 55,50 53,48 51,50" fill="#1a1f7a" transform="rotate(240 53 53)"/>'
-    +'<circle cx="53" cy="53" r="4" fill="#1A7AB5"/>'
+    +'<defs><radialGradient id="inbgl2" cx="40%" cy="35%" r="65%"><stop offset="0%" stop-color="#1E3A28"/><stop offset="100%" stop-color="#0C1A10"/></radialGradient></defs>'
+    +'<circle cx="53" cy="53" r="50" fill="url(#inbgl2)"/>'
+    +'<circle cx="53" cy="53" r="49" fill="none" stroke="#1FC26A" stroke-width="1.5" stroke-dasharray="10 5" stroke-linecap="round"/>'
+    +'<polygon points="53,14 57,32 53,28 49,32" fill="#1FC26A"/>'
+    +'<polygon points="53,14 57,32 53,28 49,32" fill="#27AE60" transform="rotate(60 53 53)"/>'
+    +'<polygon points="53,14 57,32 53,28 49,32" fill="#F5C518" transform="rotate(120 53 53)"/>'
+    +'<polygon points="53,14 57,32 53,28 49,32" fill="#D63A2A" transform="rotate(180 53 53)"/>'
+    +'<polygon points="53,14 57,32 53,28 49,32" fill="#27AE60" transform="rotate(240 53 53)"/>'
+    +'<polygon points="53,14 57,32 53,28 49,32" fill="#F5C518" transform="rotate(300 53 53)"/>'
+    +'<circle cx="53" cy="53" r="14" fill="#0C1A10"/>'
+    +'<circle cx="53" cy="53" r="14" fill="none" stroke="#1FC26A" stroke-width="1"/>'
+    +'<polygon points="53,42 55,50 53,48 51,50" fill="#1FC26A"/>'
+    +'<polygon points="53,42 55,50 53,48 51,50" fill="#F5C518" transform="rotate(120 53 53)"/>'
+    +'<polygon points="53,42 55,50 53,48 51,50" fill="#D63A2A" transform="rotate(240 53 53)"/>'
+    +'<circle cx="53" cy="53" r="4" fill="#1FC26A"/>'
     +'</svg></div>'
     +'<div style="font-size:13px;color:rgba(255,255,255,.55);letter-spacing:1px;">Enviando publicación...</div>'
-    +'<style>#in-save-overlay svg{filter:drop-shadow(0 0 18px rgba(26,122,181,.5));}@keyframes in-spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>';
+    +'<style>#in-save-overlay svg{filter:drop-shadow(0 0 18px rgba(31,194,106,.45));}@keyframes in-spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>';
   document.body.appendChild(ov);
 }
 function _inOcultarCargando(){
@@ -427,7 +427,11 @@ window.inIrCrear = function(tipo){
   // Con tipo → saltar directo a paso 2 (desde botones de pestaña)
   _inFormData = { tipo:tipo||'noticia', paso:tipo?2:1, titulo:'', descripcion:'', ubicacion:'', _imagenFiles:[] };
   if(tipo){ _inRenderPaso2(); } else { _inRenderPaso1(); }
-  go('v-inf-crear','right');
+  // replaceState: el flujo de creación reemplaza el slot de historial actual
+  // para que el botón atrás no regrese a pantallas intermedias del flujo
+  try{ history.replaceState({viewId:'v-inf-crear'},'',''); }catch(_){}
+  if(window._goCore) window._goCore('v-inf-crear','right');
+  else go('v-inf-crear','right');
 };
 
 function _inStepBar(paso){
@@ -645,7 +649,10 @@ window.inMostrarPreview = function(){
   b += '<div style="font-size:13px;color:#333;line-height:1.7;margin-bottom:12px;">'+inEsc(_inFormData.descripcion||'').replace(/\n/g,'<br>')+'</div>';
   b += '<div style="background:#EBF4FF;border-radius:12px;padding:10px 12px;font-size:11px;color:#1a1f7a;">🔍 Pendiente de revisión por el administrador</div>';
   html('in-preview-body', b);
-  go('v-inf-preview','right');
+  // replaceState: preview reemplaza crear en el historial (flujo lineal sin retorno)
+  try{ history.replaceState({viewId:'v-inf-preview'},'',''); }catch(_){}
+  if(window._goCore) window._goCore('v-inf-preview','right');
+  else go('v-inf-preview','right');
 };
 
 // ─── PUBLICAR (con overlay 2 segundos) ────────────────
@@ -710,8 +717,11 @@ window.inPublicar = async function(){
       })(files, docId, col);
     }
 
-    try{ history.replaceState({viewId:'v-inf-ok'},'',''); }catch(_){}
-    go('v-inf-ok','right');
+    // replaceState a v-informa: al terminar, el historial queda como si nunca
+    // hubiéramos entrado al flujo de creación — back regresa al portal
+    try{ history.replaceState({viewId:'v-informa'},'',''); }catch(_){}
+    if(window._goCore) window._goCore('v-inf-ok','right');
+    else go('v-inf-ok','right');
     _inFormData = {};
 
   } catch(e){
