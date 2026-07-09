@@ -1,4 +1,4 @@
-// CENTRO DE CONTENIDO — Admin Module v=20260709d
+// CENTRO DE CONTENIDO — Admin Module v=20260709e
 (function(){ 'use strict';
 
 var _FBFS = "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
@@ -21,6 +21,8 @@ var _cntEvItems  = [];
 var _cntEvEditing= null;
 var _cntBulkMode = false;
 var _cntSelected = [];
+var _cntLoadSeq   = 0;  // race condition guard para cntCargarLista
+var _cntEvLoadSeq = 0;  // race condition guard para cntCargarEventos
 
 function get(id){ return document.getElementById(id); }
 
@@ -76,7 +78,7 @@ function _statChip(icon, val, label){
     +'</div>';
 }
 
-function _uid(){ return (window._fbAuth && window._fbAuth.currentUser) ? window._fbAuth.currentUser.uid : 'admin'; }
+function _uid(){ return (window._fbAuth && window._fbAuth.currentUser) ? window._fbAuth.currentUser.uid : '(sin_sesion)'; }
 
 // ── Permisos (punto 8) ────────────────────────────────────────────────────────
 window.cntPuedeEditar    = function(){ return true; };
@@ -93,7 +95,7 @@ async function _guardarBitacora(col, id, accion, antes, despues){
       antes: antes||null, despues: despues||null,
       realizadoPor: _uid(), fecha: F.serverTimestamp()
     });
-  } catch(_){}
+  } catch(e){ console.warn('[Bitacora]', e); }
 }
 
 // ── Firestore query con fallback ──────────────────────────────────────────────
@@ -127,9 +129,11 @@ function _getItemsFiltrados(){
   var items = q
     ? _cntItems.filter(function(it){ return (it.titulo||'').toLowerCase().includes(q.toLowerCase()); })
     : _cntItems.slice();
-  // Si filtro es "todas", excluir eliminados
+  // Filtro cliente: cubre el caso de fallback Firestore sin índice compuesto
   if(_cntFiltro === 'todas'){
     items = items.filter(function(it){ return it.estado !== 'eliminado'; });
+  } else {
+    items = items.filter(function(it){ return it.estado === _cntFiltro; });
   }
   return items;
 }
@@ -160,6 +164,7 @@ window.cntIrReportes  = function(){ _cntSec='reporte';  _cntFiltro='todas'; _cnt
 window.cntCargarLista = async function(){
   var m = _secMeta[_cntSec];
   if(!m) return;
+  var seq = ++_cntLoadSeq;
 
   var h = get('cnt-lista-titulo'); if(h) h.textContent = m.label;
   var s = get('cnt-lista-sub');    if(s) s.textContent = m.sub;
@@ -183,6 +188,7 @@ window.cntCargarLista = async function(){
 
   var filtroFs = (_cntFiltro === 'todas') ? null : _cntFiltro;
   var res = await _cargarCol(m.col, filtroFs);
+  if(seq !== _cntLoadSeq) return; // descarta respuesta de carga anterior
 
   if(res && res.err){
     listEl.innerHTML = '<div style="padding:30px 20px;text-align:center;"><div style="font-size:28px;margin-bottom:10px;">⚠️</div>'
@@ -218,7 +224,7 @@ function _renderListItems(items, m){
       : '';
     var trashBtn = it.estado === 'eliminado'
       ? '<button class="cnt-3dot" onclick="event.stopPropagation();cntRestaurarItem(\''+it._id+'\')" title="Restaurar" style="font-size:12px;color:#1FC26A;">↩</button>'
-      : '<button class="cnt-3dot" onclick="event.stopPropagation();cntMenuItem(\''+it._id+'\','+i+')" title="Opciones">⋮</button>';
+      : '<button class="cnt-3dot" onclick="event.stopPropagation();cntMenuItem(\''+it._id+'\')" title="Opciones">⋮</button>';
     return '<div class="cnt-item-card" onclick="'+(_cntBulkMode?'cntBulkToggleItem(\''+it._id+'\')':'cntAbrirItem(\''+it._id+'\')')+'">'
       +(_cntBulkMode ? '<div style="display:flex;align-items:center;padding:0 4px 0 0;">'+checkHtml+'</div>' : '')
       +'<div class="cnt-item-img">'+imgHtml+'</div>'
@@ -629,8 +635,8 @@ window.cntDuplicar = async function(id){
 };
 
 // ── Menú contextual 3 puntos ─────────────────────────────────────────────────
-window.cntMenuItem = function(id, idx){
-  var it = _cntItems[idx] || _cntItems.find(function(x){ return x._id===id; });
+window.cntMenuItem = function(id){
+  var it = _cntItems.find(function(x){ return x._id===id; });
   if(!it) return;
   var overlay = get('cnt-menu-overlay'), sheet = get('cnt-menu-sheet');
   if(!overlay||!sheet) return;
@@ -680,6 +686,7 @@ window.cntCambiarEstadoLista = async function(id, estado){
 // ══════════════════════════════════════════════════════════════════════════════
 window.cntCargarEventos = async function(filtro){
   if(filtro !== undefined) _cntEvFiltro = filtro;
+  var seq = ++_cntEvLoadSeq;
   ['todas','pendiente','publicado','rechazado','finalizado','eliminado'].forEach(function(f){
     var b = get('cnt-ev-ftab-'+f); if(b) b.classList.toggle('on', f===_cntEvFiltro);
   });
@@ -689,6 +696,7 @@ window.cntCargarEventos = async function(filtro){
 
   var f2 = (_cntEvFiltro==='todas') ? null : _cntEvFiltro;
   var res = await _cargarCol(COL_EVENTOS, f2);
+  if(seq !== _cntEvLoadSeq) return; // descarta respuesta de carga anterior
 
   if(res && res.err){
     listEl.innerHTML = '<div style="padding:30px 20px;text-align:center;"><div style="font-size:28px;margin-bottom:10px;">⚠️</div>'
@@ -716,7 +724,7 @@ window.cntCargarEventos = async function(filtro){
       : '<span style="font-size:22px;">🎉</span>';
     var trashBtn = it.estado === 'eliminado'
       ? '<button class="cnt-3dot" onclick="event.stopPropagation();cntRestaurarEvento(\''+it._id+'\')" title="Restaurar" style="font-size:12px;color:#1FC26A;">↩</button>'
-      : '<button class="cnt-3dot" onclick="event.stopPropagation();cntMenuEvento(\''+it._id+'\','+i+')" title="Opciones">⋮</button>';
+      : '<button class="cnt-3dot" onclick="event.stopPropagation();cntMenuEvento(\''+it._id+'\')" title="Opciones">⋮</button>';
     return '<div class="cnt-item-card" onclick="cntAbrirEvento(\''+it._id+'\')">'
       +'<div class="cnt-item-img">'+imgHtml+'</div>'
       +'<div class="cnt-item-info">'
@@ -952,8 +960,8 @@ window.cntDuplicarEvento = async function(id){
   } catch(e){ _showToast('Error: '+e.message); }
 };
 
-window.cntMenuEvento = function(id, idx){
-  var it = _cntEvItems[idx]||_cntEvItems.find(function(x){ return x._id===id; });
+window.cntMenuEvento = function(id){
+  var it = _cntEvItems.find(function(x){ return x._id===id; });
   if(!it) return;
   var overlay = get('cnt-menu-overlay'), sheet = get('cnt-menu-sheet');
   if(!overlay||!sheet) return;
