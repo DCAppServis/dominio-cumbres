@@ -148,7 +148,7 @@ window.cntCargarConteos = async function(){
     var defs = [
       { col: COL_NOTICIAS,  estado: 'en_revision', id: 'cnt-badge-noticia'  },
       { col: COL_PROYECTOS, estado: 'en_revision', id: 'cnt-badge-proyecto' },
-      { col: COL_REPORTES,  estado: 'pendiente',   id: 'cnt-badge-reporte'  },
+      { col: COL_REPORTES,  estado: 'en_revision', id: 'cnt-badge-reporte'  },
     ];
     defs.forEach(async function(d){
       try {
@@ -181,7 +181,7 @@ var _secMeta = {
 
 window.cntIrNoticias  = function(){ _cntSec='noticia';  _cntFiltro='en_revision'; _cntBulkMode=false; _cntSelected=[]; _nav('v-cnt-lista'); window.cntCargarLista&&window.cntCargarLista(); };
 window.cntIrProyectos = function(){ _cntSec='proyecto'; _cntFiltro='en_revision'; _cntBulkMode=false; _cntSelected=[]; _nav('v-cnt-lista'); window.cntCargarLista&&window.cntCargarLista(); };
-window.cntIrReportes  = function(){ _cntSec='reporte';  _cntFiltro='pendiente';   _cntBulkMode=false; _cntSelected=[]; _nav('v-cnt-lista'); window.cntCargarLista&&window.cntCargarLista(); };
+window.cntIrReportes  = function(){ _cntSec='reporte';  _cntFiltro='en_revision'; _cntBulkMode=false; _cntSelected=[]; _nav('v-cnt-lista'); window.cntCargarLista&&window.cntCargarLista(); };
 
 // ══════════════════════════════════════════════════════════════════════════════
 // LISTA GENÉRICA
