@@ -18,6 +18,7 @@ var _cntEmerg    = [];
 var _cntEmergEdit= null;
 var _cntEvFiltro = 'todas';
 var _cntEvItems  = [];
+var _cntEvEditing= null;
 var _cntBulkMode = false;
 var _cntSelected = [];
 
@@ -75,21 +76,22 @@ function _statChip(icon, val, label){
     +'</div>';
 }
 
+function _uid(){ return (window._fbAuth && window._fbAuth.currentUser) ? window._fbAuth.currentUser.uid : 'admin'; }
+
 // ── Permisos (punto 8) ────────────────────────────────────────────────────────
 window.cntPuedeEditar    = function(){ return true; };
 window.cntPuedePublicar  = function(){ return true; };
 window.cntPuedeEliminar  = function(){ return true; };
 
-// ── Bitácora (punto 1 y 10) ───────────────────────────────────────────────────
+// ── Bitácora (puntos 1 y 10) ──────────────────────────────────────────────────
 async function _guardarBitacora(col, id, accion, antes, despues){
   var db = window._fbDb; if(!db) return;
   try {
     var F = await import(_FBFS);
-    var uid = (window._fbAuth && window._fbAuth.currentUser) ? window._fbAuth.currentUser.uid : 'admin';
     await F.addDoc(F.collection(db, COL_BITACORA), {
       coleccion: col, documentoId: id, accion: accion,
       antes: antes||null, despues: despues||null,
-      realizadoPor: uid, fecha: F.serverTimestamp()
+      realizadoPor: _uid(), fecha: F.serverTimestamp()
     });
   } catch(_){}
 }
@@ -117,6 +119,19 @@ async function _cargarCol(col, filtro){
   } catch(e){
     return { err: e.message || 'Error Firestore' };
   }
+}
+
+// ── Items visibles (respeta filtro y búsqueda actuales) ──────────────────────
+function _getItemsFiltrados(){
+  var q = (get('cnt-lista-search')||{}).value || '';
+  var items = q
+    ? _cntItems.filter(function(it){ return (it.titulo||'').toLowerCase().includes(q.toLowerCase()); })
+    : _cntItems.slice();
+  // Si filtro es "todas", excluir eliminados
+  if(_cntFiltro === 'todas'){
+    items = items.filter(function(it){ return it.estado !== 'eliminado'; });
+  }
+  return items;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -153,13 +168,11 @@ window.cntCargarLista = async function(){
   allTabs.forEach(function(f){
     var b = get('cnt-ftab-'+f); if(b) b.classList.toggle('on', f === _cntFiltro);
   });
-  // Visibilidad de tabs por sección
   ['programado','borrador'].forEach(function(f){
     var b = get('cnt-ftab-'+f); if(b) b.style.display = (_cntSec==='reporte')?'none':'';
   });
   var bp = get('cnt-ftab-pendiente'); if(bp) bp.style.display = (_cntSec==='reporte')?'':'none';
 
-  // Bulk mode button text
   var btnBulk = get('cnt-btn-seleccionar');
   if(btnBulk) btnBulk.textContent = _cntBulkMode ? 'Cancelar' : 'Seleccionar';
   _actualizarBulkBar();
@@ -179,16 +192,7 @@ window.cntCargarLista = async function(){
   }
 
   _cntItems = res || [];
-
-  var q = (get('cnt-lista-search')||{}).value || '';
-  var items = q
-    ? _cntItems.filter(function(it){ return (it.titulo||'').toLowerCase().includes(q.toLowerCase()); })
-    : _cntItems;
-
-  // Si filtro no es 'todas' ni 'eliminado', excluir eliminados del resultado
-  if(_cntFiltro !== 'eliminado' && _cntFiltro === 'todas'){
-    items = items.filter(function(it){ return it.estado !== 'eliminado'; });
-  }
+  var items = _getItemsFiltrados();
 
   if(!items.length){
     listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;">'
@@ -236,13 +240,11 @@ window.cntFiltrarLista = function(f){
 window.cntBuscarLista = function(v){
   if(!_cntItems.length){ window.cntCargarLista(); return; }
   var m = _secMeta[_cntSec]||{icon:'📄'};
-  var items = v
-    ? _cntItems.filter(function(it){ return (it.titulo||'').toLowerCase().includes(v.toLowerCase()); })
-    : _cntItems;
+  var items = _getItemsFiltrados();
   var listEl = get('cnt-lista-body');
   if(!listEl) return;
   if(!items.length){
-    listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;color:rgba(255,255,255,.3);font-size:13px;">Sin resultados para "'+_esc(v)+'"</div>';
+    listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;color:rgba(255,255,255,.3);font-size:13px;">Sin resultados</div>';
     return;
   }
   listEl.innerHTML = _renderListItems(items, m);
@@ -257,10 +259,10 @@ window.cntBulkActivar = function(){
   var btn = get('cnt-btn-seleccionar');
   if(btn) btn.textContent = _cntBulkMode ? 'Cancelar' : 'Seleccionar';
   _actualizarBulkBar();
-  // Re-render list
   var m = _secMeta[_cntSec]||{icon:'📄'};
   var listEl = get('cnt-lista-body');
-  if(listEl && _cntItems.length) listEl.innerHTML = _renderListItems(_cntItems, m);
+  var items = _getItemsFiltrados();
+  if(listEl && items.length) listEl.innerHTML = _renderListItems(items, m);
 };
 
 window.cntBulkToggleItem = function(id){
@@ -269,7 +271,8 @@ window.cntBulkToggleItem = function(id){
   _actualizarBulkBar();
   var m = _secMeta[_cntSec]||{icon:'📄'};
   var listEl = get('cnt-lista-body');
-  if(listEl && _cntItems.length) listEl.innerHTML = _renderListItems(_cntItems, m);
+  var items = _getItemsFiltrados();
+  if(listEl && items.length) listEl.innerHTML = _renderListItems(items, m);
 };
 
 function _actualizarBulkBar(){
@@ -288,11 +291,13 @@ async function _bulkCambiarEstado(estado){
   var m = _secMeta[_cntSec]; if(!m) return;
   var F = await import(_FBFS);
   var proms = _cntSelected.map(function(id){
+    var it = _cntItems.find(function(x){ return x._id===id; }) || {};
+    var estadoAntes = it.estado;
     var upd = {estado:estado, actualizadoEn:F.serverTimestamp()};
     if(estado==='publicado') upd.publicadoEn = F.serverTimestamp();
-    if(estado==='eliminado'){ upd.eliminadoEn = F.serverTimestamp(); upd.eliminadoPor = 'admin'; }
+    if(estado==='eliminado'){ upd.eliminadoEn = F.serverTimestamp(); upd.eliminadoPor = _uid(); }
     return F.updateDoc(F.doc(db, m.col, id), upd).then(function(){
-      _guardarBitacora(m.col, id, 'bulk_'+estado, null, {estado:estado});
+      _guardarBitacora(m.col, id, 'bulk_'+estado, {estado:estadoAntes}, {estado:estado});
     });
   });
   try {
@@ -306,10 +311,11 @@ async function _bulkCambiarEstado(estado){
   } catch(e){ _showToast('Error: '+e.message); }
 }
 
-window.cntBulkPublicar  = function(){ _bulkCambiarEstado('publicado'); };
-window.cntBulkRechazar  = function(){ _bulkCambiarEstado('rechazado'); };
-window.cntBulkBorrador  = function(){ _bulkCambiarEstado('borrador'); };
+window.cntBulkPublicar  = function(){ if(!cntPuedePublicar()) return; _bulkCambiarEstado('publicado'); };
+window.cntBulkRechazar  = function(){ if(!cntPuedeEditar())   return; _bulkCambiarEstado('rechazado'); };
+window.cntBulkBorrador  = function(){ if(!cntPuedeEditar())   return; _bulkCambiarEstado('borrador'); };
 window.cntBulkEliminar  = function(){
+  if(!cntPuedeEliminar()) return;
   if(!_cntSelected.length) return;
   if(!confirm('¿Mover '+_cntSelected.length+' elemento(s) a la papelera?')) return;
   _bulkCambiarEstado('eliminado');
@@ -336,7 +342,6 @@ function _renderEdit(it){
     ? imgs.map(function(u){ return '<img src="'+u+'" style="width:80px;height:80px;object-fit:cover;border-radius:10px;border:.5px solid rgba(255,255,255,.1);" onerror="this.style.display=\'none\'">'; }).join('')
     : '<div style="width:80px;height:80px;border-radius:10px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:28px;">'+(m.icon||'📄')+'</div>';
 
-  // Estadísticas (punto 5)
   var stats = it.estadisticas || {};
   var statsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0;">'
     +_statChip('👁',''+( stats.visitas||it.visitas||0),'vistas')
@@ -346,19 +351,17 @@ function _renderEdit(it){
     +_statChip('💬',''+( stats.comentarios||it.comentarios||0),'coment.')
     +'</div>';
 
-  // Botones de estado
   var esEliminado = it.estado === 'eliminado';
   var btnsHtml = esEliminado
     ? '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'
-        +'<button onclick="cntRestaurarItem(\''+it._id+'\')" class="cnt-btn-ok">↩ Restaurar</button>'
+        +(cntPuedeEditar()?'<button onclick="cntRestaurarItem(\''+it._id+'\')" class="cnt-btn-ok">↩ Restaurar</button>':'')
       +'</div>'
     : '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'
-        +(it.estado!=='publicado' ? '<button onclick="cntCambiarEstado(\''+it._id+'\',\'publicado\')" class="cnt-btn-ok">✓ Publicar</button>' : '')
-        +(_cntSec!=='reporte'&&it.estado!=='borrador' ? '<button onclick="cntCambiarEstado(\''+it._id+'\',\'borrador\')" class="cnt-btn-neu">◷ Borrador</button>' : '')
-        +(it.estado!=='rechazado' ? '<button onclick="cntCambiarEstado(\''+it._id+'\',\'rechazado\')" class="cnt-btn-del">✕ Rechazar</button>' : '')
+        +(cntPuedePublicar()&&it.estado!=='publicado'?'<button onclick="cntCambiarEstado(\''+it._id+'\',\'publicado\')" class="cnt-btn-ok">✓ Publicar</button>':'')
+        +(cntPuedeEditar()&&_cntSec!=='reporte'&&it.estado!=='borrador'?'<button onclick="cntCambiarEstado(\''+it._id+'\',\'borrador\')" class="cnt-btn-neu">◷ Borrador</button>':'')
+        +(cntPuedeEditar()&&it.estado!=='rechazado'?'<button onclick="cntCambiarEstado(\''+it._id+'\',\'rechazado\')" class="cnt-btn-del">✕ Rechazar</button>':'')
       +'</div>';
 
-  // Sección publicación programada (punto 2)
   var progHtml = !esEliminado
     ? '<div id="cnt-prog-section" style="display:none;margin-top:10px;background:rgba(124,58,237,.1);border-radius:12px;padding:12px;">'
         +'<div style="font-size:11px;font-weight:700;color:#a78bfa;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">📅 Publicar el día</div>'
@@ -367,7 +370,6 @@ function _renderEdit(it){
       +'</div>'
     : '';
 
-  // Sección solicitar corrección (punto 3)
   var corrHtml = !esEliminado
     ? '<div id="cnt-corr-section" style="display:none;margin-top:10px;background:rgba(245,197,24,.08);border-radius:12px;padding:12px;">'
         +'<div style="font-size:11px;font-weight:700;color:#e09000;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">📝 Observaciones para el autor</div>'
@@ -376,14 +378,13 @@ function _renderEdit(it){
       +'</div>'
     : '';
 
-  // Acciones secundarias
   var accionesHtml = !esEliminado
     ? '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">'
         +'<button onclick="cntVistaPrevia(\''+it._id+'\')" style="background:rgba(255,255,255,.07);border:.5px solid rgba(255,255,255,.12);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.7);cursor:pointer;font-family:inherit;">👁 Vista previa</button>'
-        +(_cntSec!=='reporte'?'<button onclick="cntMostrarProgramar(\''+it._id+'\')" style="background:rgba(124,58,237,.15);border:.5px solid rgba(124,58,237,.3);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#a78bfa;cursor:pointer;font-family:inherit;">📅 Programar</button>':'')
-        +'<button onclick="cntSolicitarCorreccion(\''+it._id+'\')" style="background:rgba(245,197,24,.1);border:.5px solid rgba(245,197,24,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#e09000;cursor:pointer;font-family:inherit;">📝 Solicitar corrección</button>'
-        +'<button onclick="cntDuplicar(\''+it._id+'\')" style="background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;">⧉ Duplicar</button>'
-        +'<button onclick="cntSoftDelete(\''+it._id+'\')" style="background:rgba(214,58,42,.1);border:.5px solid rgba(214,58,42,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#D63A2A;cursor:pointer;font-family:inherit;">🗑 Papelera</button>'
+        +(_cntSec!=='reporte'&&cntPuedePublicar()?'<button onclick="cntMostrarProgramar(\''+it._id+'\')" style="background:rgba(124,58,237,.15);border:.5px solid rgba(124,58,237,.3);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#a78bfa;cursor:pointer;font-family:inherit;">📅 Programar</button>':'')
+        +(cntPuedeEditar()?'<button onclick="cntSolicitarCorreccion(\''+it._id+'\')" style="background:rgba(245,197,24,.1);border:.5px solid rgba(245,197,24,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#e09000;cursor:pointer;font-family:inherit;">📝 Solicitar corrección</button>':'')
+        +(cntPuedeEditar()?'<button onclick="cntDuplicar(\''+it._id+'\')" style="background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;">⧉ Duplicar</button>':'')
+        +(cntPuedeEliminar()?'<button onclick="cntSoftDelete(\''+it._id+'\')" style="background:rgba(214,58,42,.1);border:.5px solid rgba(214,58,42,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#D63A2A;cursor:pointer;font-family:inherit;">🗑 Papelera</button>':'')
       +'</div>'
     : '';
 
@@ -391,7 +392,7 @@ function _renderEdit(it){
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">'+imgHtml+'</div>'
     +'<div class="cnt-field-row"><div class="cnt-field-lbl">Estado</div><div class="cnt-field-val" id="cnt-ef-estado-badge">'+_estadoBadge(it.estado||'—')+'</div></div>'
     +statsHtml
-    +(!esEliminado
+    +(!esEliminado&&cntPuedeEditar()
       ? '<div class="cnt-field-row"><div class="cnt-field-lbl">Título</div>'
           +'<div class="cnt-field-val cnt-field-edit cnt-field-area" contenteditable="true" id="cnt-ef-titulo">'+_esc(it.titulo||'')+'</div></div>'
           +'<div class="cnt-field-row"><div class="cnt-field-lbl">Descripción</div>'
@@ -402,7 +403,7 @@ function _renderEdit(it){
     +'<div class="cnt-field-row"><div class="cnt-field-lbl">Fecha</div><div class="cnt-field-val">'+_fmt(it.creadoEn)+'</div></div>'
     +(it.publicadoEn?'<div class="cnt-field-row"><div class="cnt-field-lbl">Publicado</div><div class="cnt-field-val">'+_fmtDT(it.publicadoEn)+'</div></div>':'')
     +(it.observacionesAdmin?'<div class="cnt-field-row"><div class="cnt-field-lbl">Observaciones</div><div class="cnt-field-val" style="color:#e09000;font-size:12px;white-space:pre-wrap;">'+_esc(it.observacionesAdmin)+'</div></div>':'')
-    +(!esEliminado?'<div style="margin-top:16px;"><button onclick="cntGuardarEdicion(\''+it._id+'\')" class="cnt-btn-save">💾 Guardar cambios</button></div>':'')
+    +(!esEliminado&&cntPuedeEditar()?'<div style="margin-top:16px;"><button onclick="cntGuardarEdicion(\''+it._id+'\')" class="cnt-btn-save">💾 Guardar cambios</button></div>':'')
     +btnsHtml
     +accionesHtml
     +progHtml
@@ -410,19 +411,20 @@ function _renderEdit(it){
 }
 
 window.cntGuardarEdicion = async function(id){
+  if(!cntPuedeEditar()){ _showToast('Sin permiso'); return; }
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var tEl = get('cnt-ef-titulo'), dEl = get('cnt-ef-desc');
   var it = _cntItems.find(function(x){ return x._id===id; }) || {};
   var antes = { titulo: it.titulo, descripcion: it.descripcion };
-  var upd = { actualizadoEn: null };
+  var upd = {};
   if(tEl) upd.titulo      = tEl.textContent.trim();
   if(dEl) upd.descripcion = dEl.textContent.trim();
   try {
     var F = await import(_FBFS);
     upd.actualizadoEn = F.serverTimestamp();
     await F.updateDoc(F.doc(db, m.col, id), upd);
-    if(it) Object.assign(it, upd);
+    Object.assign(it, upd);
     if(_cntEditing && _cntEditing._id===id) Object.assign(_cntEditing, upd);
     _guardarBitacora(m.col, id, 'editar', antes, {titulo:upd.titulo, descripcion:upd.descripcion});
     _showToast('✓ Guardado');
@@ -430,6 +432,8 @@ window.cntGuardarEdicion = async function(id){
 };
 
 window.cntCambiarEstado = async function(id, estado){
+  if(estado==='publicado' && !cntPuedePublicar()){ _showToast('Sin permiso'); return; }
+  if(estado!=='publicado' && !cntPuedeEditar()){ _showToast('Sin permiso'); return; }
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var it = _cntItems.find(function(x){ return x._id===id; }) || {};
@@ -444,32 +448,32 @@ window.cntCambiarEstado = async function(id, estado){
     var badge = get('cnt-ef-estado-badge'); if(badge) badge.innerHTML = _estadoBadge(estado);
     _guardarBitacora(m.col, id, 'cambio_estado', antes, {estado:estado});
     _showToast('Estado → '+estado);
-    // Re-render botones
     if(_cntEditing && _cntEditing._id===id) _renderEdit(_cntEditing);
   } catch(e){ _showToast('Error: '+e.message); }
 };
 
 // ── Publicación programada (punto 2) ─────────────────────────────────────────
-window.cntMostrarProgramar = function(id){
-  var sec = get('cnt-prog-section');
-  if(!sec) return;
+window.cntMostrarProgramar = function(){
+  var sec = get('cnt-prog-section'); if(!sec) return;
   sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
 };
 
 window.cntGuardarProgramado = async function(id){
+  if(!cntPuedePublicar()){ _showToast('Sin permiso'); return; }
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var fechaEl = get('cnt-prog-fecha');
   var fecha = fechaEl ? fechaEl.value : '';
   if(!fecha){ _showToast('Selecciona una fecha'); return; }
   var it = _cntItems.find(function(x){ return x._id===id; }) || {};
+  var estadoAntes = it.estado;  // capturar ANTES de Object.assign
   try {
     var F = await import(_FBFS);
     var upd = { estado:'programado', fechaProgramada:fecha, actualizadoEn:F.serverTimestamp() };
     await F.updateDoc(F.doc(db, m.col, id), upd);
     Object.assign(it, upd);
     if(_cntEditing && _cntEditing._id===id) Object.assign(_cntEditing, upd);
-    _guardarBitacora(m.col, id, 'programar', {estado:it.estado}, {estado:'programado', fechaProgramada:fecha});
+    _guardarBitacora(m.col, id, 'programar', {estado:estadoAntes}, {estado:'programado', fechaProgramada:fecha});
     _showToast('✓ Programado para '+fecha);
     var sec = get('cnt-prog-section'); if(sec) sec.style.display='none';
     var badge = get('cnt-ef-estado-badge'); if(badge) badge.innerHTML = _estadoBadge('programado');
@@ -477,26 +481,27 @@ window.cntGuardarProgramado = async function(id){
 };
 
 // ── Revisión con comentarios (punto 3) ───────────────────────────────────────
-window.cntSolicitarCorreccion = function(id){
-  var sec = get('cnt-corr-section');
-  if(!sec) return;
+window.cntSolicitarCorreccion = function(){
+  var sec = get('cnt-corr-section'); if(!sec) return;
   sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
 };
 
 window.cntEnviarCorreccion = async function(id){
+  if(!cntPuedeEditar()){ _showToast('Sin permiso'); return; }
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var obsEl = get('cnt-corr-obs');
   var obs = obsEl ? obsEl.value.trim() : '';
   if(!obs){ _showToast('Escribe las observaciones'); return; }
   var it = _cntItems.find(function(x){ return x._id===id; }) || {};
+  var estadoAntes = it.estado;  // capturar ANTES de Object.assign
   try {
     var F = await import(_FBFS);
     var upd = { estado:'requiere_correccion', observacionesAdmin:obs, actualizadoEn:F.serverTimestamp() };
     await F.updateDoc(F.doc(db, m.col, id), upd);
     Object.assign(it, upd);
     if(_cntEditing && _cntEditing._id===id) Object.assign(_cntEditing, upd);
-    _guardarBitacora(m.col, id, 'solicitar_correccion', {estado:it.estado}, {estado:'requiere_correccion', observaciones:obs});
+    _guardarBitacora(m.col, id, 'solicitar_correccion', {estado:estadoAntes}, {estado:'requiere_correccion', observaciones:obs});
     _showToast('↩ Enviado al autor');
     var sec = get('cnt-corr-section'); if(sec) sec.style.display='none';
     var badge = get('cnt-ef-estado-badge'); if(badge) badge.innerHTML = _estadoBadge('requiere_correccion');
@@ -507,11 +512,15 @@ window.cntEnviarCorreccion = async function(id){
 window.cntVistaPrevia = function(id){
   var it = _cntItems.find(function(x){ return x._id===id; }) || _cntEditing || {};
   var m = _secMeta[_cntSec] || {};
+  _mostrarPreviewOverlay(it, m.icon||'📄');
+};
+
+function _mostrarPreviewOverlay(it, icon){
   var el = get('cnt-preview-overlay'); if(!el) return;
   var imgs = it.imagenes||(it.imagen?[it.imagen]:[]);
   var imgHtml = imgs.length
     ? '<img src="'+imgs[0]+'" style="width:100%;height:180px;object-fit:cover;border-radius:14px;margin-bottom:14px;" onerror="this.style.display=\'none\'">'
-    : '<div style="width:100%;height:120px;border-radius:14px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:14px;">'+(m.icon||'📄')+'</div>';
+    : '<div style="width:100%;height:120px;border-radius:14px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:14px;">'+icon+'</div>';
   el.innerHTML =
     '<div style="position:absolute;inset:0;background:rgba(0,0,0,.7);" onclick="cntCerrarPrevia()"></div>'
     +'<div style="position:absolute;bottom:0;left:0;right:0;background:#0f1c14;border-radius:20px 20px 0 0;padding:20px 18px 30px;max-height:80%;overflow-y:auto;">'
@@ -520,14 +529,14 @@ window.cntVistaPrevia = function(id){
         +'<button onclick="cntCerrarPrevia()" style="background:rgba(255,255,255,.08);border:none;border-radius:50%;width:28px;height:28px;font-size:14px;color:#fff;cursor:pointer;font-family:inherit;">✕</button>'
       +'</div>'
       +imgHtml
-      +'<div style="font-size:16px;font-weight:700;color:#fff;line-height:1.3;margin-bottom:8px;">'+_esc(it.titulo||'Sin título')+'</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#fff;line-height:1.3;margin-bottom:8px;">'+_esc(it.titulo||it.nombre||'Sin título')+'</div>'
       +'<div style="margin-bottom:10px;">'+_estadoBadge(it.estado||'borrador')+'</div>'
       +(it.descripcion?'<div style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.5;margin-bottom:10px;">'+_esc(it.descripcion)+'</div>':'')
-      +(it.ubicacion?'<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:6px;">📍 '+_esc(it.ubicacion)+'</div>':'')
-      +'<div style="font-size:12px;color:rgba(255,255,255,.3);">📅 '+_fmt(it.creadoEn)+'</div>'
+      +((it.ubicacion||it.lugar)?'<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:6px;">📍 '+_esc(it.ubicacion||it.lugar)+'</div>':'')
+      +(it.fecha?'<div style="font-size:12px;color:rgba(255,255,255,.3);">📅 '+_fmt(it.fecha)+'</div>':'<div style="font-size:12px;color:rgba(255,255,255,.3);">📅 '+_fmt(it.creadoEn)+'</div>')
     +'</div>';
   el.style.display = 'block';
-};
+}
 
 window.cntCerrarPrevia = function(){
   var el = get('cnt-preview-overlay'); if(el) el.style.display='none';
@@ -535,18 +544,19 @@ window.cntCerrarPrevia = function(){
 
 // ── Soft delete / Papelera (punto 7) ─────────────────────────────────────────
 window.cntSoftDelete = async function(id){
+  if(!cntPuedeEliminar()){ _showToast('Sin permiso'); return; }
   if(!confirm('¿Mover a la papelera?')) return;
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var it = _cntItems.find(function(x){ return x._id===id; }) || {};
+  var estadoAntes = it.estado;  // capturar ANTES de Object.assign
   try {
     var F = await import(_FBFS);
-    var uid = (window._fbAuth && window._fbAuth.currentUser) ? window._fbAuth.currentUser.uid : 'admin';
-    var upd = { estado:'eliminado', eliminadoEn:F.serverTimestamp(), eliminadoPor:uid };
+    var upd = { estado:'eliminado', eliminadoEn:F.serverTimestamp(), eliminadoPor:_uid() };
     await F.updateDoc(F.doc(db, m.col, id), upd);
     Object.assign(it, upd);
     if(_cntEditing && _cntEditing._id===id) Object.assign(_cntEditing, upd);
-    _guardarBitacora(m.col, id, 'papelera', {estado:it.estado}, {estado:'eliminado'});
+    _guardarBitacora(m.col, id, 'papelera', {estado:estadoAntes}, {estado:'eliminado'});
     _showToast('🗑 Movido a papelera');
     setTimeout(function(){ _nav('v-cnt-lista','left'); }, 500);
   } catch(e){ _showToast('Error: '+e.message); }
@@ -554,23 +564,25 @@ window.cntSoftDelete = async function(id){
 
 window.cntSoftDeleteLista = async function(id){
   cntCerrarMenu();
+  if(!cntPuedeEliminar()){ _showToast('Sin permiso'); return; }
   if(!confirm('¿Mover a la papelera?')) return;
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var it = _cntItems.find(function(x){ return x._id===id; }) || {};
+  var estadoAntes = it.estado;  // capturar ANTES de Object.assign
   try {
     var F = await import(_FBFS);
-    var uid = (window._fbAuth && window._fbAuth.currentUser) ? window._fbAuth.currentUser.uid : 'admin';
-    var upd = { estado:'eliminado', eliminadoEn:F.serverTimestamp(), eliminadoPor:uid };
+    var upd = { estado:'eliminado', eliminadoEn:F.serverTimestamp(), eliminadoPor:_uid() };
     await F.updateDoc(F.doc(db, m.col, id), upd);
-    if(it) Object.assign(it, upd);
-    _guardarBitacora(m.col, id, 'papelera', {estado:it.estado}, {estado:'eliminado'});
+    Object.assign(it, upd);
+    _guardarBitacora(m.col, id, 'papelera', {estado:estadoAntes}, {estado:'eliminado'});
     _showToast('🗑 Movido a papelera');
     window.cntCargarLista();
   } catch(e){ _showToast('Error'); }
 };
 
 window.cntRestaurarItem = async function(id){
+  if(!cntPuedeEditar()){ _showToast('Sin permiso'); return; }
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var it = _cntItems.find(function(x){ return x._id===id; }) || {};
@@ -586,13 +598,12 @@ window.cntRestaurarItem = async function(id){
   } catch(e){ _showToast('Error: '+e.message); }
 };
 
-// cntEliminarItem — mantiene compatibilidad, ahora hace soft delete
-window.cntEliminarItem = function(id){
-  cntSoftDeleteLista(id);
-};
+// cntEliminarItem — compatibilidad, delegada a soft delete
+window.cntEliminarItem = function(id){ cntSoftDeleteLista(id); };
 
 // ── Duplicar publicación (punto 9) ────────────────────────────────────────────
 window.cntDuplicar = async function(id){
+  if(!cntPuedeEditar()){ _showToast('Sin permiso'); return; }
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var it = _cntItems.find(function(x){ return x._id===id; }) || _cntEditing || {};
@@ -600,7 +611,6 @@ window.cntDuplicar = async function(id){
   try {
     var F = await import(_FBFS);
     var copia = {};
-    // Copiar campos relevantes, resetear métricas y metadatos
     ['titulo','descripcion','imagenes','imagen','ubicacion','autorNombre','autorId','categoria','tags'].forEach(function(k){
       if(it[k] !== undefined) copia[k] = it[k];
     });
@@ -630,10 +640,10 @@ window.cntMenuItem = function(id, idx){
     +'<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">'+_esc((it.titulo||'').slice(0,40))+'</div>'
     +_estadoBadge(it.estado)+'</div>'
     +'<div class="cnt-menu-row" onclick="cntAbrirItem(\''+id+'\');cntCerrarMenu()">✏️ Ver / Editar</div>'
-    +(it.estado!=='publicado'?'<div class="cnt-menu-row ok" onclick="cntCambiarEstadoLista(\''+id+'\',\'publicado\')">✓ Publicar</div>':'')
-    +(_cntSec!=='reporte'&&it.estado!=='borrador'?'<div class="cnt-menu-row" onclick="cntCambiarEstadoLista(\''+id+'\',\'borrador\')">◷ Mover a borrador</div>':'')
-    +(it.estado!=='rechazado'?'<div class="cnt-menu-row del" onclick="cntCambiarEstadoLista(\''+id+'\',\'rechazado\')">✕ Rechazar</div>':'')
-    +'<div class="cnt-menu-row del" onclick="cntSoftDeleteLista(\''+id+'\')">🗑 Mover a papelera</div>';
+    +(cntPuedePublicar()&&it.estado!=='publicado'?'<div class="cnt-menu-row ok" onclick="cntCambiarEstadoLista(\''+id+'\',\'publicado\')">✓ Publicar</div>':'')
+    +(cntPuedeEditar()&&_cntSec!=='reporte'&&it.estado!=='borrador'?'<div class="cnt-menu-row" onclick="cntCambiarEstadoLista(\''+id+'\',\'borrador\')">◷ Mover a borrador</div>':'')
+    +(cntPuedeEditar()&&it.estado!=='rechazado'?'<div class="cnt-menu-row del" onclick="cntCambiarEstadoLista(\''+id+'\',\'rechazado\')">✕ Rechazar</div>':'')
+    +(cntPuedeEliminar()?'<div class="cnt-menu-row del" onclick="cntSoftDeleteLista(\''+id+'\')">🗑 Mover a papelera</div>':'');
   overlay.style.display = 'flex';
   setTimeout(function(){ sheet.style.transform='translateY(0)'; }, 10);
 };
@@ -647,17 +657,19 @@ window.cntCerrarMenu = function(){
 
 window.cntCambiarEstadoLista = async function(id, estado){
   cntCerrarMenu();
+  if(estado==='publicado' && !cntPuedePublicar()){ _showToast('Sin permiso'); return; }
+  if(estado!=='publicado' && !cntPuedeEditar()){ _showToast('Sin permiso'); return; }
   var it = _cntItems.find(function(x){ return x._id===id; });
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
-  var antes = { estado: it ? it.estado : null };
+  var estadoAntes = it ? it.estado : null;
   try {
     var F = await import(_FBFS);
     var upd = { estado:estado, actualizadoEn:F.serverTimestamp() };
     if(estado==='publicado') upd.publicadoEn = F.serverTimestamp();
     await F.updateDoc(F.doc(db, m.col, id), upd);
     if(it) Object.assign(it, upd);
-    _guardarBitacora(m.col, id, 'cambio_estado', antes, {estado:estado});
+    _guardarBitacora(m.col, id, 'cambio_estado', {estado:estadoAntes}, {estado:estado});
     _showToast('Estado → '+estado);
     window.cntCargarLista();
   } catch(e){ _showToast('Error'); }
@@ -668,7 +680,7 @@ window.cntCambiarEstadoLista = async function(id, estado){
 // ══════════════════════════════════════════════════════════════════════════════
 window.cntCargarEventos = async function(filtro){
   if(filtro !== undefined) _cntEvFiltro = filtro;
-  ['todas','pendiente','publicado','rechazado','finalizado'].forEach(function(f){
+  ['todas','pendiente','publicado','rechazado','finalizado','eliminado'].forEach(function(f){
     var b = get('cnt-ev-ftab-'+f); if(b) b.classList.toggle('on', f===_cntEvFiltro);
   });
   var listEl = get('cnt-ev-body');
@@ -686,17 +698,25 @@ window.cntCargarEventos = async function(filtro){
   }
   _cntEvItems = res || [];
 
-  if(!_cntEvItems.length){
+  // En filtro "todas" excluir eliminados
+  var items = _cntEvFiltro === 'todas'
+    ? _cntEvItems.filter(function(it){ return it.estado !== 'eliminado'; })
+    : _cntEvItems;
+
+  if(!items.length){
     listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:32px;margin-bottom:12px;">📭</div><div style="color:rgba(255,255,255,.35);font-size:13px;">Sin eventos</div></div>';
     return;
   }
 
-  listEl.innerHTML = _cntEvItems.map(function(it, i){
+  listEl.innerHTML = items.map(function(it, i){
     var imgs = it.imagenes||(it.imagen?[it.imagen]:[]);
     var img = imgs[0]||it.portada||'';
     var imgHtml = img
       ? '<img src="'+img+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" onerror="this.style.display=\'none\'">'
       : '<span style="font-size:22px;">🎉</span>';
+    var trashBtn = it.estado === 'eliminado'
+      ? '<button class="cnt-3dot" onclick="event.stopPropagation();cntRestaurarEvento(\''+it._id+'\')" title="Restaurar" style="font-size:12px;color:#1FC26A;">↩</button>'
+      : '<button class="cnt-3dot" onclick="event.stopPropagation();cntMenuEvento(\''+it._id+'\','+i+')" title="Opciones">⋮</button>';
     return '<div class="cnt-item-card" onclick="cntAbrirEvento(\''+it._id+'\')">'
       +'<div class="cnt-item-img">'+imgHtml+'</div>'
       +'<div class="cnt-item-info">'
@@ -704,7 +724,7 @@ window.cntCargarEventos = async function(filtro){
         +'<div class="cnt-item-meta">'+(it.fecha?_fmt(it.fecha):_fmt(it.creadoEn))+'</div>'
         +'<div style="margin-top:4px;">'+_estadoBadge(it.estado||'pendiente')+'</div>'
       +'</div>'
-      +'<button class="cnt-3dot" onclick="event.stopPropagation();cntMenuEvento(\''+it._id+'\','+i+')" title="Opciones">⋮</button>'
+      +trashBtn
     +'</div>';
   }).join('');
 };
@@ -712,7 +732,8 @@ window.cntCargarEventos = async function(filtro){
 window.cntAbrirEvento = function(id){
   var it = _cntEvItems.find(function(x){ return x._id===id; });
   if(!it) return;
-  _cntEditing = it;
+  _cntEvEditing = it;
+  _cntEditing   = it; // shared para vista previa
   _renderEvEdit(it);
   _nav('v-cnt-ev-edit');
 };
@@ -726,34 +747,208 @@ function _renderEvEdit(it){
     ? imgs.map(function(u){ return '<img src="'+u+'" style="width:80px;height:80px;object-fit:cover;border-radius:10px;border:.5px solid rgba(255,255,255,.1);" onerror="this.style.display=\'none\'">'; }).join('')
     : '<div style="width:80px;height:80px;border-radius:10px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:28px;">🎉</div>';
 
+  var stats = it.estadisticas || {};
+  var statsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0;">'
+    +_statChip('👁',''+( stats.visitas||it.visitas||0),'vistas')
+    +_statChip('↗',''+( stats.compartidos||it.compartidos||0),'comp.')
+    +_statChip('🖱',''+( stats.clics||it.clics||0),'clics')
+    +_statChip('❤️',''+( stats.favoritos||it.favoritos||0),'favs')
+    +_statChip('💬',''+( stats.comentarios||it.comentarios||0),'coment.')
+    +'</div>';
+
+  var esEliminado = it.estado === 'eliminado';
+
+  var btnsHtml = esEliminado
+    ? '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">'
+        +(cntPuedeEditar()?'<button onclick="cntRestaurarEvento(\''+it._id+'\')" class="cnt-btn-ok">↩ Restaurar</button>':'')
+      +'</div>'
+    : '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">'
+        +(cntPuedePublicar()&&it.estado!=='publicado'?'<button onclick="cntCambiarEstadoEv(\''+it._id+'\',\'publicado\')" class="cnt-btn-ok">✓ Publicar</button>':'')
+        +(cntPuedeEditar()&&it.estado!=='rechazado'?'<button onclick="cntCambiarEstadoEv(\''+it._id+'\',\'rechazado\')" class="cnt-btn-del">✕ Rechazar</button>':'')
+      +'</div>';
+
+  var progHtml = !esEliminado
+    ? '<div id="cnt-ev-prog-section" style="display:none;margin-top:10px;background:rgba(124,58,237,.1);border-radius:12px;padding:12px;">'
+        +'<div style="font-size:11px;font-weight:700;color:#a78bfa;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">📅 Publicar el día</div>'
+        +'<input type="date" id="cnt-ev-prog-fecha" min="'+_fechaHoyISO()+'" value="'+(it.fechaProgramada||'')+'" style="background:rgba(255,255,255,.08);border:.5px solid rgba(124,58,237,.4);border-radius:8px;padding:7px 10px;font-size:13px;color:#fff;outline:none;font-family:inherit;width:100%;box-sizing:border-box;">'
+        +'<button onclick="cntGuardarProgramadoEv(\''+it._id+'\')" style="margin-top:8px;background:#7C3AED;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit;width:100%;">✓ Confirmar programación</button>'
+      +'</div>'
+    : '';
+
+  var corrHtml = !esEliminado
+    ? '<div id="cnt-ev-corr-section" style="display:none;margin-top:10px;background:rgba(245,197,24,.08);border-radius:12px;padding:12px;">'
+        +'<div style="font-size:11px;font-weight:700;color:#e09000;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">📝 Observaciones para el organizador</div>'
+        +'<textarea id="cnt-ev-corr-obs" placeholder="Describe qué debe corregirse..." style="background:rgba(255,255,255,.07);border:.5px solid rgba(245,197,24,.3);border-radius:8px;padding:8px 10px;font-size:12px;color:#fff;outline:none;font-family:inherit;width:100%;box-sizing:border-box;min-height:80px;resize:vertical;">'+_esc(it.observacionesAdmin||'')+'</textarea>'
+        +'<button onclick="cntEnviarCorreccionEv(\''+it._id+'\')" style="margin-top:8px;background:#c8940a;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit;width:100%;">↩ Enviar al organizador</button>'
+      +'</div>'
+    : '';
+
+  var accionesHtml = !esEliminado
+    ? '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">'
+        +'<button onclick="cntVistaPreviaEv(\''+it._id+'\')" style="background:rgba(255,255,255,.07);border:.5px solid rgba(255,255,255,.12);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.7);cursor:pointer;font-family:inherit;">👁 Vista previa</button>'
+        +(cntPuedePublicar()?'<button onclick="cntMostrarProgramarEv()" style="background:rgba(124,58,237,.15);border:.5px solid rgba(124,58,237,.3);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#a78bfa;cursor:pointer;font-family:inherit;">📅 Programar</button>':'')
+        +(cntPuedeEditar()?'<button onclick="cntSolicitarCorreccionEv()" style="background:rgba(245,197,24,.1);border:.5px solid rgba(245,197,24,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#e09000;cursor:pointer;font-family:inherit;">📝 Solicitar corrección</button>':'')
+        +(cntPuedeEditar()?'<button onclick="cntDuplicarEvento(\''+it._id+'\')" style="background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;">⧉ Duplicar</button>':'')
+        +(cntPuedeEliminar()?'<button onclick="cntSoftDeleteEvento(\''+it._id+'\')" style="background:rgba(214,58,42,.1);border:.5px solid rgba(214,58,42,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#D63A2A;cursor:pointer;font-family:inherit;">🗑 Papelera</button>':'')
+      +'</div>'
+    : '';
+
   body.innerHTML =
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">'+imgHtml+'</div>'
     +'<div class="cnt-field-row"><div class="cnt-field-lbl">Estado</div><div class="cnt-field-val" id="cnt-ev-estado-badge">'+_estadoBadge(it.estado||'pendiente')+'</div></div>'
+    +statsHtml
     +'<div class="cnt-field-row"><div class="cnt-field-lbl">Nombre</div><div class="cnt-field-val">'+_esc(it.nombre||it.titulo||'—')+'</div></div>'
     +'<div class="cnt-field-row"><div class="cnt-field-lbl">Descripción</div><div class="cnt-field-val" style="white-space:pre-wrap;font-size:12px;line-height:1.5;">'+_esc(it.descripcion||'—')+'</div></div>'
     +(it.fecha?'<div class="cnt-field-row"><div class="cnt-field-lbl">Fecha</div><div class="cnt-field-val">'+_fmt(it.fecha)+'</div></div>':'')
     +((it.lugar||it.ubicacion)?'<div class="cnt-field-row"><div class="cnt-field-lbl">Lugar</div><div class="cnt-field-val">'+_esc(it.lugar||it.ubicacion)+'</div></div>':'')
     +(it.organizadorNombre?'<div class="cnt-field-row"><div class="cnt-field-lbl">Organizador</div><div class="cnt-field-val">'+_esc(it.organizadorNombre)+'</div></div>':'')
-    +'<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">'
-    +(it.estado!=='publicado'?'<button onclick="cntCambiarEstadoEv(\''+it._id+'\',\'publicado\')" class="cnt-btn-ok">✓ Publicar</button>':'')
-    +(it.estado!=='rechazado'?'<button onclick="cntCambiarEstadoEv(\''+it._id+'\',\'rechazado\')" class="cnt-btn-del">✕ Rechazar</button>':'')
-    +'</div>';
+    +(it.publicadoEn?'<div class="cnt-field-row"><div class="cnt-field-lbl">Publicado</div><div class="cnt-field-val">'+_fmtDT(it.publicadoEn)+'</div></div>':'')
+    +(it.observacionesAdmin?'<div class="cnt-field-row"><div class="cnt-field-lbl">Observaciones</div><div class="cnt-field-val" style="color:#e09000;font-size:12px;white-space:pre-wrap;">'+_esc(it.observacionesAdmin)+'</div></div>':'')
+    +btnsHtml
+    +accionesHtml
+    +progHtml
+    +corrHtml;
 }
 
 window.cntCambiarEstadoEv = async function(id, estado){
+  if(estado==='publicado' && !cntPuedePublicar()){ _showToast('Sin permiso'); return; }
+  if(estado!=='publicado' && !cntPuedeEditar()){ _showToast('Sin permiso'); return; }
   var db = window._fbDb; if(!db) return;
   var it = _cntEvItems.find(function(x){ return x._id===id; }) || {};
-  var antes = { estado: it.estado };
+  var estadoAntes = it.estado;
   try {
     var F = await import(_FBFS);
     var upd = { estado:estado, actualizadoEn:F.serverTimestamp() };
     if(estado==='publicado') upd.publicadoEn = F.serverTimestamp();
     await F.updateDoc(F.doc(db, COL_EVENTOS, id), upd);
     Object.assign(it, upd);
-    if(_cntEditing && _cntEditing._id===id) Object.assign(_cntEditing, upd);
+    if(_cntEvEditing && _cntEvEditing._id===id) Object.assign(_cntEvEditing, upd);
     var badge = get('cnt-ev-estado-badge'); if(badge) badge.innerHTML = _estadoBadge(estado);
-    _guardarBitacora(COL_EVENTOS, id, 'cambio_estado', antes, {estado:estado});
+    _guardarBitacora(COL_EVENTOS, id, 'cambio_estado', {estado:estadoAntes}, {estado:estado});
     _showToast('Estado → '+estado);
+    if(_cntEvEditing && _cntEvEditing._id===id) _renderEvEdit(_cntEvEditing);
+  } catch(e){ _showToast('Error: '+e.message); }
+};
+
+// ── Eventos: programar ────────────────────────────────────────────────────────
+window.cntMostrarProgramarEv = function(){
+  var sec = get('cnt-ev-prog-section'); if(!sec) return;
+  sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+};
+
+window.cntGuardarProgramadoEv = async function(id){
+  if(!cntPuedePublicar()){ _showToast('Sin permiso'); return; }
+  var db = window._fbDb; if(!db) return;
+  var fechaEl = get('cnt-ev-prog-fecha');
+  var fecha = fechaEl ? fechaEl.value : '';
+  if(!fecha){ _showToast('Selecciona una fecha'); return; }
+  var it = _cntEvItems.find(function(x){ return x._id===id; }) || {};
+  var estadoAntes = it.estado;
+  try {
+    var F = await import(_FBFS);
+    var upd = { estado:'programado', fechaProgramada:fecha, actualizadoEn:F.serverTimestamp() };
+    await F.updateDoc(F.doc(db, COL_EVENTOS, id), upd);
+    Object.assign(it, upd);
+    if(_cntEvEditing && _cntEvEditing._id===id) Object.assign(_cntEvEditing, upd);
+    _guardarBitacora(COL_EVENTOS, id, 'programar', {estado:estadoAntes}, {estado:'programado', fechaProgramada:fecha});
+    _showToast('✓ Programado para '+fecha);
+    var sec = get('cnt-ev-prog-section'); if(sec) sec.style.display='none';
+    var badge = get('cnt-ev-estado-badge'); if(badge) badge.innerHTML = _estadoBadge('programado');
+  } catch(e){ _showToast('Error: '+e.message); }
+};
+
+// ── Eventos: solicitar corrección ─────────────────────────────────────────────
+window.cntSolicitarCorreccionEv = function(){
+  var sec = get('cnt-ev-corr-section'); if(!sec) return;
+  sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+};
+
+window.cntEnviarCorreccionEv = async function(id){
+  if(!cntPuedeEditar()){ _showToast('Sin permiso'); return; }
+  var db = window._fbDb; if(!db) return;
+  var obsEl = get('cnt-ev-corr-obs');
+  var obs = obsEl ? obsEl.value.trim() : '';
+  if(!obs){ _showToast('Escribe las observaciones'); return; }
+  var it = _cntEvItems.find(function(x){ return x._id===id; }) || {};
+  var estadoAntes = it.estado;
+  try {
+    var F = await import(_FBFS);
+    var upd = { estado:'requiere_correccion', observacionesAdmin:obs, actualizadoEn:F.serverTimestamp() };
+    await F.updateDoc(F.doc(db, COL_EVENTOS, id), upd);
+    Object.assign(it, upd);
+    if(_cntEvEditing && _cntEvEditing._id===id) Object.assign(_cntEvEditing, upd);
+    _guardarBitacora(COL_EVENTOS, id, 'solicitar_correccion', {estado:estadoAntes}, {estado:'requiere_correccion', observaciones:obs});
+    _showToast('↩ Enviado al organizador');
+    var sec = get('cnt-ev-corr-section'); if(sec) sec.style.display='none';
+    var badge = get('cnt-ev-estado-badge'); if(badge) badge.innerHTML = _estadoBadge('requiere_correccion');
+  } catch(e){ _showToast('Error: '+e.message); }
+};
+
+// ── Eventos: vista previa ─────────────────────────────────────────────────────
+window.cntVistaPreviaEv = function(id){
+  var it = _cntEvItems.find(function(x){ return x._id===id; }) || _cntEvEditing || {};
+  _mostrarPreviewOverlay(it, '🎉');
+};
+
+// ── Eventos: soft delete ──────────────────────────────────────────────────────
+window.cntSoftDeleteEvento = async function(id){
+  if(!cntPuedeEliminar()){ _showToast('Sin permiso'); return; }
+  if(!confirm('¿Mover evento a la papelera?')) return;
+  var db = window._fbDb; if(!db) return;
+  var it = _cntEvItems.find(function(x){ return x._id===id; }) || {};
+  var estadoAntes = it.estado;
+  try {
+    var F = await import(_FBFS);
+    var upd = { estado:'eliminado', eliminadoEn:F.serverTimestamp(), eliminadoPor:_uid() };
+    await F.updateDoc(F.doc(db, COL_EVENTOS, id), upd);
+    Object.assign(it, upd);
+    if(_cntEvEditing && _cntEvEditing._id===id) Object.assign(_cntEvEditing, upd);
+    _guardarBitacora(COL_EVENTOS, id, 'papelera', {estado:estadoAntes}, {estado:'eliminado'});
+    _showToast('🗑 Movido a papelera');
+    setTimeout(function(){ _nav('v-cnt-eventos','left'); }, 500);
+  } catch(e){ _showToast('Error: '+e.message); }
+};
+
+// ── Eventos: restaurar ────────────────────────────────────────────────────────
+window.cntRestaurarEvento = async function(id){
+  if(!cntPuedeEditar()){ _showToast('Sin permiso'); return; }
+  var db = window._fbDb; if(!db) return;
+  var it = _cntEvItems.find(function(x){ return x._id===id; }) || {};
+  try {
+    var F = await import(_FBFS);
+    var upd = { estado:'pendiente', eliminadoEn:F.deleteField(), eliminadoPor:F.deleteField(), actualizadoEn:F.serverTimestamp() };
+    await F.updateDoc(F.doc(db, COL_EVENTOS, id), upd);
+    if(it){ it.estado='pendiente'; delete it.eliminadoEn; delete it.eliminadoPor; }
+    if(_cntEvEditing && _cntEvEditing._id===id){ _cntEvEditing.estado='pendiente'; _renderEvEdit(_cntEvEditing); }
+    _guardarBitacora(COL_EVENTOS, id, 'restaurar', {estado:'eliminado'}, {estado:'pendiente'});
+    _showToast('↩ Restaurado como pendiente');
+    window.cntCargarEventos();
+  } catch(e){ _showToast('Error: '+e.message); }
+};
+
+// ── Eventos: duplicar ─────────────────────────────────────────────────────────
+window.cntDuplicarEvento = async function(id){
+  if(!cntPuedeEditar()){ _showToast('Sin permiso'); return; }
+  var db = window._fbDb; if(!db) return;
+  var it = _cntEvItems.find(function(x){ return x._id===id; }) || _cntEvEditing || {};
+  if(!it._id) return;
+  try {
+    var F = await import(_FBFS);
+    var copia = {};
+    ['nombre','titulo','descripcion','imagenes','imagen','portada','lugar','ubicacion','organizadorNombre','organizadorId','categoria','tags'].forEach(function(k){
+      if(it[k] !== undefined) copia[k] = it[k];
+    });
+    copia.nombre    = 'Copia de '+(it.nombre||it.titulo||'sin nombre');
+    copia.estado    = 'pendiente';
+    copia.creadoEn  = F.serverTimestamp();
+    copia.visitas   = 0; copia.compartidos = 0; copia.clics = 0;
+    copia.favoritos = 0; copia.comentarios  = 0;
+    copia.estadisticas = { visitas:0, compartidos:0, clics:0, favoritos:0, comentarios:0 };
+    delete copia.publicadoEn; delete copia.fechaProgramada; delete copia.observacionesAdmin;
+    var ref = await F.addDoc(F.collection(db, COL_EVENTOS), copia);
+    _guardarBitacora(COL_EVENTOS, ref.id, 'duplicar', null, {copiadoDe:id, nombre:copia.nombre});
+    _showToast('⧉ Duplicado como pendiente');
+    window.cntCargarEventos();
   } catch(e){ _showToast('Error: '+e.message); }
 };
 
@@ -768,40 +963,52 @@ window.cntMenuEvento = function(id, idx){
     +'<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">'+_esc((it.nombre||it.titulo||'').slice(0,40))+'</div>'
     +_estadoBadge(it.estado)+'</div>'
     +'<div class="cnt-menu-row" onclick="cntAbrirEvento(\''+id+'\');cntCerrarMenu()">👁 Ver detalle</div>'
-    +(it.estado!=='publicado'?'<div class="cnt-menu-row ok" onclick="cntCambiarEstadoEvLista(\''+id+'\',\'publicado\')">✓ Publicar</div>':'')
-    +(it.estado!=='rechazado'?'<div class="cnt-menu-row del" onclick="cntCambiarEstadoEvLista(\''+id+'\',\'rechazado\')">✕ Rechazar</div>':'')
-    +'<div class="cnt-menu-row del" onclick="cntEliminarEvento(\''+id+'\')">🗑 Eliminar</div>';
+    +(cntPuedePublicar()&&it.estado!=='publicado'?'<div class="cnt-menu-row ok" onclick="cntCambiarEstadoEvLista(\''+id+'\',\'publicado\')">✓ Publicar</div>':'')
+    +(cntPuedeEditar()&&it.estado!=='rechazado'?'<div class="cnt-menu-row del" onclick="cntCambiarEstadoEvLista(\''+id+'\',\'rechazado\')">✕ Rechazar</div>':'')
+    +(cntPuedeEliminar()?'<div class="cnt-menu-row del" onclick="cntSoftDeleteEventoLista(\''+id+'\')">🗑 Mover a papelera</div>':'');
   overlay.style.display = 'flex';
   setTimeout(function(){ sheet.style.transform='translateY(0)'; }, 10);
 };
 
 window.cntCambiarEstadoEvLista = async function(id, estado){
   cntCerrarMenu();
+  if(estado==='publicado' && !cntPuedePublicar()){ _showToast('Sin permiso'); return; }
+  if(estado!=='publicado' && !cntPuedeEditar()){ _showToast('Sin permiso'); return; }
   var it = _cntEvItems.find(function(x){ return x._id===id; });
   var db = window._fbDb; if(!db) return;
+  var estadoAntes = it ? it.estado : null;
   try {
     var F = await import(_FBFS);
     var upd = { estado:estado, actualizadoEn:F.serverTimestamp() };
     if(estado==='publicado') upd.publicadoEn = F.serverTimestamp();
     await F.updateDoc(F.doc(db, COL_EVENTOS, id), upd);
     if(it) Object.assign(it, upd);
+    _guardarBitacora(COL_EVENTOS, id, 'cambio_estado', {estado:estadoAntes}, {estado:estado});
     _showToast('Estado → '+estado);
     window.cntCargarEventos();
   } catch(e){ _showToast('Error'); }
 };
 
-window.cntEliminarEvento = async function(id){
+window.cntSoftDeleteEventoLista = async function(id){
   cntCerrarMenu();
-  if(!confirm('¿Eliminar este evento?')) return;
+  if(!cntPuedeEliminar()){ _showToast('Sin permiso'); return; }
+  if(!confirm('¿Mover evento a la papelera?')) return;
   var db = window._fbDb; if(!db) return;
+  var it = _cntEvItems.find(function(x){ return x._id===id; }) || {};
+  var estadoAntes = it.estado;
   try {
     var F = await import(_FBFS);
-    await F.deleteDoc(F.doc(db, COL_EVENTOS, id));
-    _cntEvItems = _cntEvItems.filter(function(x){ return x._id!==id; });
-    _showToast('Eliminado');
+    var upd = { estado:'eliminado', eliminadoEn:F.serverTimestamp(), eliminadoPor:_uid() };
+    await F.updateDoc(F.doc(db, COL_EVENTOS, id), upd);
+    if(it) Object.assign(it, upd);
+    _guardarBitacora(COL_EVENTOS, id, 'papelera', {estado:estadoAntes}, {estado:'eliminado'});
+    _showToast('🗑 Movido a papelera');
     window.cntCargarEventos();
   } catch(e){ _showToast('Error'); }
 };
+
+// cntEliminarEvento — mantenida por compatibilidad, delegada a soft delete desde lista
+window.cntEliminarEvento = function(id){ cntSoftDeleteEventoLista(id); };
 
 // ══════════════════════════════════════════════════════════════════════════════
 // EMERGENCIAS
