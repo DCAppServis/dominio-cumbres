@@ -5282,7 +5282,7 @@
   </div>
 
   <div style="padding:10px 14px 0;flex-shrink:0;">
-    <select id="cnt-filtro-select" class="cnt-filtro-sel" onchange="cntFiltrarLista(this.value)">
+    <select id="cnt-filtro-select" class="cnt-filtro-sel" data-no-dirty="1" onchange="cntFiltrarLista(this.value)">
       <option value="todas">Todas</option>
     </select>
   </div>
@@ -5323,7 +5323,7 @@
   </div>
 
   <div style="padding:10px 14px 0;flex-shrink:0;">
-    <select id="cnt-ev-filtro-select" class="cnt-filtro-sel" onchange="cntCargarEventos(this.value)">
+    <select id="cnt-ev-filtro-select" class="cnt-filtro-sel" data-no-dirty="1" onchange="cntCargarEventos(this.value)">
       <option value="todas">Todos</option>
       <option value="pendiente">Pendientes</option>
       <option value="publicado">Publicados</option>

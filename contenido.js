@@ -481,9 +481,9 @@ window.cntModoEditar = function(){
 
 window.cntVolverLista = function(){
   _cntEditMode = false;
-  // Quitar contenteditable antes de navegar para evitar el dialog de "cambios sin guardar"
   var body = get('cnt-edit-body');
   if(body) body.querySelectorAll('[contenteditable]').forEach(function(el){ el.removeAttribute('contenteditable'); });
+  window._dcDirtyV = null;
   if(window._goCore) window._goCore('v-cnt-lista','left');
   else if(window.go) window.go('v-cnt-lista','left');
 };
@@ -492,6 +492,7 @@ window.cntVolverEventos = function(){
   _cntEvEditMode = false;
   var body = get('cnt-ev-edit-body');
   if(body) body.querySelectorAll('[contenteditable]').forEach(function(el){ el.removeAttribute('contenteditable'); });
+  window._dcDirtyV = null;
   if(window._goCore) window._goCore('v-cnt-eventos','left');
   else if(window.go) window.go('v-cnt-eventos','left');
 };
