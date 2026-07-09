@@ -16,7 +16,7 @@ var _cntItems    = [];
 var _cntEditing  = null;
 var _cntEmerg    = [];
 var _cntEmergEdit= null;
-var _cntEvFiltro = 'todas';
+var _cntEvFiltro = 'en_revision';
 var _cntEvItems  = [];
 var _cntEvEditing= null;
 var _cntBulkMode  = false;
@@ -784,10 +784,10 @@ window.cntCargarEventos = async function(filtro){
   }
   _cntEvItems = res || [];
 
-  // En filtro "todas" excluir eliminados
+  // Filtro cliente (respaldo cuando Firestore no tiene índice)
   var items = _cntEvFiltro === 'todas'
     ? _cntEvItems.filter(function(it){ return it.estado !== 'eliminado'; })
-    : _cntEvItems;
+    : _cntEvItems.filter(function(it){ return it.estado === _cntEvFiltro; });
 
   if(!items.length){
     listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:32px;margin-bottom:12px;">📭</div><div style="color:rgba(255,255,255,.35);font-size:13px;">Sin eventos</div></div>';
@@ -1054,7 +1054,7 @@ window.cntMenuEvento = function(id){
     +'<div style="width:36px;height:4px;background:rgba(255,255,255,.12);border-radius:4px;margin:0 auto 12px;"></div>'
     +'<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">'+_esc((it.nombre||it.titulo||'').slice(0,40))+'</div>'
     +_estadoBadge(it.estado)+'</div>'
-    +'<div class="cnt-menu-row" onclick="cntAbrirEvento(\''+id+'\');cntCerrarMenu()">👁 Ver detalle</div>'
+    +'<div class="cnt-menu-row" onclick="cntAbrirEvento(\''+id+'\');cntCerrarMenu()">✏️ Ver / Editar</div>'
     +(cntPuedePublicar()&&it.estado!=='publicado'?'<div class="cnt-menu-row ok" onclick="cntCambiarEstadoEvLista(\''+id+'\',\'publicado\')">✓ Publicar</div>':'')
     +(cntPuedeEditar()&&it.estado!=='rechazado'?'<div class="cnt-menu-row del" onclick="cntCambiarEstadoEvLista(\''+id+'\',\'rechazado\')">✕ Rechazar</div>':'')
     +(cntPuedeEliminar()?'<div class="cnt-menu-row del" onclick="cntSoftDeleteEventoLista(\''+id+'\')">🗑 Mover a papelera</div>':'');
