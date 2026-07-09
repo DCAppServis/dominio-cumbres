@@ -458,7 +458,6 @@ function _renderEdit(it){
         +(!_cntEditMode&&cntPuedeEditar()?'<button onclick="cntModoEditar()" style="background:rgba(255,255,255,.07);border:.5px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.75);cursor:pointer;font-family:inherit;">✏️ Editar</button>':'')
         +(_cntSec!=='reporte'&&cntPuedePublicar()?'<button onclick="cntMostrarProgramar()" style="background:rgba(124,58,237,.15);border:.5px solid rgba(124,58,237,.3);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#a78bfa;cursor:pointer;font-family:inherit;">📅 Programar</button>':'')
         +(cntPuedeEditar()?'<button onclick="cntSolicitarCorreccion()" style="background:rgba(245,197,24,.1);border:.5px solid rgba(245,197,24,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#e09000;cursor:pointer;font-family:inherit;">📝 Solicitar corrección</button>':'')
-        +(cntPuedeEditar()?'<button onclick="cntDuplicar(\''+it._id+'\')" style="background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;">⧉ Duplicar</button>':'')
         +(cntPuedeEliminar()?'<button onclick="cntSoftDelete(\''+it._id+'\')" style="background:rgba(214,58,42,.1);border:.5px solid rgba(214,58,42,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#D63A2A;cursor:pointer;font-family:inherit;">🗑 Papelera</button>':'')
       +'</div>'
     : '';
@@ -728,7 +727,6 @@ window.cntMenuItem = function(id){
     +_estadoBadge(it.estado)+'</div>'
     +'<div class="cnt-menu-row" onclick="cntAbrirItem(\''+id+'\');cntCerrarMenu()">✏️ Ver / Editar</div>'
     +(cntPuedePublicar()&&it.estado!=='publicado'?'<div class="cnt-menu-row ok" onclick="cntCambiarEstadoLista(\''+id+'\',\'publicado\')">✓ Publicar</div>':'')
-    +(cntPuedeEditar()&&_cntSec!=='reporte'&&it.estado!=='borrador'?'<div class="cnt-menu-row" onclick="cntCambiarEstadoLista(\''+id+'\',\'borrador\')">◷ Mover a borrador</div>':'')
     +(cntPuedeEditar()&&it.estado!=='rechazado'?'<div class="cnt-menu-row del" onclick="cntCambiarEstadoLista(\''+id+'\',\'rechazado\')">✕ Rechazar</div>':'')
     +(cntPuedeEliminar()?'<div class="cnt-menu-row del" onclick="cntSoftDeleteLista(\''+id+'\')">🗑 Mover a papelera</div>':'');
   overlay.style.display = 'flex';
@@ -876,7 +874,6 @@ function _renderEvEdit(it){
     ? '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">'
         +(cntPuedePublicar()?'<button onclick="cntMostrarProgramarEv()" style="background:rgba(124,58,237,.15);border:.5px solid rgba(124,58,237,.3);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#a78bfa;cursor:pointer;font-family:inherit;">📅 Programar</button>':'')
         +(cntPuedeEditar()?'<button onclick="cntSolicitarCorreccionEv()" style="background:rgba(245,197,24,.1);border:.5px solid rgba(245,197,24,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#e09000;cursor:pointer;font-family:inherit;">📝 Solicitar corrección</button>':'')
-        +(cntPuedeEditar()?'<button onclick="cntDuplicarEvento(\''+it._id+'\')" style="background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;">⧉ Duplicar</button>':'')
         +(cntPuedeEliminar()?'<button onclick="cntSoftDeleteEvento(\''+it._id+'\')" style="background:rgba(214,58,42,.1);border:.5px solid rgba(214,58,42,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#D63A2A;cursor:pointer;font-family:inherit;">🗑 Papelera</button>':'')
       +'</div>'
     : '';
