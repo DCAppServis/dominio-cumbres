@@ -1,4 +1,4 @@
-// CENTRO DE CONTENIDO — Admin Module v=20260710d
+// CENTRO DE CONTENIDO — Admin Module v=20260710e
 (function(){ 'use strict';
 
 var _FBFS = "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
@@ -104,6 +104,11 @@ async function _guardarBitacora(col, id, accion, antes, despues){
 async function _cargarCol(col, filtro){
   var db = window._fbDb;
   if(!db) return { err:'Sin conexión a Firebase (_fbDb no disponible)' };
+  // Renovar token para garantizar claims vigentes
+  var auth = window._fbAuth;
+  if(auth && auth.currentUser){
+    try { await auth.currentUser.getIdToken(true); } catch(_){}
+  }
   try {
     var F = await import(_FBFS);
     var snap;
@@ -116,8 +121,7 @@ async function _cargarCol(col, filtro){
       }
       snap = await F.getDocs(q);
     } catch(e1){
-      // Fallback: mismo where pero sin orderBy (evita necesitar índice compuesto)
-      // y sin leer la colección entera (las reglas de Firestore bloquean eso)
+      // Fallback: mismo where pero sin orderBy
       var q2 = filtro
         ? F.query(F.collection(db,col), F.where('estado','==',filtro), F.limit(80))
         : F.query(F.collection(db,col), F.where('estado','in',['en_revision','publicado','rechazado','pendiente','programado','borrador']), F.limit(80));
@@ -125,7 +129,7 @@ async function _cargarCol(col, filtro){
     }
     return snap.docs.map(function(d){ return Object.assign({_id:d.id}, d.data()); });
   } catch(e){
-    return { err: e.message || 'Error Firestore' };
+    return { err: e.message || 'Error Firestore', errCode: e.code || '' };
   }
 }
 
