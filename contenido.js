@@ -104,24 +104,37 @@ async function _guardarBitacora(col, id, accion, antes, despues){
 async function _cargarCol(col, filtro){
   var db = window._fbDb;
   if(!db) return { err:'Sin conexión a Firebase (_fbDb no disponible)' };
-  try {
+  // Esperar auth lista (hasta 5s)
+  var auth = window._fbAuth;
+  if(auth && !auth.currentUser){
+    await new Promise(function(res){
+      var t = setTimeout(function(){ res(null); }, 5000);
+      auth.onAuthStateChanged(function(u){ clearTimeout(t); res(u); });
+    });
+  }
+  async function _exec(){
     var F = await import(_FBFS);
     var snap;
     try {
-      var q;
-      if(filtro){
-        q = F.query(F.collection(db,col), F.where('estado','==',filtro), F.orderBy('creadoEn','desc'), F.limit(80));
-      } else {
-        q = F.query(F.collection(db,col), F.orderBy('creadoEn','desc'), F.limit(80));
-      }
+      var q = filtro
+        ? F.query(F.collection(db,col), F.where('estado','==',filtro), F.orderBy('creadoEn','desc'), F.limit(80))
+        : F.query(F.collection(db,col), F.orderBy('creadoEn','desc'), F.limit(80));
       snap = await F.getDocs(q);
     } catch(e1){
-      var q2 = F.query(F.collection(db,col), F.limit(80));
+      var q2 = filtro
+        ? F.query(F.collection(db,col), F.where('estado','==',filtro), F.limit(80))
+        : F.query(F.collection(db,col), F.limit(80));
       snap = await F.getDocs(q2);
     }
     return snap.docs.map(function(d){ return Object.assign({_id:d.id}, d.data()); });
+  }
+  try {
+    return await _exec();
   } catch(e){
-    return { err: e.message || 'Error Firestore' };
+    // Retry una vez tras 1.5s por si el token de auth necesita refrescarse
+    await new Promise(function(r){ setTimeout(r, 1500); });
+    try { return await _exec(); }
+    catch(e2){ return { err: e2.message || 'Error Firestore' }; }
   }
 }
 
