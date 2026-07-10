@@ -104,13 +104,17 @@ async function _guardarBitacora(col, id, accion, antes, despues){
 async function _cargarCol(col, filtro){
   var db = window._fbDb;
   if(!db) return { err:'Sin conexión a Firebase (_fbDb no disponible)' };
-  // Esperar auth lista (hasta 5s)
   var auth = window._fbAuth;
+  // Esperar a que Firebase Auth restaure la sesión (hasta 6s)
   if(auth && !auth.currentUser){
     await new Promise(function(res){
-      var t = setTimeout(function(){ res(null); }, 5000);
-      auth.onAuthStateChanged(function(u){ clearTimeout(t); res(u); });
+      var t = setTimeout(function(){ res(null); }, 6000);
+      var unsub = auth.onAuthStateChanged(function(u){ clearTimeout(t); unsub(); res(u); });
     });
+  }
+  // Forzar renovación del token
+  if(auth && auth.currentUser){
+    try { await auth.currentUser.getIdToken(true); } catch(_){}
   }
   async function _exec(){
     var F = await import(_FBFS);
@@ -131,10 +135,7 @@ async function _cargarCol(col, filtro){
   try {
     return await _exec();
   } catch(e){
-    // Retry una vez tras 1.5s por si el token de auth necesita refrescarse
-    await new Promise(function(r){ setTimeout(r, 1500); });
-    try { return await _exec(); }
-    catch(e2){ return { err: e2.message || 'Error Firestore' }; }
+    return { err: e.message || 'Error Firestore' };
   }
 }
 
