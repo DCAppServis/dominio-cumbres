@@ -167,7 +167,8 @@ window.cntCargarConteos = async function(){
 // HUB
 // ══════════════════════════════════════════════════════════════════════════════
 window.cntIrInforma     = function(){ _nav('v-cnt-informa'); };
-window.cntIrEventos     = function(){ _cntEvFiltro='en_revision'; _nav('v-cnt-eventos'); window.cntCargarEventos&&window.cntCargarEventos(); };
+window.cntIrEventos     = function(){ _nav('v-cnt-eventos'); };
+window.cntEntrarEventos = function(){ _cntEvFiltro='en_revision'; window.cntCargarEventos&&window.cntCargarEventos(); };
 window.cntIrEmergencias = function(){ _nav('v-cnt-emergencias'); window.cntCargarEmergencias&&window.cntCargarEmergencias(); };
 
 // ══════════════════════════════════════════════════════════════════════════════
