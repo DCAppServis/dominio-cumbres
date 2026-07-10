@@ -4714,7 +4714,7 @@
       <div class="si13">Panel de Administrador</div>
       <div style="font-size:12px;color:var(--text-hint);margin-top:4px;">Solo para el administrador de Dominio Cumbres</div>
     </div>
-    <div class="form-g"><label class="form-l">Usuario</label><input class="inp" id="admin-usr-input" type="text" placeholder="Usuario administrador"></div>
+    <div class="form-g"><label class="form-l">Usuario o correo</label><input class="inp" id="admin-usr-input" type="text" placeholder="Usuario o correo electrónico" autocomplete="off"></div>
     <div class="form-g"><label class="form-l">Contraseña</label><input class="inp" id="admin-pass-input" type="password" placeholder="Contraseña secreta"></div>
     <div id="admin-pass-err" style="display:none;background:#D63A2A20;border-radius:10px;padding:9px;font-size:12px;color:#D63A2A;text-align:center;margin-bottom:10px;"></div>
     <button class="btn btn-green" onclick="entrarAdmin()">Entrar al panel →</button>
@@ -5000,8 +5000,10 @@
         <div style="font-size:14px;font-weight:700;color:#fff;">Agregar administrador</div>
       </div>
       <div style="background:var(--card-dark);border-radius:16px;padding:16px;border:1px solid var(--card-border);">
-        <div class="form-g"><label class="form-l" style="color:var(--white-50);">Usuario</label><input class="inp" id="admu-new-usr" type="text" placeholder="Ej. adminJunior01" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
-        <div class="form-g"><label class="form-l" style="color:var(--white-50);">Contraseña</label><input class="inp" id="admu-new-pass" type="password" placeholder="Mínimo 6 caracteres" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
+        <div class="form-g"><label class="form-l" style="color:var(--white-50);">Usuario</label><input class="inp" id="admu-new-usr" type="text" placeholder="Ej. adminJunior01" autocomplete="off" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
+        <div class="form-g"><label class="form-l" style="color:var(--white-50);">Correo electrónico</label><input class="inp" id="admu-new-email" type="email" placeholder="correo@ejemplo.com" autocomplete="off" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
+        <div class="form-g"><label class="form-l" style="color:var(--white-50);">Contraseña</label><input class="inp" id="admu-new-pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
+        <div class="form-g"><label class="form-l" style="color:var(--white-50);">Confirmar contraseña</label><input class="inp" id="admu-new-pass2" type="password" placeholder="Repite la contraseña" autocomplete="new-password" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
         <div class="form-g">
           <label class="form-l" style="color:var(--white-50);">Rol</label>
           <select class="inp" id="admu-new-rol" style="background:#0C1A10;border-color:var(--card-border);color:#fff;">
@@ -5028,31 +5030,6 @@
         <button id="admu-modal-del" onclick="admuEliminarDesdeModal()" style="flex:1;background:#D63A2A18;border:1px solid #D63A2A50;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#D63A2A;cursor:pointer;font-family:'Inter',sans-serif;">🗑 Eliminar</button>
         <button onclick="admuCerrarModal()" style="flex:1;background:#1FC26A18;border:1px solid #1FC26A50;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:'Inter',sans-serif;">Cerrar</button>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- ADMINS -->
-<div class="si23 view go-right" id="v-admin-admins">
-  <div class="admin-sub-hdr">
-    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
-    <div class="back-row"><button class="btn-back" onclick="go('v-admin-panel','left')">‹</button><div><div class="hdr-title">Administradores</div><div class="hdr-sub">Gestionar roles de acceso</div></div></div>
-  </div>
-  <div class="si42 scroll">
-    <div id="admin-admins-lista" style="margin-bottom:20px;"></div>
-    <div style="background:var(--card-dark);border-radius:16px;padding:16px;border:1px solid var(--card-border);">
-      <div style="font-size:13px;font-weight:700;color:#1FC26A;margin-bottom:14px;">➕ Agregar administrador</div>
-      <div class="form-g"><label class="form-l" style="color:var(--white-50);">Usuario</label><input class="inp" id="new-admin-usr" type="text" placeholder="Ej. adminJunior01" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
-      <div class="form-g"><label class="form-l" style="color:var(--white-50);">Contraseña</label><input class="inp" id="new-admin-pass" type="password" placeholder="Mínimo 6 caracteres" style="background:#0C1A10;border-color:var(--card-border);color:#fff;"></div>
-      <div class="form-g">
-        <label class="form-l" style="color:var(--white-50);">Rol</label>
-        <select class="inp" id="new-admin-rol" style="background:#0C1A10;border-color:var(--card-border);color:#fff;">
-          <option value="junior">Junior — ver y aprobar usuarios</option>
-          <option value="premium">Premium — acceso avanzado</option>
-        </select>
-      </div>
-      <div id="new-admin-err" style="display:none;background:#D63A2A20;border-radius:10px;padding:9px;font-size:12px;color:#D63A2A;text-align:center;margin-bottom:10px;"></div>
-      <button class="btn btn-green" onclick="agregarAdmin()">Agregar admin →</button>
     </div>
   </div>
 </div>
@@ -5169,6 +5146,13 @@
         <div><div class="si43">Notificaciones al admin</div><div class="si22">Solicitudes y alertas importantes</div></div>
         <button class="toggle" onclick="this.classList.toggle('off')"></button>
       </div>
+    </div>
+    <div onclick="irAdministradores()" style="background:var(--card-dark);border-radius:14px;padding:14px 16px;border:1px solid var(--card-border);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+      <div>
+        <div class="si43">👥 Administradores</div>
+        <div class="si22">Gestionar cuentas y permisos</div>
+      </div>
+      <span style="color:#1FC26A;font-size:18px;">›</span>
     </div>
     <div class="si14"></div>
   </div>
@@ -5384,7 +5368,7 @@
   </div>
 </div>
 
-<script src="chat.js?v=20260706t"></script>
+<script src="chat.js?v=20260710k"></script>
 
 
 <!-- ══ MI AGENDA (vecino) ══════════════════════════════════════
