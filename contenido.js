@@ -101,29 +101,16 @@ async function _guardarBitacora(col, id, accion, antes, despues){
 }
 
 // ── Firestore query con fallback ──────────────────────────────────────────────
-async function _cargarCol(col, filtro){
+async function _cargarCol(col){
   var db = window._fbDb;
   if(!db) return { err:'Sin conexión a Firebase (_fbDb no disponible)' };
   try {
     var F = await import(_FBFS);
     var snap;
-    // Intento 1: con filtro + orden
     try {
-      var q = filtro
-        ? F.query(F.collection(db,col), F.where('estado','==',filtro), F.orderBy('creadoEn','desc'), F.limit(80))
-        : F.query(F.collection(db,col), F.orderBy('creadoEn','desc'), F.limit(80));
-      snap = await F.getDocs(q);
+      snap = await F.getDocs(F.query(F.collection(db,col), F.orderBy('creadoEn','desc'), F.limit(200)));
     } catch(e1){
-      // Intento 2: sin orden (evita error de índice compuesto)
-      try {
-        var q2 = filtro
-          ? F.query(F.collection(db,col), F.where('estado','==',filtro), F.limit(80))
-          : F.query(F.collection(db,col), F.limit(80));
-        snap = await F.getDocs(q2);
-      } catch(e2){
-        // Intento 3: colección completa sin filtros
-        snap = await F.getDocs(F.query(F.collection(db,col), F.limit(80)));
-      }
+      snap = await F.getDocs(F.collection(db,col));
     }
     return snap.docs.map(function(d){ return Object.assign({_id:d.id}, d.data()); });
   } catch(e){
@@ -149,24 +136,23 @@ function _getItemsFiltrados(){
 // ── Conteos para menú Dominio Informa ────────────────────────────────────────
 window.cntCargarConteos = async function(){
   var db = window._fbDb; if(!db) return;
-  try {
-    var F = await import(_FBFS);
-    var defs = [
-      { col: COL_NOTICIAS,  estado: 'en_revision', id: 'cnt-badge-noticia'  },
-      { col: COL_PROYECTOS, estado: 'en_revision', id: 'cnt-badge-proyecto' },
-      { col: COL_REPORTES,  estado: 'en_revision', id: 'cnt-badge-reporte'  },
-    ];
-    defs.forEach(async function(d){
-      try {
-        var snap = await F.getCountFromServer(F.query(F.collection(db, d.col), F.where('estado','==',d.estado)));
-        var n = snap.data().count;
+  var defs = [
+    { col: COL_NOTICIAS,  estado: 'en_revision', id: 'cnt-badge-noticia'  },
+    { col: COL_PROYECTOS, estado: 'en_revision', id: 'cnt-badge-proyecto' },
+    { col: COL_REPORTES,  estado: 'en_revision', id: 'cnt-badge-reporte'  },
+  ];
+  defs.forEach(async function(d){
+    try {
+      var res = await _cargarCol(d.col);
+      if(res && !res.err){
+        var n = res.filter(function(it){ return it.estado === d.estado; }).length;
         var el = get(d.id);
         if(!el) return;
         if(n > 0){ el.textContent = n; el.style.display = ''; }
         else { el.style.display = 'none'; }
-      } catch(_){}
-    });
-  } catch(e){}
+      }
+    } catch(_){}
+  });
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -229,8 +215,7 @@ window.cntCargarLista = async function(){
   if(!listEl) return;
   listEl.innerHTML = '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.3);font-size:13px;">Cargando...</div>';
 
-  var filtroFs = (_cntFiltro === 'todas') ? null : _cntFiltro;
-  var res = await _cargarCol(m.col, filtroFs);
+  var res = await _cargarCol(m.col);
   if(seq !== _cntLoadSeq) return; // descarta respuesta de carga anterior
 
   if(res && res.err){
@@ -783,8 +768,7 @@ window.cntCargarEventos = async function(filtro){
   if(!listEl) return;
   listEl.innerHTML = '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.3);font-size:13px;">Cargando...</div>';
 
-  var f2 = (_cntEvFiltro==='todas') ? null : _cntEvFiltro;
-  var res = await _cargarCol(COL_EVENTOS, f2);
+  var res = await _cargarCol(COL_EVENTOS);
   if(seq !== _cntEvLoadSeq) return; // descarta respuesta de carga anterior
 
   if(res && res.err){
