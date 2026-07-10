@@ -107,17 +107,23 @@ async function _cargarCol(col, filtro){
   try {
     var F = await import(_FBFS);
     var snap;
+    // Intento 1: con filtro + orden
     try {
-      var q;
-      if(filtro){
-        q = F.query(F.collection(db,col), F.where('estado','==',filtro), F.orderBy('creadoEn','desc'), F.limit(80));
-      } else {
-        q = F.query(F.collection(db,col), F.orderBy('creadoEn','desc'), F.limit(80));
-      }
+      var q = filtro
+        ? F.query(F.collection(db,col), F.where('estado','==',filtro), F.orderBy('creadoEn','desc'), F.limit(80))
+        : F.query(F.collection(db,col), F.orderBy('creadoEn','desc'), F.limit(80));
       snap = await F.getDocs(q);
     } catch(e1){
-      var q2 = F.query(F.collection(db,col), F.limit(80));
-      snap = await F.getDocs(q2);
+      // Intento 2: sin orden (evita error de índice compuesto)
+      try {
+        var q2 = filtro
+          ? F.query(F.collection(db,col), F.where('estado','==',filtro), F.limit(80))
+          : F.query(F.collection(db,col), F.limit(80));
+        snap = await F.getDocs(q2);
+      } catch(e2){
+        // Intento 3: colección completa sin filtros
+        snap = await F.getDocs(F.query(F.collection(db,col), F.limit(80)));
+      }
     }
     return snap.docs.map(function(d){ return Object.assign({_id:d.id}, d.data()); });
   } catch(e){
