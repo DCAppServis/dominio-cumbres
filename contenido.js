@@ -143,24 +143,23 @@ function _getItemsFiltrados(){
 // ── Conteos para menú Dominio Informa ────────────────────────────────────────
 window.cntCargarConteos = async function(){
   var db = window._fbDb; if(!db) return;
-  try {
-    var F = await import(_FBFS);
-    var defs = [
-      { col: COL_NOTICIAS,  estado: 'en_revision', id: 'cnt-badge-noticia'  },
-      { col: COL_PROYECTOS, estado: 'en_revision', id: 'cnt-badge-proyecto' },
-      { col: COL_REPORTES,  estado: 'en_revision', id: 'cnt-badge-reporte'  },
-    ];
-    defs.forEach(async function(d){
-      try {
-        var snap = await F.getCountFromServer(F.query(F.collection(db, d.col), F.where('estado','==',d.estado)));
-        var n = snap.data().count;
+  var defs = [
+    { col: COL_NOTICIAS,  estado: 'en_revision', id: 'cnt-badge-noticia'  },
+    { col: COL_PROYECTOS, estado: 'en_revision', id: 'cnt-badge-proyecto' },
+    { col: COL_REPORTES,  estado: 'en_revision', id: 'cnt-badge-reporte'  },
+  ];
+  defs.forEach(async function(d){
+    try {
+      var res = await _cargarCol(d.col, d.estado);
+      if(res && !res.err){
+        var n = res.length;
         var el = get(d.id);
         if(!el) return;
         if(n > 0){ el.textContent = n; el.style.display = ''; }
         else { el.style.display = 'none'; }
-      } catch(_){}
-    });
-  } catch(e){}
+      }
+    } catch(_){}
+  });
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
