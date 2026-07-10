@@ -382,26 +382,16 @@ function _renderEdit(it){
   if(!body) return;
 
   var imgs = it.imagenes||(it.imagen?[it.imagen]:[]);
-  var imgHtml = imgs.length
-    ? '<img src="'+imgs[0]+'" style="width:100%;max-height:200px;object-fit:cover;border-radius:14px;margin-bottom:14px;" onerror="this.style.display=\'none\'">'
-    : '<div style="width:56px;height:56px;border-radius:12px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">'+(m.icon||'📄')+'</div>';
-
-  var stats = it.estadisticas || {};
-  var statsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0;">'
-    +_statChip('👁',''+( stats.visitas||it.visitas||0),'vistas')
-    +_statChip('↗',''+( stats.compartidos||it.compartidos||0),'comp.')
-    +_statChip('🖱',''+( stats.clics||it.clics||0),'clics')
-    +_statChip('❤️',''+( stats.favoritos||it.favoritos||0),'favs')
-    +_statChip('💬',''+( stats.comentarios||it.comentarios||0),'coment.')
-    +'</div>';
-
   var esEliminado = it.estado === 'eliminado';
 
-  // ── Contenido: modo lectura (vista previa) o modo edición ──
-  var contentHtml;
+  // ── Modo edición ──
   if(!esEliminado && _cntEditMode && cntPuedeEditar()){
-    contentHtml =
-      '<div class="cnt-field-row"><div class="cnt-field-lbl">Título</div>'
+    var imgHtmlE = imgs.length
+      ? '<img src="'+imgs[0]+'" style="width:100%;height:200px;object-fit:cover;border-radius:14px;margin-bottom:14px;" onerror="this.style.display=\'none\'">'
+      : '';
+    body.innerHTML =
+      imgHtmlE
+      +'<div class="cnt-field-row"><div class="cnt-field-lbl">Título</div>'
       +'<div class="cnt-field-val cnt-field-edit cnt-field-area" contenteditable="true" id="cnt-ef-titulo">'+_esc(it.titulo||'')+'</div></div>'
       +'<div class="cnt-field-row"><div class="cnt-field-lbl">Descripción</div>'
       +'<div class="cnt-field-val cnt-field-edit cnt-field-area" contenteditable="true" id="cnt-ef-desc">'+_esc(it.descripcion||'')+'</div></div>'
@@ -409,35 +399,45 @@ function _renderEdit(it){
         +'<button onclick="cntGuardarEdicion(\''+it._id+'\')" class="cnt-btn-save" style="flex:1;">💾 Guardar cambios</button>'
         +'<button onclick="_cntEditMode=false;_renderEdit(_cntEditing)" style="background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 14px;font-size:13px;font-weight:600;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;">✕</button>'
       +'</div>';
-  } else {
-    // Vista como la vería el público
-    contentHtml =
-      '<div style="font-size:17px;font-weight:700;color:#fff;line-height:1.3;margin:12px 0 8px;">'+_esc(it.titulo||'Sin título')+'</div>'
-      +(it.descripcion?'<div style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:12px;white-space:pre-wrap;">'+_esc(it.descripcion)+'</div>':'')
-      +(it.ubicacion?'<div style="font-size:12px;color:rgba(255,255,255,.35);margin-bottom:4px;">📍 '+_esc(it.ubicacion)+'</div>':'')
-      +(it.autorNombre?'<div style="font-size:12px;color:rgba(255,255,255,.35);margin-bottom:4px;">✍️ '+_esc(it.autorNombre)+'</div>':'')
-      +'<div style="font-size:12px;color:rgba(255,255,255,.25);margin-bottom:4px;">📅 '+_fmt(it.creadoEn)+'</div>'
-      +(it.publicadoEn?'<div style="font-size:12px;color:rgba(31,194,106,.5);">🟢 Publicado '+_fmtDT(it.publicadoEn)+'</div>':'')
-      +(it.observacionesAdmin?'<div style="margin-top:10px;padding:10px;background:rgba(245,197,24,.06);border:.5px solid rgba(245,197,24,.15);border-radius:10px;">'
-          +'<div style="font-size:10px;font-weight:700;color:#e09000;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;">Observaciones</div>'
-          +'<div style="font-size:12px;color:rgba(255,255,255,.5);white-space:pre-wrap;">'+_esc(it.observacionesAdmin)+'</div>'
-        +'</div>':'');
+    return;
   }
 
-  // ── Botones principales: Publicar primero ──
+  // ── Vista previa pública ──
+  var imgHtml = imgs.length
+    ? '<img src="'+imgs[0]+'" style="width:100%;height:200px;object-fit:cover;border-radius:16px;margin-bottom:14px;" onerror="this.style.display=\'none\'">'
+    : '<div style="width:100%;height:100px;border-radius:16px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:48px;margin-bottom:14px;">'+(m.icon||'📄')+'</div>';
+
+  var metaLine = '';
+  if(it.creadoEn || it.ubicacion){
+    metaLine = '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:12px;">📅 '+_fmt(it.creadoEn)+(it.ubicacion?' · 📍 '+_esc(it.ubicacion):'')+(it.autorNombre?' · ✍️ '+_esc(it.autorNombre):'')+'</div>';
+  }
+
+  var obsHtml = it.observacionesAdmin
+    ? '<div style="margin-top:10px;padding:10px;background:rgba(245,197,24,.06);border:.5px solid rgba(245,197,24,.15);border-radius:10px;">'
+        +'<div style="font-size:10px;font-weight:700;color:#e09000;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;">Observaciones admin</div>'
+        +'<div style="font-size:12px;color:rgba(255,255,255,.5);white-space:pre-wrap;">'+_esc(it.observacionesAdmin)+'</div>'
+      +'</div>'
+    : '';
+
+  // ── Separador admin ──
+  var adminSep = '<div style="margin:18px 0 10px;border-top:.5px solid rgba(255,255,255,.08);padding-top:12px;display:flex;align-items:center;gap:8px;">'
+    +'<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:.5px;">Controles admin</span>'
+    +_estadoBadge(it.estado||'—')
+    +'</div>';
+
+  // ── Botones principales ──
   var btnsHtml;
   if(esEliminado){
-    btnsHtml = '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">'
+    btnsHtml = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">'
       +(cntPuedeEditar()?'<button onclick="cntRestaurarItem(\''+it._id+'\')" class="cnt-btn-ok">↩ Restaurar</button>':'')
       +'</div>';
   } else {
-    btnsHtml = '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">'
+    btnsHtml = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">'
       +(cntPuedePublicar()&&it.estado!=='publicado'?'<button onclick="cntCambiarEstado(\''+it._id+'\',\'publicado\')" class="cnt-btn-ok">✓ Publicar</button>':'')
       +(cntPuedeEditar()&&it.estado!=='rechazado'?'<button onclick="cntCambiarEstado(\''+it._id+'\',\'rechazado\')" class="cnt-btn-del">✕ Rechazar</button>':'')
       +'</div>';
   }
 
-  // ── Acciones secundarias ──
   var progHtml = !esEliminado
     ? '<div id="cnt-prog-section" style="display:none;margin-top:10px;background:rgba(124,58,237,.1);border-radius:12px;padding:12px;">'
         +'<div style="font-size:11px;font-weight:700;color:#a78bfa;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">📅 Publicar el día</div>'
@@ -455,23 +455,33 @@ function _renderEdit(it){
     : '';
 
   var accionesHtml = !esEliminado
-    ? '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">'
-        +(!_cntEditMode&&cntPuedeEditar()?'<button onclick="cntModoEditar()" style="background:rgba(255,255,255,.07);border:.5px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.75);cursor:pointer;font-family:inherit;">✏️ Editar</button>':'')
+    ? '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        +(cntPuedeEditar()?'<button onclick="cntModoEditar()" style="background:rgba(255,255,255,.07);border:.5px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.75);cursor:pointer;font-family:inherit;">✏️ Editar</button>':'')
         +(_cntSec!=='reporte'&&cntPuedePublicar()?'<button onclick="cntMostrarProgramar()" style="background:rgba(124,58,237,.15);border:.5px solid rgba(124,58,237,.3);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#a78bfa;cursor:pointer;font-family:inherit;">📅 Programar</button>':'')
         +(cntPuedeEditar()?'<button onclick="cntSolicitarCorreccion()" style="background:rgba(245,197,24,.1);border:.5px solid rgba(245,197,24,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#e09000;cursor:pointer;font-family:inherit;">📝 Solicitar corrección</button>':'')
         +(cntPuedeEliminar()?'<button onclick="cntSoftDelete(\''+it._id+'\')" style="background:rgba(214,58,42,.1);border:.5px solid rgba(214,58,42,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#D63A2A;cursor:pointer;font-family:inherit;">🗑 Papelera</button>':'')
       +'</div>'
     : '';
 
+  var stats = it.estadisticas || {};
+  var statsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;">'
+    +_statChip('👁',''+( stats.visitas||it.visitas||0),'vistas')
+    +_statChip('↗',''+( stats.compartidos||it.compartidos||0),'comp.')
+    +_statChip('❤️',''+( stats.favoritos||it.favoritos||0),'favs')
+    +'</div>';
+
   body.innerHTML =
     imgHtml
-    +'<div class="cnt-field-row"><div class="cnt-field-lbl">Estado</div><div class="cnt-field-val" id="cnt-ef-estado-badge">'+_estadoBadge(it.estado||'—')+'</div></div>'
-    +statsHtml
-    +contentHtml
+    +'<div style="font-size:18px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:6px;">'+_esc(it.titulo||'Sin título')+'</div>'
+    +metaLine
+    +(it.descripcion?'<div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.75;margin-bottom:8px;white-space:pre-wrap;">'+_esc(it.descripcion)+'</div>':'')
+    +obsHtml
+    +adminSep
     +btnsHtml
     +accionesHtml
     +progHtml
-    +corrHtml;
+    +corrHtml
+    +statsHtml;
 }
 
 window.cntModoEditar = function(){
@@ -833,26 +843,37 @@ function _renderEvEdit(it){
   var s = get('cnt-ev-edit-sub');    if(s) s.textContent = _fmt(it.creadoEn);
   var body = get('cnt-ev-edit-body'); if(!body) return;
   var imgs = it.imagenes||(it.imagen?[it.imagen]:[it.portada||'']);
-  var imgHtml = imgs[0]
-    ? '<img src="'+imgs[0]+'" style="width:100%;max-height:200px;object-fit:cover;border-radius:14px;margin-bottom:14px;" onerror="this.style.display=\'none\'">'
-    : '<div style="width:56px;height:56px;border-radius:12px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px;">🎉</div>';
-
-  var stats = it.estadisticas || {};
-  var statsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0;">'
-    +_statChip('👁',''+( stats.visitas||it.visitas||0),'vistas')
-    +_statChip('↗',''+( stats.compartidos||it.compartidos||0),'comp.')
-    +_statChip('🖱',''+( stats.clics||it.clics||0),'clics')
-    +_statChip('❤️',''+( stats.favoritos||it.favoritos||0),'favs')
-    +_statChip('💬',''+( stats.comentarios||it.comentarios||0),'coment.')
-    +'</div>';
-
   var esEliminado = it.estado === 'eliminado';
 
+  // ── Vista previa pública (igual a como lo ve el usuario) ──
+  var imgHtml = imgs[0]
+    ? '<img src="'+imgs[0]+'" style="width:100%;height:200px;object-fit:cover;border-radius:16px;margin-bottom:14px;" onerror="this.style.display=\'none\'">'
+    : '<div style="width:100%;height:100px;border-radius:16px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:48px;margin-bottom:14px;">🎉</div>';
+
+  var metaLine = '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:12px;">'
+    +(it.fecha?'📅 '+_fmt(it.fecha):'')
+    +((it.lugar||it.ubicacion)?(it.fecha?' · ':'')+'📍 '+_esc(it.lugar||it.ubicacion):'')
+    +(it.organizadorNombre?' · 🎪 '+_esc(it.organizadorNombre):'')
+    +'</div>';
+
+  var obsHtml = it.observacionesAdmin
+    ? '<div style="margin-top:10px;padding:10px;background:rgba(245,197,24,.06);border:.5px solid rgba(245,197,24,.15);border-radius:10px;">'
+        +'<div style="font-size:10px;font-weight:700;color:#e09000;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;">Observaciones admin</div>'
+        +'<div style="font-size:12px;color:rgba(255,255,255,.5);white-space:pre-wrap;">'+_esc(it.observacionesAdmin)+'</div>'
+      +'</div>'
+    : '';
+
+  // ── Separador admin ──
+  var adminSep = '<div style="margin:18px 0 10px;border-top:.5px solid rgba(255,255,255,.08);padding-top:12px;display:flex;align-items:center;gap:8px;">'
+    +'<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:.5px;">Controles admin</span>'
+    +_estadoBadge(it.estado||'pendiente')
+    +'</div>';
+
   var btnsHtml = esEliminado
-    ? '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">'
+    ? '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">'
         +(cntPuedeEditar()?'<button onclick="cntRestaurarEvento(\''+it._id+'\')" class="cnt-btn-ok">↩ Restaurar</button>':'')
       +'</div>'
-    : '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">'
+    : '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">'
         +(cntPuedePublicar()&&it.estado!=='publicado'?'<button onclick="cntCambiarEstadoEv(\''+it._id+'\',\'publicado\')" class="cnt-btn-ok">✓ Publicar</button>':'')
         +(cntPuedeEditar()&&it.estado!=='rechazado'?'<button onclick="cntCambiarEstadoEv(\''+it._id+'\',\'rechazado\')" class="cnt-btn-del">✕ Rechazar</button>':'')
       +'</div>';
@@ -874,35 +895,32 @@ function _renderEvEdit(it){
     : '';
 
   var accionesHtml = !esEliminado
-    ? '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">'
+    ? '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
         +(cntPuedePublicar()?'<button onclick="cntMostrarProgramarEv()" style="background:rgba(124,58,237,.15);border:.5px solid rgba(124,58,237,.3);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#a78bfa;cursor:pointer;font-family:inherit;">📅 Programar</button>':'')
         +(cntPuedeEditar()?'<button onclick="cntSolicitarCorreccionEv()" style="background:rgba(245,197,24,.1);border:.5px solid rgba(245,197,24,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#e09000;cursor:pointer;font-family:inherit;">📝 Solicitar corrección</button>':'')
         +(cntPuedeEliminar()?'<button onclick="cntSoftDeleteEvento(\''+it._id+'\')" style="background:rgba(214,58,42,.1);border:.5px solid rgba(214,58,42,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#D63A2A;cursor:pointer;font-family:inherit;">🗑 Papelera</button>':'')
       +'</div>'
     : '';
 
-  // Contenido en vista previa (layout público)
-  var previewContent =
-    '<div style="font-size:17px;font-weight:700;color:#fff;line-height:1.3;margin:12px 0 8px;">'+_esc(it.nombre||it.titulo||'Sin nombre')+'</div>'
-    +(it.descripcion?'<div style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:12px;white-space:pre-wrap;">'+_esc(it.descripcion)+'</div>':'')
-    +(it.fecha?'<div style="font-size:12px;color:rgba(255,255,255,.35);margin-bottom:4px;">📅 '+_fmt(it.fecha)+'</div>':'')
-    +((it.lugar||it.ubicacion)?'<div style="font-size:12px;color:rgba(255,255,255,.35);margin-bottom:4px;">📍 '+_esc(it.lugar||it.ubicacion)+'</div>':'')
-    +(it.organizadorNombre?'<div style="font-size:12px;color:rgba(255,255,255,.25);margin-bottom:4px;">🎪 '+_esc(it.organizadorNombre)+'</div>':'')
-    +(it.publicadoEn?'<div style="font-size:12px;color:rgba(31,194,106,.5);">🟢 Publicado '+_fmtDT(it.publicadoEn)+'</div>':'')
-    +(it.observacionesAdmin?'<div style="margin-top:10px;padding:10px;background:rgba(245,197,24,.06);border:.5px solid rgba(245,197,24,.15);border-radius:10px;">'
-        +'<div style="font-size:10px;font-weight:700;color:#e09000;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;">Observaciones</div>'
-        +'<div style="font-size:12px;color:rgba(255,255,255,.5);white-space:pre-wrap;">'+_esc(it.observacionesAdmin)+'</div>'
-      +'</div>':'');
+  var stats = it.estadisticas || {};
+  var statsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;">'
+    +_statChip('👁',''+( stats.visitas||it.visitas||0),'vistas')
+    +_statChip('↗',''+( stats.compartidos||it.compartidos||0),'comp.')
+    +_statChip('❤️',''+( stats.favoritos||it.favoritos||0),'favs')
+    +'</div>';
 
   body.innerHTML =
     imgHtml
-    +'<div class="cnt-field-row"><div class="cnt-field-lbl">Estado</div><div class="cnt-field-val" id="cnt-ev-estado-badge">'+_estadoBadge(it.estado||'pendiente')+'</div></div>'
-    +statsHtml
-    +previewContent
+    +'<div style="font-size:18px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:6px;">'+_esc(it.nombre||it.titulo||'Sin nombre')+'</div>'
+    +metaLine
+    +(it.descripcion?'<div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.75;margin-bottom:8px;white-space:pre-wrap;">'+_esc(it.descripcion)+'</div>':'')
+    +obsHtml
+    +adminSep
     +btnsHtml
     +accionesHtml
     +progHtml
-    +corrHtml;
+    +corrHtml
+    +statsHtml;
 }
 
 window.cntCambiarEstadoEv = async function(id, estado){
