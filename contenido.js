@@ -1,4 +1,4 @@
-// CENTRO DE CONTENIDO — Admin Module v=20260710c
+// CENTRO DE CONTENIDO — Admin Module v=20260710d
 (function(){ 'use strict';
 
 var _FBFS = "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
@@ -116,7 +116,11 @@ async function _cargarCol(col, filtro){
       }
       snap = await F.getDocs(q);
     } catch(e1){
-      var q2 = F.query(F.collection(db,col), F.limit(80));
+      // Fallback: mismo where pero sin orderBy (evita necesitar índice compuesto)
+      // y sin leer la colección entera (las reglas de Firestore bloquean eso)
+      var q2 = filtro
+        ? F.query(F.collection(db,col), F.where('estado','==',filtro), F.limit(80))
+        : F.query(F.collection(db,col), F.where('estado','in',['en_revision','publicado','rechazado','pendiente','programado','borrador']), F.limit(80));
       snap = await F.getDocs(q2);
     }
     return snap.docs.map(function(d){ return Object.assign({_id:d.id}, d.data()); });
