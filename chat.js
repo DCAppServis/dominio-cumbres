@@ -1379,26 +1379,76 @@ function showAdminTab(i,btn){
     // 'usuarioPremium':  { pass: 'su_pass', rol: 'premium' }
   };
 
+  // ── Permisos por rol ────────────────────────────────────────
+  var _ADMIN_PERMISOS = {
+    maestro: ['ver_solicitudes','gestionar_usuarios','gestionar_contenido','ver_monetizacion','ver_analytics','ver_publicaciones','ver_alertas','ver_configuracion','crear_admin','suspender_admin'],
+    senior:  ['ver_solicitudes','gestionar_usuarios','gestionar_contenido','ver_monetizacion','ver_analytics','ver_publicaciones','ver_alertas'],
+    premium: ['ver_solicitudes','gestionar_usuarios','gestionar_contenido','ver_monetizacion','ver_analytics','ver_publicaciones','ver_alertas'], // alias legacy
+    junior:  ['ver_solicitudes','gestionar_usuarios','gestionar_contenido']
+  };
+  window.adminPuede = function(permiso) {
+    var rol = window._adminRol || 'junior';
+    var lista = _ADMIN_PERMISOS[rol] || _ADMIN_PERMISOS.junior;
+    return lista.indexOf(permiso) >= 0;
+  };
+
+  // Renderizar tarjetas del panel según rol real
+  window.renderAdminPanel = function() {
+    var rol = window._adminRol || 'junior';
+    var rolLabel = rol === 'maestro' ? 'Master' : rol === 'senior' || rol === 'premium' ? 'Senior' : 'Junior';
+    var rolEl = document.getElementById('admin-rol-display');
+    if(rolEl) rolEl.textContent = 'Admin ' + rolLabel;
+    // Visibilidad de tarjetas (sin espacios vacíos: display:none vs '')
+    var vis = {
+      'card-contenido':    adminPuede('gestionar_contenido'),
+      'card-monetizacion': adminPuede('ver_monetizacion'),
+      'card-analytics':    adminPuede('ver_analytics'),
+      'card-publicaciones':adminPuede('ver_publicaciones'),
+      'card-alertas':      adminPuede('ver_alertas'),
+      'card-config':       adminPuede('ver_configuracion')
+    };
+    Object.keys(vis).forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.style.display = vis[id] ? '' : 'none';
+    });
+    // card-admins (Usuarios) — visible para todos los roles
+    var ca = document.getElementById('card-admins');
+    if(ca) ca.style.display = '';
+  };
+
   // Navigation helper for admin sections
   window.goAdminSec = function(sec) {
-    const map = {
-      solicitudes: 'v-admin-solicitudes',
-      usuarios: 'v-admin-usuarios',
-      admins: 'v-admin-admins',
+    var permMap = {
+      solicitudes: 'ver_solicitudes',
+      usuarios:    'gestionar_usuarios',
+      monetizacion:'ver_monetizacion',
+      analytics:   'ver_analytics',
+      publicaciones:'ver_publicaciones',
+      alertas:     'ver_alertas',
+      config:      'ver_configuracion'
+    };
+    var perm = permMap[sec];
+    if(perm && !adminPuede(perm)) {
+      var t = document.getElementById('admin-toast');
+      if(t){ var prev = t.style.background; t.style.background='#D63A2A'; t.textContent='⛔ No tienes permiso para esta sección'; t.style.display='block'; setTimeout(function(){ t.style.display='none'; t.style.background=prev; },2500); }
+      return;
+    }
+    var map = {
+      solicitudes:  'v-admin-solicitudes',
+      usuarios:     'v-admin-usuarios',
       monetizacion: 'v-admin-monetizacion',
-      analytics: 'v-admin-analytics',
-      publicaciones: 'v-admin-publicaciones',
-      alertas: 'v-admin-alertas',
-      config: 'v-admin-config'
+      analytics:    'v-admin-analytics',
+      publicaciones:'v-admin-publicaciones',
+      alertas:      'v-admin-alertas',
+      config:       'v-admin-config'
     };
     if(map[sec]) {
       showLoading();
-      setTimeout(() => {
+      setTimeout(function() {
         hideLoading();
         go(map[sec], 'right');
-        if(sec === 'solicitudes') { setTimeout(()=>cargarSolicitudes(), 300); }
+        if(sec === 'solicitudes') { setTimeout(function(){ cargarSolicitudes(); }, 300); }
         if(sec === 'usuarios') { admuShow('admu-home'); window.admuMigrarVecinosPendientes&&window.admuMigrarVecinosPendientes(); window.admuCargarContadores&&window.admuCargarContadores(); }
-        if(sec === 'admins') { renderAdminsList(); }
         if(sec === 'analytics') { cargarAnalytics(); }
       }, 800);
     }
@@ -1451,20 +1501,45 @@ function showAdminTab(i,btn){
     const err = document.getElementById('admin-pass-err');
     if(!usr || !p){ err.style.display='block'; err.textContent='⚠️ Ingresa usuario y contraseña'; return; }
 
-    // Resolver el correo Firebase: por ADMIN_USERS (Maestro hardcodeado) o directamente si es email
+    // Resolver correo Firebase Auth
     const cuentaLegacy = ADMIN_USERS[usr];
     let fbEmail;
+
     if(cuentaLegacy && cuentaLegacy.fbEmail) {
+      // Maestro hardcodeado (compatibilidad)
       fbEmail = cuentaLegacy.fbEmail;
     } else if(usr.includes('@')) {
+      // Ingresó correo directamente
       fbEmail = usr;
     } else {
-      err.style.display='block';
-      err.textContent='❌ Usuario no encontrado. Los administradores nuevos deben ingresar su correo electrónico.';
-      return;
+      // Ingresó nombre de usuario → buscar correo en Firestore
+      err.style.display='none';
+      try {
+        await admuEnsureAuth(); // auth temporal para poder leer Firestore
+        const { getDocs, collection, query, where } = await import(
+          "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js"
+        );
+        const snap = await getDocs(query(
+          collection(window._fbDb,'usuarios'),
+          where('usuario','==',usr),
+          where('esAdmin','==',true)
+        ));
+        // Cerrar sesión del service account antes de continuar
+        const { signOut: soTmp } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js");
+        await soTmp(window._fbAuth).catch(function(){});
+        if(snap.empty) {
+          err.style.display='block'; err.textContent='❌ Usuario o correo no encontrado'; return;
+        }
+        fbEmail = snap.docs[0].data().correo;
+        if(!fbEmail) {
+          err.style.display='block'; err.textContent='❌ Este usuario no tiene correo configurado'; return;
+        }
+      } catch(lookupErr) {
+        err.style.display='block'; err.textContent='❌ Error al buscar usuario. Intenta con tu correo.'; return;
+      }
     }
-    err.style.display='none';
 
+    err.style.display='none';
     let adminData;
     try {
       const { signInWithEmailAndPassword, signOut } = await import(
@@ -1475,7 +1550,7 @@ function showAdminTab(i,btn){
       const { getDoc, doc, updateDoc, serverTimestamp } = await import(
         "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js"
       );
-      const snap = await getDoc(doc(window._fbDb, 'usuarios', uid));
+      const snap = await getDoc(doc(window._fbDb,'usuarios',uid));
       adminData = snap.exists() ? snap.data() : {};
       const esAdmin = adminData.esAdmin === true || adminData.rol === 'maestro' || adminData.rol === 'admin';
       if(!esAdmin) {
@@ -1484,13 +1559,19 @@ function showAdminTab(i,btn){
       }
       if(adminData.activo === false) {
         await signOut(window._fbAuth);
-        err.style.display='block'; err.textContent='⛔ Esta cuenta está suspendida'; return;
+        err.style.display='block'; err.textContent='⛔ Este administrador está suspendido'; return;
       }
-      // Registrar último acceso en segundo plano
       updateDoc(doc(window._fbDb,'usuarios',uid), { ultimoAcceso: serverTimestamp() }).catch(function(){});
     } catch(fbErr) {
       err.style.display='block';
-      err.textContent='❌ Contraseña incorrecta o error de autenticación';
+      var c = (fbErr.code||'');
+      if(c==='auth/wrong-password'||c==='auth/invalid-credential'||c==='auth/INVALID_LOGIN_CREDENTIALS') {
+        err.textContent='❌ Contraseña incorrecta';
+      } else if(c==='auth/user-not-found'||c==='auth/invalid-email') {
+        err.textContent='❌ Usuario o correo no encontrado';
+      } else {
+        err.textContent='❌ Error de autenticación: '+(fbErr.message||c);
+      }
       return;
     }
 
@@ -1498,9 +1579,10 @@ function showAdminTab(i,btn){
     window._adminRol = rol;
     window._adminUsr = adminData.usuario || usr;
     showLoading();
-    setTimeout(() => {
+    setTimeout(function() {
       hideLoading();
       go('v-admin-panel', 'right');
+      renderAdminPanel();
       const _fbtnP = document.getElementById('fbtn-pendientes');
       if(_fbtnP && window.setFiltroMain) {
         window.setFiltroMain(_fbtnP, 'pendientes');
@@ -1509,13 +1591,7 @@ function showAdminTab(i,btn){
         window._filtroSub = 'todos';
         cargarSolicitudes();
       }
-      const rolEl = document.getElementById('admin-rol-display');
-      if(rolEl) rolEl.textContent = 'Admin ' + (rol === 'maestro' ? 'Master' : rol.charAt(0).toUpperCase() + rol.slice(1));
-      if(rol !== 'maestro') {
-        const cardAdmins = document.getElementById('card-admins');
-        if(cardAdmins) cardAdmins.style.display='none';
-      }
-      cargarAnalytics().catch(()=>{});
+      cargarAnalytics().catch(function(){});
     }, 1000);
   };
 
@@ -1805,7 +1881,7 @@ function showAdminTab(i,btn){
     if(!datos.length) { lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Sin administradores registrados</div>'; return; }
     lista.innerHTML = '<div style="border-radius:14px;overflow:hidden;border:.5px solid var(--card-border);">'
       + datos.map(function(u, i){
-        var rolColor = u.rol==='maestro' ? '#F5C518' : u.rol==='premium' ? '#1FC26A' : '#64B5F6';
+        var rolColor = u.rol==='maestro' ? '#F5C518' : (u.rol==='senior'||u.rol==='premium') ? '#1FC26A' : '#64B5F6';
         var borde = i < datos.length-1 ? 'border-bottom:1px solid rgba(255,255,255,.06);' : '';
         var esMaestro = u.rol === 'maestro';
         var activo = u.activo !== false;
@@ -2014,30 +2090,40 @@ function showAdminTab(i,btn){
     var rol   = document.getElementById('admu-new-rol').value;
     var errEl = document.getElementById('admu-new-err');
     var btn   = document.querySelector('#admu-form-admin .btn-green');
-    function showErr(msg){ errEl.style.display='block'; errEl.textContent=msg; if(btn){btn.disabled=false;btn.textContent='Agregar admin →';} }
+    var exito = false;
 
-    // Validaciones
+    function showErr(msg){ errEl.style.display='block'; errEl.textContent=msg; }
+    function resetBtn(){ if(btn){ btn.disabled=false; btn.textContent='Agregar admin →'; } }
+
+    // Validaciones previas (antes de bloquear botón)
     if(!usr){ showErr('⚠️ El nombre de usuario es obligatorio'); return; }
     if(!/^[a-zA-Z0-9_]{3,30}$/.test(usr)){ showErr('⚠️ Usuario: solo letras, números y guión bajo (3-30 caracteres)'); return; }
     if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showErr('⚠️ Ingresa un correo electrónico válido'); return; }
     if(pass.length<6){ showErr('🔐 La contraseña debe tener mínimo 6 caracteres'); return; }
     if(pass!==pass2){ showErr('❌ Las contraseñas no coinciden'); return; }
     if(window._adminRol!=='maestro'){ showErr('⛔ Solo el administrador maestro puede crear cuentas'); return; }
+
     errEl.style.display='none';
     if(btn){ btn.disabled=true; btn.textContent='Creando...'; }
 
+    var newCred = null;
+    var secAuth = null;
+    var signOutSec = null;
+
     try {
-      var { getDocs, collection, query, where, doc, setDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-      // Verificar correo no repetido
-      var snapEmail = await getDocs(query(collection(window._fbDb,'usuarios'), where('correo','==',email)));
+      console.log('[ADMU] Validación iniciada — usuario:', usr, 'rol:', rol);
+
+      var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      var snapEmail = await F.getDocs(F.query(F.collection(window._fbDb,'usuarios'), F.where('correo','==',email)));
       if(!snapEmail.empty){ showErr('❌ Ese correo ya está registrado'); return; }
-      // Verificar usuario no repetido
-      var snapUsr = await getDocs(query(collection(window._fbDb,'usuarios'), where('usuario','==',usr)));
+      var snapUsr = await F.getDocs(F.query(F.collection(window._fbDb,'usuarios'), F.where('usuario','==',usr)));
       if(!snapUsr.empty){ showErr('❌ Ese nombre de usuario ya existe'); return; }
 
-      // Crear cuenta Firebase Auth con instancia secundaria (no afecta sesión del Maestro)
+      // Instancia secundaria de Firebase Auth para no cerrar sesión del Maestro
+      console.log('[ADMU] Creando Firebase Auth…');
       var { initializeApp, getApp } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js");
-      var { getAuth, createUserWithEmailAndPassword: createUser, signOut: signOutSec } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js");
+      var { getAuth, createUserWithEmailAndPassword: createUser, signOut: _signOutSec } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js");
+      signOutSec = _signOutSec;
       var secApp;
       try { secApp = getApp('_adminCreation'); } catch(_) {
         secApp = initializeApp({
@@ -2049,47 +2135,61 @@ function showAdminTab(i,btn){
           appId:'1:904496349672:web:6b9975dab5e922bd36e45d'
         }, '_adminCreation');
       }
-      var secAuth = getAuth(secApp);
-      var newCred;
+      secAuth = getAuth(secApp);
+
       try {
         newCred = await createUser(secAuth, email, pass);
       } catch(authErr) {
         var code = authErr.code||'';
+        console.error('[ADMU] Error Firebase Auth:', code, authErr.message);
         if(code==='auth/email-already-in-use') showErr('❌ Ese correo ya tiene cuenta en Firebase Authentication');
         else if(code==='auth/weak-password') showErr('🔐 Contraseña demasiado débil');
         else showErr('❌ Error al crear cuenta: '+(authErr.message||code));
         return;
       }
-      var newUid = newCred.user.uid;
+      console.log('[ADMU] Firebase Auth creado — UID:', newCred.user.uid);
 
-      // Guardar documento en Firestore (con sesión principal del Maestro intacta)
+      console.log('[ADMU] Guardando usuarios/'+newCred.user.uid+'…');
       try {
-        await setDoc(doc(window._fbDb,'usuarios',newUid), {
+        await F.setDoc(F.doc(window._fbDb,'usuarios',newCred.user.uid), {
           usuario: usr,
           correo: email,
           rol: rol,
           esAdmin: true,
           activo: true,
           creadoPor: window._adminUsr || 'maestro',
-          creadoEn: serverTimestamp(),
+          creadoEn: F.serverTimestamp(),
           ultimoAcceso: null
         });
       } catch(fsErr) {
-        // Revertir: eliminar cuenta Firebase Auth recién creada
-        try { await newCred.user.delete(); } catch(_){}
-        await signOutSec(secAuth).catch(function(){});
-        showErr('❌ Error al guardar. La cuenta de autenticación fue eliminada.');
+        console.error('[ADMU] Error Firestore:', fsErr.message);
+        try { await newCred.user.delete(); console.log('[ADMU] Cuenta Auth eliminada (rollback)'); } catch(_){}
+        showErr('❌ Error al guardar en base de datos. Cuenta eliminada: '+fsErr.message);
         return;
       }
-      await signOutSec(secAuth).catch(function(){});
+      console.log('[ADMU] Firestore guardado');
 
-      // Actualizar lista en memoria y renderizar
-      window._admuDatos.push({ uid:newUid, usuario:usr, correo:email, rol:rol, esAdmin:true, activo:true, creadoPor:window._adminUsr||'maestro', ultimoAcceso:null });
-      admuBack2Form();
-      var toast=document.getElementById('admin-toast');
-      if(toast){ toast.textContent='✅ Admin @'+usr+' ('+rol+') creado correctamente'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+      console.log('[ADMU] Cerrando sesión secundaria…');
+      if(secAuth && signOutSec) await signOutSec(secAuth).catch(function(e){ console.warn('[ADMU] signOutSec:', e.message); });
+      console.log('[ADMU] Alta completada');
+
+      window._admuDatos.push({ uid:newCred.user.uid, usuario:usr, correo:email, rol:rol, esAdmin:true, activo:true, creadoPor:window._adminUsr||'maestro', ultimoAcceso:null });
+      exito = true;
     } catch(e) {
+      console.error('[ADMU] Error inesperado:', e);
       showErr('❌ Error inesperado: '+e.message);
+      // Intentar revertir si ya se creó la cuenta Auth
+      if(newCred) {
+        try { await newCred.user.delete(); console.log('[ADMU] Rollback Auth exitoso'); } catch(_){}
+      }
+      if(secAuth && signOutSec) { signOutSec(secAuth).catch(function(){}); }
+    } finally {
+      resetBtn();
+      if(exito) {
+        admuBack2Form();
+        var toast=document.getElementById('admin-toast');
+        if(toast){ toast.textContent='✅ Admin @'+usr+' ('+rol+') creado correctamente'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+      }
     }
   };
 
