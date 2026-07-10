@@ -1,4 +1,4 @@
-// CENTRO DE CONTENIDO — Admin Module v=20260710g
+// CENTRO DE CONTENIDO — Admin Module v=20260709h
 (function(){ 'use strict';
 
 var _FBFS = "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
@@ -104,14 +104,6 @@ async function _guardarBitacora(col, id, accion, antes, despues){
 async function _cargarCol(col, filtro){
   var db = window._fbDb;
   if(!db) return { err:'Sin conexión a Firebase (_fbDb no disponible)' };
-  var auth = window._fbAuth;
-  if(auth && !auth.currentUser){
-    await new Promise(function(resolve){
-      var unsub = auth.onAuthStateChanged(function(u){ unsub(); resolve(u); });
-      setTimeout(function(){ resolve(null); }, 4000);
-    });
-  }
-  if(auth && auth.currentUser){ try { await auth.currentUser.getIdToken(true); } catch(_){} }
   try {
     var F = await import(_FBFS);
     var snap;
@@ -124,9 +116,7 @@ async function _cargarCol(col, filtro){
       }
       snap = await F.getDocs(q);
     } catch(e1){
-      var q2 = filtro
-        ? F.query(F.collection(db,col), F.where('estado','==',filtro), F.limit(80))
-        : F.query(F.collection(db,col), F.limit(80));
+      var q2 = F.query(F.collection(db,col), F.limit(80));
       snap = await F.getDocs(q2);
     }
     return snap.docs.map(function(d){ return Object.assign({_id:d.id}, d.data()); });
