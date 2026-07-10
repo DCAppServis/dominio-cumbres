@@ -219,9 +219,10 @@ window.cntCargarLista = async function(){
   if(seq !== _cntLoadSeq) return; // descarta respuesta de carga anterior
 
   if(res && res.err){
+    var _esPermisos = res.err && res.err.toLowerCase().indexOf('permission') !== -1;
     listEl.innerHTML = '<div style="padding:30px 20px;text-align:center;"><div style="font-size:28px;margin-bottom:10px;">⚠️</div>'
-      +'<div style="color:#D63A2A;font-size:12px;font-weight:700;">Error al cargar datos</div>'
-      +'<div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:6px;line-height:1.5;">'+_esc(res.err)+'</div></div>';
+      +'<div style="color:#D63A2A;font-size:12px;font-weight:700;">'+(_esPermisos?'Sesión expirada':'Error al cargar datos')+'</div>'
+      +'<div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:6px;line-height:1.5;">'+(_esPermisos?'Cierra sesión y vuelve a entrar como admin.':_esc(res.err))+'</div></div>';
     return;
   }
 
