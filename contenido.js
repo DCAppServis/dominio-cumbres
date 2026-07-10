@@ -1,4 +1,4 @@
-// CENTRO DE CONTENIDO — Admin Module v=20260710a
+// CENTRO DE CONTENIDO — Admin Module v=20260710b
 (function(){ 'use strict';
 
 var _FBFS = "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
@@ -104,20 +104,19 @@ async function _guardarBitacora(col, id, accion, antes, despues){
 async function _cargarCol(col){
   var db = window._fbDb;
   if(!db) return { err:'Sin conexión a Firebase (_fbDb no disponible)' };
-  // Esperar a que Firebase Auth esté listo y tenga sesión activa
   var auth = window._fbAuth;
+  // Si no hay currentUser, esperar máximo 3s
   if(auth && !auth.currentUser){
-    // Esperar máximo 3s a que el token se restaure
     await new Promise(function(res){
-      var unsub = auth.onAuthStateChanged(function(u){
-        unsub(); res(u);
-      });
+      var unsub = auth.onAuthStateChanged(function(u){ unsub(); res(u); });
       setTimeout(function(){ res(null); }, 3000);
     });
   }
-  if(auth && !auth.currentUser){
+  if(!auth || !auth.currentUser){
     return { err:'permission-denied: Sesión no iniciada' };
   }
+  // Forzar renovación del token para garantizar claims actualizados
+  try { await auth.currentUser.getIdToken(true); } catch(_){}
   try {
     var F = await import(_FBFS);
     var snap;
