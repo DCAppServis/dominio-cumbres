@@ -78,22 +78,24 @@ exports.adminCambiarCorreo = functions.https.onCall(async (data, context) => {
   const correoAnterior = objetivoDatos.correo || objetivoDatos.email || "";
 
   // Verificar que el correo no esté en uso por otro usuario
+  // Usamos flag para evitar throw dentro de try/catch (evita problemas de instanceof en v5)
+  let _emailTomado = false;
   try {
     const existente = await admin.auth().getUserByEmail(nuevoCorreo);
-    if (existente.uid !== uidObjetivo) {
-      throw new functions.https.HttpsError("already-exists", "Ese correo ya está registrado.");
-    }
-  } catch (e) {
-    if (e instanceof functions.https.HttpsError) throw e;
-    // auth/user-not-found u otro error → correo libre, continuar
+    if (existente.uid !== uidObjetivo) _emailTomado = true;
+  } catch (_) {
+    // auth/user-not-found → correo libre, continuar
+  }
+  if (_emailTomado) {
+    throw new functions.https.HttpsError("already-exists", "Ese correo ya está registrado.");
   }
 
   // 1. Actualizar Authentication
   try {
     await admin.auth().updateUser(uidObjetivo, { email: nuevoCorreo });
   } catch (authErr) {
-    const code = authErr.code || "";
-    if (code === "auth/email-already-exists" || code === "auth/email-already-in-use") {
+    const _c = authErr.code || (authErr.errorInfo && authErr.errorInfo.code) || "";
+    if (_c === "auth/email-already-exists" || _c === "auth/email-already-in-use") {
       throw new functions.https.HttpsError("already-exists", "Ese correo ya está registrado.");
     }
     throw new functions.https.HttpsError("internal", "Error al actualizar correo: " + authErr.message);
