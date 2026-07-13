@@ -802,6 +802,18 @@
         <button onclick="cerrarSesion()" style="margin-top:32px;background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;padding:4px;">Cerrar sesi&oacute;n</button>
       </div>
     </div>
+<div class="view go-right" id="v-vecino-suspendido">
+      <div class="success-wrap">
+        <div class="success-ic" style="border-color:var(--red);font-size:36px;">&#128683;</div>
+        <div class="si36">Cuenta suspendida</div>
+        <div style="font-size:13px;color:var(--white-50);text-align:center;line-height:1.8;margin-bottom:24px;">
+          Est&aacute;s suspendido por mal uso de la app.<br>
+          Espera 7 d&iacute;as para intentarlo de nuevo<br>
+          o contacta al administrador v&iacute;a WhatsApp.
+        </div>
+        <button class="btn" style="background:var(--white-12);color:#fff;" onclick="go('v-splash','left')">&#8592; Regresar al inicio</button>
+      </div>
+    </div>
 <div class="view go-right" id="v-cuenta-suspendida">
       <div class="success-wrap">
         <div class="success-ic" style="border-color:var(--red);font-size:36px;">&#128683;</div>
@@ -5368,7 +5380,7 @@
   </div>
 </div>
 
-<script src="chat.js?v=20260712f"></script>
+<script src="chat.js?v=20260713a"></script>
 
 
 <!-- ══ MI AGENDA (vecino) ══════════════════════════════════════

@@ -2689,6 +2689,7 @@ function showAdminTab(i,btn){
       // Vecinos registrados antes del sistema de estados no tienen campo 'estado' → igual se muestran
       const esAprobado = u =>
         u.estado === 'activo' ||
+        u.estado === 'suspendido' ||
         u.estado === 'aprobado_pendiente_pago' ||
         (u.tipo === 'vecino' && (u.estado === undefined || u.estado === null || u.estado === ''));
       datos = datos.filter(esAprobado);
