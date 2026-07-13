@@ -1506,6 +1506,130 @@ function showAdminTab(i,btn){
     }
   };
 
+  // ── Monetización: Costos de Operación ─────────────────────────────────────
+  window._monetSimulando = false;
+  window._monetSimMonto  = 0;
+  window._monetPresupuesto = 50;
+
+  // Distribución de costos en modo simulación (porcentajes fijos representativos)
+  var _MONET_DIST = { fs:0.35, st:0.25, fn:0.20, ar:0.10, cb:0.05, tf:0.05 };
+
+  window.monetCostosAbrir = function() {
+    go('v-admin-costos','right');
+    setTimeout(function(){ window.monetCostosCargar(); }, 300);
+  };
+
+  window.monetCostosCargar = async function() {
+    // Leer presupuesto configurado de Firestore
+    try {
+      var { getDoc: _gd, doc: _d } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      var _snap = await _gd(_d(window._fbDb, 'configuracion', 'costos'));
+      if(_snap.exists()) {
+        var _cfg = _snap.data();
+        if(_cfg.presupuesto) window._monetPresupuesto = parseFloat(_cfg.presupuesto);
+      }
+    } catch(_) {}
+
+    var pres = window._monetPresupuesto;
+    var sim  = window._monetSimulando;
+    var tot  = sim ? window._monetSimMonto : null;
+    var dia  = new Date().getDate() || 1;
+    var proy = sim ? Math.round(tot / dia * 30 * 100) / 100 : null;
+    var pct  = sim ? Math.round(tot / pres * 100) : null;
+    var margen = sim ? Math.round((pres - tot) * 100) / 100 : null;
+
+    var _semaforo = function(p) {
+      if(p === null) return { txt:'—', col:'var(--white-50)' };
+      if(p < 50)    return { txt:'🟢 Saludable', col:'#1FC26A' };
+      if(p < 80)    return { txt:'🟡 Atención',  col:'#F5C518' };
+      return              { txt:'🔴 Riesgo',     col:'#D63A2A' };
+    };
+    var sal = _semaforo(pct);
+
+    var _fmt = function(v) { return v !== null ? '$'+v.toFixed(2) : 'No disponible'; };
+    var _fmtPct = function(v) { return v !== null ? v+'%' : '—'; };
+    var _set = function(id, val) { var e=document.getElementById(id); if(e) e.textContent=val; };
+    var _col = function(id, c)  { var e=document.getElementById(id); if(e) e.style.color=c; };
+
+    // Resumen general
+    _set('costos-total',      _fmt(tot));
+    _set('costos-presupuesto','$'+pres.toFixed(2));
+    _set('costos-proyeccion', _fmt(proy));
+    _set('costos-salud', sal.txt); _col('costos-salud', sal.col);
+    _set('costos-margen', _fmt(margen));
+    _set('costos-uso-pct', _fmtPct(pct));
+    var barra = document.getElementById('costos-uso-barra');
+    if(barra) {
+      barra.style.width = (pct !== null ? Math.min(pct,100) : 0)+'%';
+      barra.style.background = sal.col === 'var(--white-50)' ? '#1FC26A' : sal.col;
+    }
+
+    // Nota de simulación
+    _set('costos-sim-nota-monto', sim ? '$'+tot.toFixed(2) : '');
+    var nota = document.getElementById('costos-sim-nota');
+    if(nota) nota.style.display = sim ? 'block' : 'none';
+
+    // Tarjetas de servicios
+    var _cats = [
+      { k:'fs', lbl:'🗄 Base de datos' },
+      { k:'st', lbl:'🖼 Fotografías' },
+      { k:'fn', lbl:'⚙️ Procesos' },
+      { k:'ar', lbl:'📦 Infraestructura' },
+      { k:'cb', lbl:'🚀 Despliegues' },
+      { k:'tf', lbl:'🌐 Transferencia' }
+    ];
+    _cats.forEach(function(c) {
+      var costo = sim ? Math.round(_MONET_DIST[c.k] * tot * 100) / 100 : null;
+      var cpct  = sim ? Math.round(_MONET_DIST[c.k] * 100) : null;
+      var csal  = _semaforo(pct); // mismo semáforo general para cada servicio
+      _set('costos-'+c.k+'-costo', _fmt(costo));
+      _set('costos-'+c.k+'-pct',  cpct !== null ? cpct+'%' : '—');
+      _set('costos-'+c.k+'-salud', pct !== null ? csal.txt : '—');
+      _col('costos-'+c.k+'-salud', pct !== null ? csal.col : 'var(--white-50)');
+    });
+
+    // Widget en pantalla principal de Monetización
+    _set('stat-costo-mes',   _fmt(tot));
+    _set('stat-proyeccion',  _fmt(proy));
+    _set('stat-presupuesto', '$'+pres.toFixed(2));
+    _set('stat-uso-pct',     _fmtPct(pct));
+    _set('stat-salud-infra', sal.txt);
+    _col('stat-salud-infra', sal.col);
+  };
+
+  window.monetSimular = function(monto) {
+    window._monetSimulando = true;
+    window._monetSimMonto  = monto;
+    document.querySelectorAll('.monet-sim-btn').forEach(function(b){
+      b.style.background   = 'var(--card-dark)';
+      b.style.borderColor  = 'var(--card-border)';
+    });
+    var btn = document.getElementById('monet-sim-'+monto);
+    if(btn) { btn.style.background='rgba(31,194,106,.15)'; btn.style.borderColor='#1FC26A'; }
+    window.monetCostosCargar();
+  };
+
+  window.monetSimularReset = function() {
+    window._monetSimulando = false;
+    window._monetSimMonto  = 0;
+    document.querySelectorAll('.monet-sim-btn').forEach(function(b){
+      b.style.background  = 'var(--card-dark)';
+      b.style.borderColor = 'var(--card-border)';
+    });
+    window.monetCostosCargar();
+  };
+
+  window.monetToggleDetalles = function() {
+    var sec = document.getElementById('costos-detalles');
+    var btn = document.getElementById('costos-detalles-btn');
+    if(!sec) return;
+    var visible = sec.style.display !== 'none';
+    sec.style.display = visible ? 'none' : 'block';
+    if(btn) {
+      btn.querySelector('span:last-child').textContent = visible ? '›' : '↓';
+    }
+  };
+
   window.entrarAdmin = async function() {
     const usr = document.getElementById('admin-usr-input').value.trim();
     const p   = document.getElementById('admin-pass-input').value;
