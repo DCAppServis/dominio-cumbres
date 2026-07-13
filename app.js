@@ -3710,6 +3710,12 @@ window.renderHomeM2 = function() {
         const p = d.data();
         if(['activo','aprobado'].indexOf(p.estado) !== -1) docs.push({id: d.id, ...p});
       });
+      // Impulsa primero
+      docs.sort((a,b) => {
+        const ai = (window._planEsImpulsa && window._planEsImpulsa(a)) ? 0 : 1;
+        const bi = (window._planEsImpulsa && window._planEsImpulsa(b)) ? 0 : 1;
+        return ai - bi;
+      });
       const filtro = (categoria || 'todos').toLowerCase();
       // Actualizar el select desplegable
       const sel = document.getElementById('cat-sel-servicios');
@@ -3729,7 +3735,7 @@ window.renderHomeM2 = function() {
         const cat = (p.oficio1 || p.categoria || 'otro').toLowerCase();
         const ic  = ICONOS[cat]||'🔧';
         const bg  = BGS[cat]||'#E8F5EE';
-        const premium = p.membresia === 'premium';
+        const esImpulsa = window._planEsImpulsa && window._planEsImpulsa(p);
         const cnt  = p.ratingTotal || 0;
         const prom = p.ratingPromedio || 0;
         const ratingHtml = cnt > 0
@@ -3737,9 +3743,10 @@ window.renderHomeM2 = function() {
           : 'Nuevo';
         const div = document.createElement('div');
         div.className = 'prov-card';
+        if (esImpulsa) div.style.cssText += 'border:1.5px solid #F5C518;box-shadow:0 2px 12px rgba(245,197,24,.18);';
         div.innerHTML = `
           <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px;">
-            <div class="prov-av" style="background:${bg};">${ic}<div class="prov-badge" style="background:${premium?'var(--yellow)':'var(--green)'};">${premium?'💎':'✓'}</div></div>
+            <div class="prov-av" style="background:${bg};">${ic}<div class="prov-badge" style="background:${esImpulsa?'#F5C518':'var(--green)'};">${esImpulsa?'⭐':'✓'}</div></div>
             <div class="si03">
               <div class="si17">${window.dcEscHTML(p.nombre||'—')}</div>
               <div class="si01">${window.dcEscHTML(p.descripcion||p.oficio1||p.categoria||'Proveedor')}</div>
@@ -3747,7 +3754,7 @@ window.renderHomeM2 = function() {
             </div>
           </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">
-            ${premium?'<span class="tag tag-y">💎 Premium</span>':''}
+            ${esImpulsa?'<span class="tag tag-y">⭐ Impulsa</span>':''}
             <span class="tag tag-g">✅ Verificado</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:.5px solid #f0f0f0;">

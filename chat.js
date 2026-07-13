@@ -1,4 +1,33 @@
 
+// ============ PLAN IMPULSA — HELPER GLOBAL ============
+// Determina si un objeto de datos de usuario tiene plan Impulsa vigente.
+// Uso: window._planEsImpulsa(datos)  → true | false
+window._PLAN_IMPULSA_PRECIO_MES = 199;
+window._PLAN_IMPULSA_PRECIO_ANO = 1999;
+window._PLAN_BASICO_PRECIO      = 0;
+
+window._planEsImpulsa = function(datos) {
+  if (!datos) return false;
+  if ((datos.plan || '') !== 'impulsa') return false;
+  var vence = datos.planVence;
+  if (!vence) return false;
+  var ts = (vence && typeof vence.toMillis === 'function') ? vence.toMillis()
+         : (vence && vence.seconds) ? vence.seconds * 1000
+         : Number(vence);
+  return ts > Date.now();
+};
+
+// Retorna 'impulsa' | 'basico'
+window._planNombre = function(datos) {
+  return window._planEsImpulsa(datos) ? 'impulsa' : 'basico';
+};
+
+// Badge HTML para usar en tarjetas y perfiles
+window._planBadgeHTML = function(datos, style) {
+  if (!window._planEsImpulsa(datos)) return '';
+  return '<span style="display:inline-flex;align-items:center;gap:3px;background:#F5C518;color:#1A3A5C;font-size:10px;font-weight:900;padding:2px 8px;border-radius:20px;letter-spacing:.3px;white-space:nowrap;'+(style||'')+'">⭐ Impulsa</span>';
+};
+
 // ============ CHAT — ESTADO GLOBAL ============
 window._chatUnsubscribe = null;
 window._chatProveedorId = null;
