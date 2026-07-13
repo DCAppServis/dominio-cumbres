@@ -1832,32 +1832,26 @@ function showAdminTab(i,btn){
     rechazado: 'Solicitud rechazada definitivamente'
   };
 
+  var ADMU_ESTADOS_VECINO = ['activo','suspendido'];
+
   window.admuAbrirBottomEstado = function(uid) {
     var u = window._admuDatos.find(function(x){ return x.uid===uid; });
     if(!u) return;
     window._admuBottomUid = uid;
-    var estadoActual = u.estado || 'pendiente_revision';
+    var esVecino = (window._admuTipo === 'vecino');
+    var listaEstados = esVecino ? ADMU_ESTADOS_VECINO : ADMU_ESTADOS;
+    var estadoActual = u.estado || (esVecino ? 'activo' : 'pendiente_revision');
     var sheet = document.getElementById('admu-bottom-estado');
-    if(!sheet) {
-      sheet = document.createElement('div');
-      sheet.id = 'admu-bottom-estado';
-      sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#131F17;border-top:1px solid rgba(255,255,255,.12);border-radius:18px 18px 0 0;z-index:9000;padding:16px 0 32px;max-width:430px;margin:0 auto;display:none;';
-      sheet.innerHTML = '<div style="text-align:center;margin-bottom:4px;"><div style="width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:4px;display:inline-block;"></div></div>'
-        +'<div style="font-size:13px;font-weight:700;color:#fff;text-align:center;padding:8px 16px 12px;">Cambiar estado</div>'
-        +'<div id="admu-bottom-opts"></div>'
-        +'<div style="padding:12px 16px 0;">'
-        +'<button onclick="admuCerrarBottomEstado()" style="width:100%;background:rgba(255,255,255,.06);border:none;border-radius:12px;color:rgba(255,255,255,.5);font-size:13px;font-weight:600;padding:14px;cursor:pointer;">Cancelar</button>'
-        +'</div>';
-      document.body.appendChild(sheet);
-      var overlay = document.createElement('div');
-      overlay.id = 'admu-bottom-overlay';
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8999;display:none;';
-      overlay.onclick = admuCerrarBottomEstado;
-      document.body.appendChild(overlay);
-    }
-    var opts = document.getElementById('admu-bottom-opts');
-    if(opts) {
-      opts.innerHTML = ADMU_ESTADOS.map(function(s){
+    if(sheet) { document.body.removeChild(sheet); sheet = null; }
+    var ov0 = document.getElementById('admu-bottom-overlay');
+    if(ov0) { document.body.removeChild(ov0); }
+    sheet = document.createElement('div');
+    sheet.id = 'admu-bottom-estado';
+    sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#131F17;border-top:1px solid rgba(255,255,255,.12);border-radius:18px 18px 0 0;z-index:9000;padding:16px 0 32px;max-width:430px;margin:0 auto;';
+    sheet.innerHTML = '<div style="text-align:center;margin-bottom:4px;"><div style="width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:4px;display:inline-block;"></div></div>'
+      +'<div style="font-size:13px;font-weight:700;color:#fff;text-align:center;padding:8px 16px 12px;">Cambiar estado</div>'
+      +'<div id="admu-bottom-opts">'
+      + listaEstados.map(function(s){
         var color = ADMU_ESTADO_COLOR[s]||'#aaa';
         var label = ADMU_ESTADO_LABEL[s]||s;
         var desc = ADMU_ESTADO_DESC[s]||'';
@@ -1871,11 +1865,17 @@ function showAdminTab(i,btn){
           +'<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px;">'+desc+'</div>'
           +'</div>'
           +'</div>';
-      }).join('');
-    }
-    sheet.style.display = 'block';
-    var ov = document.getElementById('admu-bottom-overlay');
-    if(ov) ov.style.display = 'block';
+      }).join('')
+      +'</div>'
+      +'<div style="padding:12px 16px 0;">'
+      +'<button onclick="admuCerrarBottomEstado()" style="width:100%;background:rgba(255,255,255,.06);border:none;border-radius:12px;color:rgba(255,255,255,.5);font-size:13px;font-weight:600;padding:14px;cursor:pointer;">Cancelar</button>'
+      +'</div>';
+    document.body.appendChild(sheet);
+    var overlay = document.createElement('div');
+    overlay.id = 'admu-bottom-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8999;';
+    overlay.onclick = admuCerrarBottomEstado;
+    document.body.appendChild(overlay);
   };
 
   window.admuSelEstadoBottom = function(nuevoEstado) {
@@ -2044,12 +2044,11 @@ function showAdminTab(i,btn){
 
   window.admuCambiarEstado = async function(uid, nuevoEstado) {
     try {
-      await admuEnsureAuth();
       var { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
       await updateDoc(doc(window._fbDb,'usuarios',uid), { estado: nuevoEstado });
       var u = window._admuDatos.find(function(x){ return x.uid===uid; });
       if(u) u.estado = nuevoEstado;
-    } catch(e) { alert('Error al actualizar: '+e.message); }
+    } catch(e) { alert('Error al cambiar estado: '+e.message); }
   };
 
   window.admuEliminarUsuario = function(uid, nombreEnc) {
