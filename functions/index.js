@@ -230,3 +230,91 @@ exports.adminEliminarUsuario = functions.https.onCall(async (data, context) => {
   LOG("exito", { uidObjetivo });
   return { ok: true };
 });
+
+// ── impulsaVerificarVencimientos ──────────────────────────────────────────────
+// Cron diario: degrada Impulsa expirado a Básico y envía Push de aviso previo.
+// Horario: cada día a las 8:00 AM (hora del servidor / UTC-6 ajustado).
+exports.impulsaVerificarVencimientos = functions.pubsub
+  .schedule("0 14 * * *")   // 14:00 UTC = 8:00 AM hora Ciudad de México
+  .timeZone("America/Mexico_City")
+  .onRun(async () => {
+    const LOG = (paso, extra) => console.log(JSON.stringify({ fn: "impulsaVerificarVencimientos", paso, ...extra }));
+    const ahora     = admin.firestore.Timestamp.now();
+    const ahoraMs   = ahora.toMillis();
+    const DIA_MS    = 86400000;
+    const AVISOS    = [15, 7, 1];   // días antes de vencer en que se notifica
+
+    try {
+      const snap = await db.collection("usuarios")
+        .where("plan", "==", "impulsa")
+        .get();
+
+      LOG("total-impulsa", { count: snap.size });
+
+      const batch = db.batch();
+      let degradados = 0;
+      let notificaciones = 0;
+
+      for (const doc of snap.docs) {
+        const d   = doc.data();
+        const ref = doc.ref;
+
+        if (!d.planVence) continue;
+        const venceMs = d.planVence.toMillis();
+        const diasRestantes = Math.ceil((venceMs - ahoraMs) / DIA_MS);
+
+        // ── Expirado: degradar a Básico ──────────────────────────────────────
+        if (venceMs <= ahoraMs) {
+          batch.update(ref, {
+            plan:       "basico",
+            planTipo:   admin.firestore.FieldValue.delete(),
+            planInicio: admin.firestore.FieldValue.delete(),
+            planVence:  admin.firestore.FieldValue.delete(),
+          });
+          // Notificación dentro de la app
+          await db.collection("notificaciones").add({
+            uid:      doc.id,
+            tipo:     "membresia",
+            modulo:   "planes",
+            titulo:   "Plan Impulsa vencido",
+            mensaje:  "Tu Plan Impulsa ha vencido. Tu cuenta regresó al Plan Básico. ¡Renueva para seguir con todos los beneficios!",
+            leida:    false,
+            eliminada:false,
+            prioridad:"alta",
+            fecha:    admin.firestore.FieldValue.serverTimestamp(),
+          });
+          degradados++;
+          LOG("degradado", { uid: doc.id });
+          continue;
+        }
+
+        // ── Próximo a vencer: aviso en días definidos ────────────────────────
+        if (AVISOS.includes(diasRestantes)) {
+          const msg = diasRestantes === 1
+            ? "Tu Plan Impulsa vence mañana. ¡Renueva hoy para no perder tus beneficios!"
+            : `Tu Plan Impulsa vence en ${diasRestantes} días. Renueva pronto para seguir destacando.`;
+          await db.collection("notificaciones").add({
+            uid:      doc.id,
+            tipo:     "membresia",
+            modulo:   "planes",
+            titulo:   `Plan Impulsa — ${diasRestantes} día${diasRestantes > 1 ? 's' : ''} para vencer`,
+            mensaje:  msg,
+            leida:    false,
+            eliminada:false,
+            prioridad: diasRestantes === 1 ? "alta" : "normal",
+            fecha:    admin.firestore.FieldValue.serverTimestamp(),
+          });
+          notificaciones++;
+          LOG("aviso-enviado", { uid: doc.id, diasRestantes });
+        }
+      }
+
+      await batch.commit();
+      LOG("fin", { degradados, notificaciones });
+    } catch (e) {
+      LOG("error", { message: e.message });
+      throw e;
+    }
+
+    return null;
+  });
