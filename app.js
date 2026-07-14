@@ -1070,7 +1070,8 @@ function _postHooks(id){
                            'v-admin-login','v-admin-panel',
                            'v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz',
                            'v-reg-proveedor','v-reg-restaurante','v-reg-negocio','v-reg-transporte'];
-        if (_fabOcultar.indexOf(id) !== -1) {
+        var _tipoUser = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
+        if (_fabOcultar.indexOf(id) !== -1 || _tipoUser === 'vecino') {
           fab.style.opacity = '0';
           fab.style.pointerEvents = 'none';
         } else if (fab.classList.contains('visible')) {
