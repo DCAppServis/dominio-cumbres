@@ -984,6 +984,20 @@
     <div style="height:14px;"></div>
   </div><!-- /scroll -->
 
+  <!-- ── FAB IMPULSA / PUBLICIDAD ── -->
+  <div id="home-fab" style="display:none;position:absolute;bottom:72px;right:16px;z-index:20;">
+    <button id="home-fab-btn" onclick="window._homeFabAccion&&window._homeFabAccion()"
+      style="width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;
+             display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+             box-shadow:0 4px 18px rgba(0,0,0,.22);font-family:'Inter',sans-serif;
+             background:linear-gradient(135deg,#c8940a,#f5c518);transition:transform .13s,box-shadow .13s;"
+      ontouchstart="this.style.transform='scale(.92)';this.style.boxShadow='0 2px 8px rgba(0,0,0,.18)'"
+      ontouchend="this.style.transform='';this.style.boxShadow='0 4px 18px rgba(0,0,0,.22)'">
+      <span id="home-fab-ic" style="font-size:22px;line-height:1;">⭐</span>
+      <span id="home-fab-lb" style="font-size:8px;font-weight:800;color:#3d2c00;letter-spacing:.2px;text-transform:uppercase;line-height:1.2;">Impulsa</span>
+    </button>
+  </div>
+
   <!-- ── BOTTOM NAV ── -->
   <div class="nav" id="v-home-nav">
     <div class="ni"><div class="ni-ic">🏠</div><div class="si04 ni-lb">Inicio</div></div>
