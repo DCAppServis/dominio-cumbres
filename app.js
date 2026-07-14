@@ -3394,13 +3394,6 @@ window.renderHomeM2 = function() {
         + modulo('🔧','#FFF8DC','Mi Servicio','Editar perfil',"go('v-mipanel','right')")
         + '</div>';
 
-      // Banner IMPULSA
-      html += '<div onclick="window._irAImpulsa&&window._irAImpulsa()" style="margin:0 14px 12px;background:linear-gradient(120deg,#3d2c00,#c8940a);border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:12px;cursor:pointer;">'
-        + '<div style="font-size:26px;flex-shrink:0;">⭐</div>'
-        + '<div style="flex:1;"><div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:2px;">IMPULSA tu negocio</div><div style="font-size:10px;color:rgba(255,255,255,.75);">Aparece primero · Banners · Más clientes · Desde $199</div></div>'
-        + '<div style="color:rgba(255,255,255,.65);font-size:20px;">›</div>'
-        + '</div>';
-
       // Banner CMV — igual estilo que otros banners del home
       html += '<div onclick="go(\'v-prov-cmv\',\'right\');setTimeout(window.vprovCmvCargar,200)" style="margin:0 14px 14px;background:linear-gradient(120deg,#0d3d24,#1a6640);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:0 4px 18px rgba(31,194,106,.25);">'
         + '<div style="width:48px;height:48px;border-radius:13px;background:rgba(31,194,106,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:26px;">👁</div>'
@@ -3490,12 +3483,6 @@ window.renderHomeM2 = function() {
         + chip('📊','Ventas', "go('vr-home','right');setTimeout(function(){navTo&&navTo('vr-ventas');},80)")
         + '</div>';
 
-      // Banner IMPULSA restaurante
-      html += '<div onclick="window._irAImpulsa&&window._irAImpulsa()" style="margin:0 14px 14px;background:linear-gradient(120deg,#3d2c00,#c8940a);border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:12px;cursor:pointer;">'
-        + '<div style="font-size:26px;flex-shrink:0;">⭐</div>'
-        + '<div style="flex:1;"><div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:2px;">IMPULSA tu restaurante</div><div style="font-size:10px;color:rgba(255,255,255,.75);">Aparece primero · Banners · Más pedidos · Desde $199</div></div>'
-        + '<div style="color:rgba(255,255,255,.65);font-size:20px;">›</div>'
-        + '</div>';
 
       html += descubrimiento(tieneActividad);
       html += secLabel('Actividad reciente');
@@ -3545,12 +3532,6 @@ window.renderHomeM2 = function() {
       + chip('\ud83d\udcca','Ventas', "go('vn-home','right');setTimeout(function(){negTo&&negTo('vn-ventas');},80)")
       + '</div>';
 
-    // Banner IMPULSA negocio
-    html += '<div onclick="window._irAImpulsa&&window._irAImpulsa()" style="margin:0 14px 14px;background:linear-gradient(120deg,#3d2c00,#c8940a);border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:12px;cursor:pointer;">'
-      + '<div style="font-size:26px;flex-shrink:0;">⭐</div>'
-      + '<div style="flex:1;"><div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:2px;">IMPULSA tu negocio</div><div style="font-size:10px;color:rgba(255,255,255,.75);">Aparece primero · Banners · Más clientes · Desde $199</div></div>'
-      + '<div style="color:rgba(255,255,255,.65);font-size:20px;">›</div>'
-      + '</div>';
 
     html += descubrimiento(tieneActividad);
     html += secLabel('Actividad reciente');
@@ -3571,6 +3552,8 @@ window.renderHomeM2 = function() {
     if (_adsWrap) { _adsWrap.style.display = ''; var _adIdx = (tipo==='restaurante'||tipo==='negocio') ? 3 : 2; var _ref = scroll.children[_adIdx]; _ref ? scroll.insertBefore(_adsWrap, _ref) : scroll.appendChild(_adsWrap); }
     // M2-G: poblar descubrimiento si el contenedor fue inyectado
     window.renderDescubrimiento && window.renderDescubrimiento('home-discover-list');
+    // FAB Impulsa / Publicidad
+    window._actualizarFabHome && window._actualizarFabHome();
     // Actualizar nav inferior según rol del operador
     var nav = document.getElementById('v-home-nav') || document.querySelector('#v-home .nav');
     if (nav) {
@@ -6043,6 +6026,52 @@ var _MP_PLANES = {
 window._irAImpulsa = function() {
   go('v-impulsa', 'right');
   setTimeout(window.impulsaCargar, 200);
+};
+
+// ── FAB Impulsa / Publicidad ─────────────────────────────────────────────
+window._actualizarFabHome = function() {
+  var tipo = (localStorage.getItem('dcuserTipo') || 'vecino').toLowerCase();
+  var fab = document.getElementById('home-fab');
+  if (!fab) return;
+  var ROLES_NEGOCIO = ['proveedor','restaurante','negocio'];
+  if (ROLES_NEGOCIO.indexOf(tipo) === -1) { fab.style.display = 'none'; return; }
+
+  fab.style.display = '';
+  var ic = document.getElementById('home-fab-ic');
+  var lb = document.getElementById('home-fab-lb');
+  var btn = document.getElementById('home-fab-btn');
+
+  // Verificar plan activo desde Firestore
+  (async function() {
+    try {
+      var user = window._fbAuth && window._fbAuth.currentUser;
+      if (!user) throw new Error('no-user');
+      var snap = await _fbGet2('usuarios', user.uid);
+      var d = snap.exists() ? snap.data() : {};
+      var ahora = Date.now();
+      var venceMs = d.planVence
+        ? (d.planVence.toMillis ? d.planVence.toMillis() : (d.planVence.seconds || 0) * 1000)
+        : 0;
+      var esImpulsa = d.plan === 'impulsa' && venceMs > ahora;
+
+      if (esImpulsa) {
+        if (ic) ic.textContent = '📢';
+        if (lb) lb.textContent = 'Publicidad';
+        if (btn) btn.style.background = 'linear-gradient(135deg,#1a4a2a,#1FC26A)';
+        window._homeFabAccion = function() { window._dcProximamente && window._dcProximamente('El módulo de Publicidad estará disponible pronto.'); };
+      } else {
+        if (ic) ic.textContent = '⭐';
+        if (lb) lb.textContent = 'Impulsa';
+        if (btn) btn.style.background = 'linear-gradient(135deg,#c8940a,#f5c518)';
+        window._homeFabAccion = function() { window._irAImpulsa && window._irAImpulsa(); };
+      }
+    } catch(e) {
+      if (ic) ic.textContent = '⭐';
+      if (lb) lb.textContent = 'Impulsa';
+      if (btn) btn.style.background = 'linear-gradient(135deg,#c8940a,#f5c518)';
+      window._homeFabAccion = function() { window._irAImpulsa && window._irAImpulsa(); };
+    }
+  })();
 };
 
 // ── Pantalla 1: Estado del plan ──────────────────────────────────────────
