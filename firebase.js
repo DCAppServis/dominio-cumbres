@@ -273,7 +273,11 @@
         }
 
         if (datos.tipo === 'vecino') {
-          go('v-home','right');
+          if (estado === 'suspendido') {
+            go('v-vecino-suspendido','right');
+          } else {
+            go('v-home','right');
+          }
         } else if (['proveedor','transporte','repartidor','ambos','negocio','restaurante'].includes(datos.tipo)) {
           if (estado === 'pendiente_revision') {
             go('v-espera-revision','right');
