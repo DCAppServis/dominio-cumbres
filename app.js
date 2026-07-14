@@ -1038,7 +1038,9 @@ function _postHooks(id){
         var nom=(el&&el.textContent||'').replace(/^\s*🏪\s*/,'').trim();
         if(nom&&Array.isArray(window._plazaDocsCache)){
           var s=window._plazaDocsCache.find(function(x){return nom===(x.nombrePublico||x.nombreNegocio||x.nombre||'');});
-          if(s){window._dcPlazaStoreActual=s;try{localStorage.setItem('dcPlazaNegNombreActual',s.nombrePublico||s.nombreNegocio||s.nombre||'');}catch(_){}}
+          if(s){s._dcModulo='negocio';window._dcPlazaStoreActual=s;try{localStorage.setItem('dcPlazaNegNombreActual',s.nombrePublico||s.nombreNegocio||s.nombre||'');}catch(_){}}
+          var _pfBtn=document.getElementById('plaza-fav-btn');
+          if(_pfBtn&&window._dcPlazaStoreActual){var _pfId=window._dcPlazaStoreActual._id||window._dcPlazaStoreActual.id||window._dcPlazaStoreActual.uid||window._dcPlazaStoreActual.nombre;var _pfIs=window.isFav&&window.isFav(_pfId);_pfBtn.textContent=_pfIs?'❤️':'🤍';}
         }
       }catch(_){}
       try{_plazaUpdateCartBar();}catch(_){}
@@ -1195,7 +1197,7 @@ document.addEventListener('click',function(ev){
   var favBtn=ev.target&&ev.target.closest&&ev.target.closest('#v-favoritos .si07 button');
   if(favBtn){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();return _goBack('v-home');}
   var detBtn=ev.target&&ev.target.closest&&ev.target.closest('#v-serv-det #det-header button');
-  if(detBtn){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();return _goBack('v-servicios');}
+  if(detBtn&&detBtn.id!=='det-fav-btn'){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();return _goBack('v-servicios');}
 },true);
 
 setTimeout(_patchFavBack,120); setTimeout(_patchFavBack,400);
@@ -1418,118 +1420,10 @@ function _feliz(msg){
   setTimeout(function(){if(t.parentNode)t.remove();},3000);
 }
 
-/* ======= RATING ======= */
-var _ratingSel=0;
-window._ratingVotoActual={nr:0,comentario:''};
-function _ratingMostrarVotado(nr,comentario,prom,cnt){
-  window._ratingVotoActual={nr:nr,comentario:comentario||''};
-  var blk=document.getElementById('det-rating-block'); if(!blk)return;
-  var comHtml=comentario?'<div style="font-size:11px;color:#7a5000;background:#fffbe6;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-style:italic;">&ldquo;'+comentario.replace(/</g,'&lt;')+'&rdquo;</div>':'';
-  blk.innerHTML='<div style="font-size:12px;font-weight:700;color:#7a5000;margin-bottom:6px;">&#x2B50; Tu calificaci&#xF3;n</div>'
-    +'<div style="font-size:22px;margin-bottom:6px;">'+'&#x2B50;'.repeat(nr)+'&#x2606;'.repeat(5-nr)+'</div>'
-    +comHtml
-    +(prom!==null?'<div style="font-size:11px;color:#9a7020;margin-bottom:10px;">Promedio: &#x2B50; '+prom+' ('+cnt+' opiniones)</div>':'')
-    +'<button onclick="dcProvRatingModoEditar()" style="background:none;border:1px solid #d4a020;border-radius:10px;padding:7px 16px;font-size:12px;font-weight:700;color:#9a7020;cursor:pointer;font-family:inherit;">&#x270F;&#xFE0F; Editar calificaci&#xF3;n</button>';
-}
-
-window.dcProvRatingModoEditar=function(){
-  var b=document.getElementById('det-rating-block'); if(!b)return;
-  var nr=window._ratingVotoActual.nr||0; var com=window._ratingVotoActual.comentario||'';
-  _ratingSel=nr;
-  var estrellas='';
-  for(var i=1;i<=5;i++) estrellas+='<span onclick="dcProvRatingSet('+i+')" style="font-size:28px;cursor:pointer;">'+(i<=nr?'&#x2B50;':'&#x2606;')+'</span>';
-  b.innerHTML='<div style="font-size:12px;font-weight:700;color:#7a5000;margin-bottom:4px;">&#x2B50; Calificar proveedor</div>'
-    +'<div id="det-stars" style="display:flex;gap:6px;margin-bottom:10px;">'+estrellas+'</div>'
-    +'<textarea id="det-rating-com" class="nota" rows="2" placeholder="Comentario opcional...">'+com+'</textarea>'
-    +'<button onclick="dcProvRatingEnviar()" style="width:100%;margin-top:8px;background:#F5C518;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;color:#1a1200;cursor:pointer;font-family:inherit;">Enviar calificaci&#xF3;n &#x2192;</button>';
-};
-
-
-window.dcProvRatingSet=function(n){
-  _ratingSel=n;
-  document.querySelectorAll('#det-stars span').forEach(function(s,i){s.innerHTML=i<n?'&#x2B50;':'&#x2606;';});
-};
-
-window.dcProvRatingEnviar=async function(){
-  if(!_ratingSel){alert('Selecciona estrellas');return;}
-  var p=window._proveedorActual||{}; var pUid=p.uid||p.id||''; if(!pUid)return;
-  var auth=window._fbAuth; var myUid=auth&&auth.currentUser&&auth.currentUser.uid;
-  if(!myUid){alert('Inicia sesión');return;}
-  var com=(document.getElementById('det-rating-com')||{}).value||'';
-  var btn=document.querySelector('#det-rating-block button:last-child');
-  if(btn){btn.disabled=true;btn.textContent='&#x23F3; Guardando...';}
-  try{
-    var miNombre=localStorage.getItem('dcuser')||'Vecino';
-    await _fbSet4('calificaciones',pUid,'votos',myUid,{rating:_ratingSel,comentario:com,fecha:new Date().toISOString(),nombre:miNombre});
-    var snap=await _fbColSub3('calificaciones',pUid,'votos');
-    var tot=0,cnt=0; snap.forEach(function(d){tot+=(d.data().rating||0);cnt++;});
-    var prom=cnt?Math.round((tot/cnt)*10)/10:0;
-    await _fbSet4('calificaciones',pUid,'resumen','datos',{promedio:prom,total:cnt});
-    try{await _fbUpd2('usuarios',pUid,{ratingPromedio:prom,ratingTotal:cnt});}catch(e){}
-    var nr=_ratingSel; var c=com; _ratingSel=0;
-    _ratingMostrarVotado(nr,c,prom,cnt);
-    _feliz('&#xA1;Gracias por calificar!');
-  }catch(e){
-    console.error('rating',e);
-    if(btn){btn.disabled=false;btn.textContent='Enviar calificación →';}
-    alert('Error: '+e.message);
-  }
-};
-
-window.dcProvRatingCargar=async function(pUid){
-  var blk=document.getElementById('det-rating-block'); if(!blk)return;
-  var tipo=(localStorage.getItem('dcuserTipo')||'').toLowerCase();
-  if(tipo!=='vecino'){blk.style.display='none';return;}
-  blk.style.display='block'; _ratingSel=0;
-  blk.innerHTML='<div style="text-align:center;padding:20px;color:#cca020;font-size:12px;">Cargando...</div>';
-  if(!pUid||!window._fbDb){dcProvRatingModoEditar();return;}
-  try{
-    var promSnap=await _fbGet4('calificaciones',pUid,'resumen','datos');
-    var prom=null,cnt=0;
-    if(promSnap.exists()){var pd=promSnap.data();prom=pd.promedio||null;cnt=pd.total||0;}
-    var avg=document.getElementById('det-rating-avg');
-    if(avg) avg.textContent=prom!==null?'&#x2B50; '+prom+' ('+cnt+' opiniones)':'Sé el primero en calificar';
-    var auth2=window._fbAuth; var myUid2=auth2&&auth2.currentUser&&auth2.currentUser.uid;
-    if(myUid2){
-      var mv=await _fbGet4('calificaciones',pUid,'votos',myUid2);
-      if(mv.exists()){
-        var vd=mv.data();
-        _ratingMostrarVotado(vd.rating||0,vd.comentario||'',prom,cnt);
-        _ratingMostrarOpiniones(pUid,myUid2);
-        return;
-      }
-    }
-    dcProvRatingModoEditar();
-    _ratingMostrarOpiniones(pUid,myUid2||'');
-  }catch(e){console.error('rating-cargar',e);dcProvRatingModoEditar();}
-};
-
-async function _ratingMostrarOpiniones(pUid,myUid){
-  var ob=document.getElementById('det-opiniones-block'); if(!ob)return;
-  try{
-    var snap=await _fbColSub3('calificaciones',pUid,'votos');
-    var items=[];
-    snap.forEach(function(d){
-      var v=d.data();
-      if(d.id!==myUid&&(v.comentario||'').trim()) items.push(v);
-    });
-    if(!items.length){ob.style.display='none';return;}
-    ob.style.display='block';
-    var html='<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">Opiniones de clientes</div>';
-    items.forEach(function(v){
-      var nr=v.rating||0;
-      var fecha=v.fecha?new Date(v.fecha).toLocaleDateString('es-MX'):'';
-      html+='<div style="background:#fff;border-radius:12px;padding:12px;margin-bottom:8px;border:.5px solid #e8e8e8;">'
-        +'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
-        +'<span style="font-size:13px;">'+('⭐'.repeat(nr)+'☆'.repeat(5-nr))+'</span>'
-        +'<span style="font-size:10px;color:#aaa;">'+fecha+'</span></div>'
-        +(v.comentario?'<div style="font-size:12px;color:#444;line-height:1.5;margin-bottom:4px;font-style:italic;">&ldquo;'+v.comentario.replace(/</g,'&lt;')+'&rdquo;</div>':'')
-        +'<div style="font-size:11px;color:#888;">'+( v.nombre||'Vecino')+'</div>'
-        +'</div>';
-    });
-    ob.innerHTML=html;
-  }catch(e){ob.style.display='none';}
-};
+/* ======= RATING — proveedor: delegates to generic engine con blockId='det' ======= */
+window.dcProvRatingCargar = function(pUid){ window.dcRatingCargar(pUid,'det','⭐ Calificar a este proveedor'); };
+window.dcProvRatingEnviar = function(){ window.dcRatingEnviar('det'); };
+window.dcProvRatingSet    = function(n){ window.dcRatingSet(n,'det'); };
 
 /* ======= GENERIC RATING ENGINE (restaurantes + negocios) ======= */
 window._dcRatingUid={};
@@ -1799,7 +1693,7 @@ window.cargarMembresia=async function(){
 
   function _rpEstiloBtnCalificado(btn){
     btn.innerHTML='✅ Calificado';
-    btn.style.cssText='background:#FFEBEE;border:1px solid #E53935;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#C62828;cursor:pointer;font-family:inherit;white-space:nowrap;';
+    btn.style.cssText='background:#E8F5E9;border:1px solid #A5D6A7;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#388E3C;cursor:pointer;font-family:inherit;white-space:nowrap;';
   }
 
   function _rpMarcarBotonesCalificado(bizId){
@@ -3681,7 +3575,8 @@ window.renderHomeM2 = function() {
     var btn = document.getElementById('det-fav-btn');
     if (btn) {
       var pid = p._id || p.id || p.uid || p.nombre;
-      btn.textContent = window.isFav && window.isFav(pid) ? '❤️' : '🤍';
+      var _isF = window.isFav && window.isFav(pid);
+      btn.textContent = _isF ? '❤️' : '🤍';
     }
     // M2-J: cargar agenda del proveedor (clave por su uid)
     window._cargarAgendaProveedor(p);
@@ -3940,7 +3835,10 @@ window.renderHomeM2 = function() {
         '<div style="display:flex;">'
         + METRIC('0', 'Pedidos', 'panel-pedidos')
         + METRIC('$0', 'Gastado este mes', 'panel-gastado')
-        + METRIC('0', 'Favoritos', 'panel-favs')
+        + '<div style="flex:1;text-align:center;padding:10px 4px;cursor:pointer;" onclick="go(\'v-favoritos\',\'right\')">'
+        + '<div style="font-size:22px;font-weight:700;color:'+color+';" id="panel-favs">0</div>'
+        + '<div style="font-size:10px;color:#1a6fbf;margin-top:2px;text-decoration:underline;">Favoritos</div>'
+        + '</div>'
         + '</div>'
       );
     } else {
@@ -4023,9 +3921,12 @@ window.renderHomeM2 = function() {
 
     html += SEC('Cuenta');
     html += '<div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 12px;overflow:hidden;">';
-    html += ACCION('💳','Métodos de pago',"go('vr-config','right')");
-    html += ACCION('🔔','Notificaciones',"go('v-notificaciones','right');setTimeout(window.renderNotificaciones,300)");
-    if (tipo !== 'vecino') {
+    if (tipo === 'vecino') {
+      html += ACCION('👤','Mi Perfil',"go('v-mi-perfil','right');setTimeout(function(){window.cargarMiPerfilDetalle&&window.cargarMiPerfilDetalle();},300)");
+      html += ACCION('❤️','Mis favoritos',"go('v-favoritos','right')");
+      html += ACCION('📅','Mi Agenda',"go('v-mi-agenda','right');setTimeout(function(){window._initMiAgenda&&window._initMiAgenda();},200)");
+    } else {
+      html += ACCION('💳','Métodos de pago',"go('vr-config','right')");
       html += ACCION('⭐','Membresía y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)");
       if (tipo === 'proveedor') {
         html += ACCION('📅','Mis horarios',"go('v-agenda','right');setTimeout(function(){window._renderAgenda&&window._renderAgenda();},100)");
@@ -4036,14 +3937,16 @@ window.renderHomeM2 = function() {
         html += ACCION('📣','Crear promoción',"window.irACrearPromo&&window.irACrearPromo()");
       }
     }
-    if (tipo === 'vecino') {
-      html += ACCION('📅','Mi Agenda',"go('v-mi-agenda','right');setTimeout(function(){window._initMiAgenda&&window._initMiAgenda();},200)");
-    }
+    html += ACCION('🔔','Notificaciones',"go('v-notificaciones','right');setTimeout(window.renderNotificaciones,300)");
     html += ACCION_LAST('🚪','Cerrar sesión','cerrarSesion()','#D63A2A');
     html += '</div>';
 
     html += '<div style="height:8px;"></div>';
     scroll.innerHTML = html;
+
+    // Actualizar contador de favoritos con dato real desde localStorage
+    var panelFavs = document.getElementById('panel-favs');
+    if (panelFavs) panelFavs.textContent = String(window.getFavs ? window.getFavs().length : 0);
 
     // ── Firebase: poblar campos reales ──────────────────────────
     try {
@@ -5284,14 +5187,28 @@ window.cargarMisComprasPlaza = function() {
       favs.splice(idx, 1); // quitar
     } else {
       // agregar sin duplicados
-      favs.unshift({ id:id, tipo:'proveedor', nombre:p.nombre||'—',
+      favs.unshift({ id:id, tipo:p._dcModulo||p._favTipo||'proveedor', nombre:p.nombreNegocio||p.nombrePublico||p.nombre||'—',
                      categoria:p.categoria||'', descripcion:p.descripcion||'',
                      datos: p, fecha: Date.now() });
     }
     localStorage.setItem(_favKey(), JSON.stringify(favs));
-    // Actualizar botón si está visible
-    var btn = document.getElementById('det-fav-btn');
-    if (btn) btn.textContent = window.isFav(id) ? '❤️' : '🤍';
+    // Actualizar botones de favorito visibles
+    var _isFavNow = window.isFav(id);
+    function _applyFavStyle(btn, active) {
+      if (!btn) return;
+      btn.textContent = active ? '❤️' : '🤍';
+    }
+    _applyFavStyle(document.getElementById('det-fav-btn'), _isFavNow);
+    _applyFavStyle(document.getElementById('dcf-fav-btn'), _isFavNow);
+    _applyFavStyle(document.getElementById('plaza-fav-btn'), _isFavNow);
+    // Actualizar contador en Mi Panel si está visible
+    var panelFavs = document.getElementById('panel-favs');
+    if (panelFavs) panelFavs.textContent = String(window.getFavs().length);
+    // Refrescar lista si v-favoritos está activo
+    if (typeof cargarFavoritos === 'function') {
+      var favVista = document.getElementById('v-favoritos');
+      if (favVista && favVista.classList.contains('active')) cargarFavoritos();
+    }
   };
 
   window.addReciente = function(p) {
