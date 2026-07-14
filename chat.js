@@ -1715,18 +1715,27 @@ function showAdminTab(i,btn){
     if(lista) lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Cargando... ⏳</div>';
     try {
       await admuEnsureAuth();
-      var { getDocs, collection, query, where, or } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-      var q;
-      if(tipo === 'servicio') {
-        q = query(collection(window._fbDb,'usuarios'), where('tipo','==','proveedor'));
-      } else if(tipo === 'todos') {
-        q = query(collection(window._fbDb,'usuarios'), where('tipo','in',['restaurante','negocio','proveedor']));
-      } else {
-        q = query(collection(window._fbDb,'usuarios'), where('tipo','==',tipo));
-      }
-      var snap = await getDocs(q);
+      var { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      // Traer todos los usuarios sin filtro y filtrar en memoria
+      // para incluir documentos antiguos sin campo "tipo" o con capitalización distinta
+      var snap = await getDocs(collection(window._fbDb,'usuarios'));
       window._admuDatos = [];
-      snap.forEach(function(d){ window._admuDatos.push(Object.assign({uid:d.id}, d.data())); });
+      snap.forEach(function(d){
+        var u = Object.assign({uid:d.id}, d.data());
+        if(u.esAdmin === true) return; // nunca mezclar admins
+        var t = (u.tipo||'').toLowerCase().trim();
+        var ok = false;
+        if(tipo === 'todos') {
+          ok = (t !== 'vecino'); // todos los proveedores (no vecinos, no admins)
+        } else if(tipo === 'vecino') {
+          ok = (t === 'vecino'); // solo vecinos explícitos
+        } else if(tipo === 'servicio') {
+          ok = (t === 'proveedor' || t === 'servicio');
+        } else {
+          ok = (t === tipo); // restaurante, negocio, ride — coincidencia exacta
+        }
+        if(ok) window._admuDatos.push(u);
+      });
       if(ADMU_TIPOS_PROV.indexOf(tipo) >= 0) admuRenderListaProv(window._admuDatos);
       else admuRenderLista(window._admuDatos);
     } catch(e) {
@@ -2325,10 +2334,11 @@ function showAdminTab(i,btn){
         btn.disabled = false; btn.textContent = 'Guardar';
         var code = (e.code||'');
         var msg;
-        if(code === 'functions/already-exists' || code === 'auth/email-already-exists' || code === 'auth/email-already-in-use') {
+        if(code === 'functions/already-exists' || code === 'already-exists'
+            || code === 'auth/email-already-exists' || code === 'auth/email-already-in-use') {
           msg = 'Ese correo ya está registrado.';
         } else {
-          msg = (e.details && e.details.message) || e.message || code;
+          msg = (e.details && e.details.message) || e.message || code || 'Error desconocido';
         }
         errEl.style.display = 'block';
         errEl.textContent = 'Error: ' + msg;
