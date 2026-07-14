@@ -5698,25 +5698,23 @@ var _planesCache = [];
 var _planesFiltro = 'activos';
 var _planesSearch = '';
 
-window.adminPlanesCargar = function() {
+window.adminPlanesCargar = async function() {
   var db = window._fbDb; if(!db) return;
   var lista = document.getElementById('planes-lista');
   if(lista) lista.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,.3);font-size:13px;">Cargando... ⏳</div>';
-  db.collection('usuarios')
-    .where('esAdmin','!=',true)
-    .get()
-    .then(function(snap){
-      _planesCache = [];
-      snap.forEach(function(doc){
-        var d = doc.data();
-        if(['proveedor','restaurante','negocio'].indexOf((d.tipo||'').toLowerCase()) >= 0 ||
-           (d.plan && d.plan==='impulsa')){
-          _planesCache.push({uid:doc.id, ...d});
-        }
-      });
-      window.adminPlanesRender();
-    })
-    .catch(function(e){ if(lista) lista.innerHTML='<div style="color:#ff6b6b;padding:20px;text-align:center;">Error: '+e.message+'</div>'; });
+  try {
+    var f = await import(_FBFS);
+    var snap = await f.getDocs(f.query(f.collection(db,'usuarios'), f.where('esAdmin','!=',true)));
+    _planesCache = [];
+    snap.forEach(function(doc){
+      var d = doc.data();
+      if(['proveedor','restaurante','negocio'].indexOf((d.tipo||'').toLowerCase()) >= 0 ||
+         (d.plan && d.plan==='impulsa')){
+        _planesCache.push(Object.assign({uid:doc.id}, d));
+      }
+    });
+    window.adminPlanesRender();
+  } catch(e) { if(lista) lista.innerHTML='<div style="color:#ff6b6b;padding:20px;text-align:center;">Error: '+e.message+'</div>'; }
 };
 
 window.adminPlanesMostrar = function(filtro) {
@@ -5836,60 +5834,38 @@ function _adminPlanesActualizarResumen(){
   else bindPlan();
 })();
 
-window.adminPlanesGuardar = function() {
+window.adminPlanesGuardar = async function() {
   var db = window._fbDb; if(!db) return;
   var uid = window._adminPlanesUidActual; if(!uid) return;
   var tipo = document.getElementById('pf-plan-tipo').value;
   var inicioVal = document.getElementById('pf-inicio').value;
   var errEl = document.getElementById('pf-error');
   errEl.style.display='none';
-
-  if(tipo!=='basico' && !inicioVal){
-    errEl.textContent='Selecciona la fecha de inicio.';errEl.style.display='block';return;
-  }
-
+  if(tipo!=='basico' && !inicioVal){ errEl.textContent='Selecciona la fecha de inicio.';errEl.style.display='block';return; }
   var btn = document.getElementById('pf-guardar-btn');
   btn.disabled=true; btn.textContent='Guardando...';
-
-  var datos;
-  if(tipo==='basico'){
-    datos={
-      plan:'basico',
-      planTipo:window._fbAdmin? window._fbAdmin.firestore.FieldValue.delete() : null,
-      planInicio:window._fbAdmin? window._fbAdmin.firestore.FieldValue.delete() : null,
-      planVence:window._fbAdmin? window._fbAdmin.firestore.FieldValue.delete() : null,
-    };
-    // Limpiar campos null (FieldValue.delete solo está en Admin SDK — en cliente usamos deleteField)
-    var FieldValue = (window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue) ||
-                     (window._firestoreModule && window._firestoreModule.deleteField && {delete:window._firestoreModule.deleteField}) || null;
-    if(FieldValue){ datos.planTipo=FieldValue.delete(); datos.planInicio=FieldValue.delete(); datos.planVence=FieldValue.delete(); }
-    else { delete datos.planTipo; delete datos.planInicio; delete datos.planVence; }
-  } else {
-    var dias = tipo==='impulsa_mes'?30:365;
-    var inicio = new Date(inicioVal+'T12:00:00');
-    var fin = new Date(inicio.getTime()+dias*86400000);
-    datos = {
-      plan:'impulsa',
-      planTipo: tipo==='impulsa_mes'?'mensual':'anual',
-      planInicio: inicio,
-      planVence: fin,
-    };
+  try {
+    var f = await import(_FBFS);
+    var datos;
+    if(tipo==='basico'){
+      datos={ plan:'basico', planTipo:f.deleteField(), planInicio:f.deleteField(), planVence:f.deleteField() };
+    } else {
+      var dias = tipo==='impulsa_mes'?30:365;
+      var inicio = new Date(inicioVal+'T12:00:00');
+      var fin = new Date(inicio.getTime()+dias*86400000);
+      datos = { plan:'impulsa', planTipo:tipo==='impulsa_mes'?'mensual':'anual', planInicio:inicio, planVence:fin };
+    }
+    await f.updateDoc(f.doc(db,'usuarios',uid), datos);
+    var idx = _planesCache.findIndex(function(x){return x.uid===uid;});
+    if(idx>=0) Object.assign(_planesCache[idx], datos);
+    btn.disabled=false;
+    window.toast && window.toast('✅ Plan actualizado correctamente');
+    go('v-admin-planes','left');
+    window.adminPlanesCargar();
+  } catch(e) {
+    btn.disabled=false; btn.textContent='⭐ Activar Plan Impulsa';
+    errEl.textContent='Error: '+e.message; errEl.style.display='block';
   }
-
-  db.collection('usuarios').doc(uid).update(datos)
-    .then(function(){
-      // Actualizar cache local
-      var idx = _planesCache.findIndex(function(x){return x.uid===uid;});
-      if(idx>=0) Object.assign(_planesCache[idx], datos);
-      btn.disabled=false;
-      window.toast && window.toast('✅ Plan actualizado correctamente');
-      go('v-admin-planes','left');
-      window.adminPlanesCargar();
-    })
-    .catch(function(e){
-      btn.disabled=false; btn.textContent='⭐ Activar Plan Impulsa';
-      errEl.textContent='Error: '+e.message; errEl.style.display='block';
-    });
 };
 
 // ═══════════════════════════════════════════
@@ -5898,17 +5874,17 @@ window.adminPlanesGuardar = function() {
 var _campanasCache = [];
 var _campanasSec = 'todas';
 
-window.adminCampanasCargar = function() {
+window.adminCampanasCargar = async function() {
   var db = window._fbDb; if(!db) return;
   var lista = document.getElementById('campanas-admin-lista');
   if(lista) lista.innerHTML='<div style="text-align:center;padding:40px;color:rgba(255,255,255,.3);font-size:13px;">Cargando... ⏳</div>';
-  db.collection('campanas').orderBy('orden','asc').get()
-    .then(function(snap){
-      _campanasCache = [];
-      snap.forEach(function(doc){ _campanasCache.push({id:doc.id,...doc.data()}); });
-      window.adminCampanasRender();
-    })
-    .catch(function(e){ if(lista) lista.innerHTML='<div style="color:#ff6b6b;padding:20px;text-align:center;">Error: '+e.message+'</div>'; });
+  try {
+    var f = await import(_FBFS);
+    var snap = await f.getDocs(f.query(f.collection(db,'campanas'), f.orderBy('orden','asc')));
+    _campanasCache = [];
+    snap.forEach(function(doc){ _campanasCache.push(Object.assign({id:doc.id}, doc.data())); });
+    window.adminCampanasRender();
+  } catch(e) { if(lista) lista.innerHTML='<div style="color:#ff6b6b;padding:20px;text-align:center;">Error: '+e.message+'</div>'; }
 };
 
 window.adminCampanasTab = function(sec) {
