@@ -6049,8 +6049,7 @@ select.cnt-form-input option{background:#1a1f1a;color:#fff;}
 
     Sortable.create(grid, {
       animation: 150,
-      delay: 300,
-      delayOnTouchOnly: true,
+      touchStartThreshold: 8,
       ghostClass: 'admin-card-drag-ghost',
       chosenClass: 'admin-card-drag-chosen',
       onEnd: function() { saveOrder(grid); try { window._dcDirtyV = null; } catch(e) {} },
