@@ -452,7 +452,7 @@ window._contactarProveedorModerno = function() {
   // Guardar contexto para que publicarReporte() y iniciarFormularioSolicitud() lo usen
   window._solicitudDirectaProvId     = provId;
   window._solicitudDirectaProvNombre = p.nombre || 'Proveedor';
-  window._solicitudDirectaCategoria  = (p.categoria || '').toLowerCase();
+  window._solicitudDirectaCategoria  = (p.categoria || p.oficio1 || '').toLowerCase();
 
   go('v-solicitud-nueva', 'right');
 };

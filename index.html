@@ -1505,6 +1505,14 @@
           <span style="line-height:1.2;text-align:center;">Mis solicitudes</span>
         </button>
       </div>
+      <!-- Banner CMV — visible solo para proveedores, controlado por actualizarBtnSolicitudRol -->
+      <div id="serv-cmv-banner" style="display:none;margin:8px 14px 0;background:linear-gradient(120deg,#0d3d24,#1a6640);border-radius:14px;padding:13px 16px;cursor:pointer;" onclick="go('v-prov-cmv','right');setTimeout(window.vprovCmvCargar,200);">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:10px;background:rgba(31,194,106,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;">👁</div>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:800;color:#fff;">Cómo me ve el cliente</div><div style="font-size:11px;color:rgba(255,255,255,.65);">Edita tu perfil público</div></div>
+          <div style="color:rgba(255,255,255,.5);font-size:20px;">›</div>
+        </div>
+      </div>
       <div style="padding:0 14px 10px;">
         <div style="position:relative;">
           <select id="cat-sel-servicios" onchange="cargarProveedores(this.value)" style="width:100%;background:#fff;border:1.5px solid #1fc26a;border-radius:14px;padding:13px 44px 13px 16px;font-size:14px;font-weight:700;color:#111;font-family:'Inter',sans-serif;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;box-shadow:0 2px 8px rgba(31,194,106,.12);">
