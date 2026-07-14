@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧹 Limpieza Producción — Dominio Cumbres</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0f0f0f; color: #e0e0e0; padding: 24px; }
+  h1 { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  .sub { font-size: 12px; color: #888; margin-bottom: 24px; }
+  .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 13px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; }
+  input { width: 100%; background: #111; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 13px; margin-bottom: 8px; }
+  input:focus { outline: none; border-color: #555; }
+  button { border: none; border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s; }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary { background: #1a7af0; color: #fff; }
+  .btn-danger  { background: #c0392b; color: #fff; }
+  .btn-safe    { background: #1a7a3a; color: #fff; }
+  .btn-gray    { background: #333; color: #ccc; }
+  .log { background: #0a0a0a; border: 1px solid #222; border-radius: 8px; padding: 12px; font-size: 11px; font-family: monospace; max-height: 300px; overflow-y: auto; line-height: 1.7; }
+  .log .ok  { color: #4caf50; }
+  .log .err { color: #f44336; }
+  .log .warn{ color: #ff9800; }
+  .log .inf { color: #64b5f6; }
+  .log .dim { color: #555; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; color: #888; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #2a2a2a; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+  td { padding: 7px 8px; border-bottom: 1px solid #1e1e1e; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; border-radius: 4px; padding: 2px 7px; font-size: 10px; font-weight: 700; }
+  .badge-red    { background: #3a0a0a; color: #f44336; }
+  .badge-green  { background: #0a2a0a; color: #4caf50; }
+  .badge-yellow { background: #2a1a00; color: #ff9800; }
+  .badge-gray   { background: #222; color: #888; }
+  .section-divider { border-top: 1px solid #2a2a2a; margin: 20px 0; }
+  .warning-box { background: #2a1500; border: 1px solid #ff9800; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #ff9800; margin-bottom: 16px; }
+  #plan-table { display: none; }
+  .chk { width: 16px; height: 16px; cursor: pointer; }
+  .count-chip { background: #222; border-radius: 20px; padding: 1px 8px; font-size: 11px; color: #aaa; }
+</style>
+</head>
+<body>
+
+<h1>🧹 Limpieza de Producción</h1>
+<div class="sub">Dominio Cumbres AppServis · dominio-cumbres-appservis · Solo lectura hasta que apruebes el plan</div>
+
+<!-- LOGIN -->
+<div class="card" id="login-card">
+  <h2>1. Autenticación (admin)</h2>
+  <p style="font-size:12px;color:#888;margin-bottom:12px;">Ingresa con tu <b>usuario</b> o correo y contraseña de la app.</p>
+  <input type="text" id="email" placeholder="Usuario o correo" autocomplete="username" />
+  <input type="password" id="pass" placeholder="Contraseña" autocomplete="current-password" />
+  <button class="btn-primary" onclick="doLogin()">Iniciar sesión</button>
+  <div style="margin-top:10px;" id="login-status"></div>
+</div>
+
+<!-- INVENTARIO -->
+<div class="card" id="inv-card" style="display:none;">
+  <h2>2. Inventario de colecciones</h2>
+  <p style="font-size:12px;color:#888;margin-bottom:12px;">Lee todas las colecciones raíz y cuenta documentos. <b>No borra nada.</b></p>
+  <button class="btn-safe" onclick="doInventario()" id="btn-inv">🔍 Escanear Firestore</button>
+  <div style="margin-top:14px;" id="inv-result"></div>
+</div>
+
+<!-- PLAN -->
+<div class="card" id="plan-card" style="display:none;">
+  <h2>3. Plan de limpieza</h2>
+  <p style="font-size:12px;color:#888;margin-bottom:12px;">Documentos identificados como prueba. <b>Revisa y marca los que quieres borrar.</b></p>
+  <div id="plan-result"></div>
+</div>
+
+<!-- RESPALDO + BORRADO -->
+<div class="card" id="action-card" style="display:none;">
+  <h2>4. Respaldo y borrado</h2>
+  <div class="warning-box">⚠️ Descarga el respaldo ANTES de borrar. Una vez borrado en Firestore no hay deshacer.</div>
+  <button class="btn-gray" onclick="doBackup()" id="btn-backup" style="margin-bottom:10px;">💾 Descargar respaldo JSON</button>
+  <br>
+  <button class="btn-danger" onclick="doDelete()" id="btn-delete" disabled>🗑️ Borrar documentos seleccionados</button>
+  <div style="margin-top:14px;" id="delete-log" class="log" style="display:none;"></div>
+</div>
+
+<!-- PASO 6 -->
+<div class="card" id="local-card" style="display:none;">
+  <h2>5. localStorage a limpiar en tu navegador</h2>
+  <div id="local-list"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, getDocs, deleteDoc, doc, query, limit, getDoc
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDMQe7mPjzrzuxqLXPu4Ft0A4r2ZggqV14",
+  authDomain: "dominio-cumbres-appservis.firebaseapp.com",
+  projectId: "dominio-cumbres-appservis",
+  storageBucket: "dominio-cumbres-appservis.firebasestorage.app",
+  messagingSenderId: "904496349672",
+  appId: "1:904496349672:web:6b9975dab5e922bd36e45d"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// Palabras clave que identifican datos de prueba
+const TEST_KEYWORDS = [
+  'test','prueba','demo','ejemplo','example','fake','mock','dummy',
+  'usuario prueba','cliente prueba','operador prueba','proveedor prueba',
+  'prueba1','prueba2','test1','test2','aaa','bbb','xxx',
+  '@test.com','@prueba.com','@demo.com','@example.com','@gmail.com prueba'
+];
+
+function esTestDoc(data) {
+  const str = JSON.stringify(data || {}).toLowerCase();
+  return TEST_KEYWORDS.some(k => str.includes(k));
+}
+
+// Colecciones raíz conocidas de la app
+const COLECCIONES_CONOCIDAS = [
+  'usuarios','pedidos','compras','chats','mensajes','reportes',
+  'notificaciones','menus','productos','carritos','ordenes',
+  'reservas','agendas','servicios','proveedores','restaurantes',
+  'negocios','promos','promociones','sesiones','logs','banners',
+  'calificaciones','resenas','categorias','config','ajustes',
+  'pagos','transacciones','solicitudes','tickets','eventos'
+];
+
+let _inventario = {};  // coleccion -> [{id, data}]
+let _seleccionados = new Set(); // ids a borrar: "coleccion/docId"
+
+window.doLogin = async function() {
+  const input = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('pass').value;
+  const st    = document.getElementById('login-status');
+  st.innerHTML = '<span style="color:#888;font-size:12px;">Conectando…</span>';
+
+  try {
+    let correoLogin = input;
+    const esCorreo = input.includes('@');
+
+    if (!esCorreo) {
+      // Buscar correo por nombre de usuario igual que la app
+      st.innerHTML = '<span style="color:#888;font-size:12px;">Buscando usuario…</span>';
+      const { getDocs, collection: col2, query: q2, where } =
+        await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      const snap = await getDocs(q2(col2(db, 'usuarios'), where('usuario', '==', input)));
+      if (snap.empty) {
+        st.innerHTML = '<span style="color:#f44336;font-size:12px;">❌ Usuario no encontrado.</span>';
+        return;
+      }
+      correoLogin = snap.docs[0].data().correo;
+    }
+
+    await signInWithEmailAndPassword(auth, correoLogin, pass);
+    st.innerHTML = '<span style="color:#4caf50;font-size:12px;">✅ Sesión iniciada como ' + correoLogin + '</span>';
+    document.getElementById('login-card').style.opacity = '.5';
+    document.getElementById('inv-card').style.display = '';
+  } catch(e) {
+    st.innerHTML = '<span style="color:#f44336;font-size:12px;">❌ ' + e.message + '</span>';
+  }
+};
+
+window.doInventario = async function() {
+  const btn = document.getElementById('btn-inv');
+  btn.disabled = true;
+  btn.textContent = '⏳ Escaneando…';
+  const out = document.getElementById('inv-result');
+  out.innerHTML = '<div class="log" id="scan-log"></div>';
+  const log = document.getElementById('scan-log');
+
+  function addLog(msg, cls) {
+    log.innerHTML += '<div class="' + (cls||'inf') + '">' + msg + '</div>';
+    log.scrollTop = log.scrollHeight;
+  }
+
+  addLog('Iniciando escaneo de colecciones raíz…');
+  _inventario = {};
+
+  for (const col of COLECCIONES_CONOCIDAS) {
+    try {
+      const snap = await getDocs(collection(db, col));
+      if (snap.empty) {
+        addLog('· ' + col + ': vacía o no existe', 'dim');
+        continue;
+      }
+      const docs = [];
+      snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
+      _inventario[col] = docs;
+      const testCount = docs.filter(d => esTestDoc(d.data)).length;
+      addLog('✓ ' + col + ': ' + docs.length + ' docs · ' + testCount + ' posibles prueba', testCount > 0 ? 'warn' : 'ok');
+    } catch(e) {
+      addLog('✗ ' + col + ': sin acceso (' + e.code + ')', 'err');
+    }
+  }
+
+  addLog('Escaneo completo.', 'ok');
+  btn.textContent = '✅ Escaneado';
+  renderPlan();
+  document.getElementById('plan-card').style.display = '';
+};
+
+function renderPlan() {
+  const out = document.getElementById('plan-result');
+  let html = '<table><thead><tr>'
+    + '<th></th><th>Colección</th><th>ID documento</th>'
+    + '<th>Campo clave</th><th>Motivo</th><th>Riesgo</th>'
+    + '</tr></thead><tbody>';
+
+  let totalPrueba = 0;
+  _seleccionados.clear();
+
+  for (const [col, docs] of Object.entries(_inventario)) {
+    const testDocs = docs.filter(d => esTestDoc(d.data));
+    for (const d of testDocs) {
+      totalPrueba++;
+      const key = d.id;
+      const fullKey = col + '/' + d.id;
+      _seleccionados.add(fullKey);
+
+      // Extraer campo representativo
+      const data = d.data;
+      const campo = data.email || data.nombre || data.name || data.titulo || data.title || data.tipo || '—';
+      const motivo = getMotivo(data);
+      const riesgo = col === 'usuarios' ? '<span class="badge badge-yellow">Medio</span>'
+                   : '<span class="badge badge-green">Bajo</span>';
+
+      html += '<tr>'
+        + '<td><input type="checkbox" class="chk" checked data-key="' + fullKey + '" onchange="toggleDoc(this)"></td>'
+        + '<td><code style="font-size:10px;color:#888;">' + col + '</code></td>'
+        + '<td><code style="font-size:10px;">' + d.id.substring(0,20) + (d.id.length>20?'…':'') + '</code></td>'
+        + '<td style="font-size:11px;color:#ccc;max-width:160px;word-break:break-word;">' + String(campo).substring(0,40) + '</td>'
+        + '<td style="font-size:11px;color:#ff9800;">' + motivo + '</td>'
+        + '<td>' + riesgo + '</td>'
+        + '</tr>';
+    }
+  }
+
+  if (totalPrueba === 0) {
+    html = '<div style="color:#4caf50;font-size:13px;padding:12px;">✅ No se encontraron documentos de prueba evidentes.</div>';
+  } else {
+    html += '</tbody></table>';
+    html += '<div style="margin-top:12px;font-size:12px;color:#aaa;">'
+      + totalPrueba + ' documentos marcados como prueba. Desmarca los que NO quieres borrar.</div>';
+  }
+
+  out.innerHTML = html;
+  document.getElementById('action-card').style.display = '';
+  document.getElementById('btn-delete').disabled = (totalPrueba === 0);
+  renderLocalStorage();
+}
+
+function getMotivo(data) {
+  const str = JSON.stringify(data).toLowerCase();
+  if (str.includes('@test.com') || str.includes('@prueba.com') || str.includes('@demo.com') || str.includes('@example.com')) return 'Email de prueba';
+  if (str.includes('prueba') || str.includes('test')) return 'Contiene "prueba/test"';
+  if (str.includes('demo')) return 'Contiene "demo"';
+  if (str.includes('ejemplo') || str.includes('example')) return 'Dato de ejemplo';
+  if (str.includes('mock') || str.includes('dummy')) return 'Dato mock';
+  return 'Patrón de prueba';
+}
+
+window.toggleDoc = function(chk) {
+  const k = chk.getAttribute('data-key');
+  if (chk.checked) _seleccionados.add(k);
+  else _seleccionados.delete(k);
+  document.getElementById('btn-delete').disabled = (_seleccionados.size === 0);
+};
+
+window.doBackup = function() {
+  const backup = {};
+  for (const [col, docs] of Object.entries(_inventario)) {
+    backup[col] = docs;
+  }
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'backup-dominio-cumbres-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  document.getElementById('btn-delete').disabled = false;
+};
+
+window.doDelete = async function() {
+  if (_seleccionados.size === 0) return;
+  if (!confirm('¿Confirmas borrar ' + _seleccionados.size + ' documentos? Esta acción no se puede deshacer.\n\nAsegúrate de haber descargado el respaldo primero.')) return;
+
+  const logDiv = document.getElementById('delete-log');
+  logDiv.style.display = '';
+  document.getElementById('btn-delete').disabled = true;
+
+  function addLog(msg, cls) {
+    logDiv.innerHTML += '<div class="' + (cls||'inf') + '">' + msg + '</div>';
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  addLog('Iniciando borrado de ' + _seleccionados.size + ' documentos…');
+  let ok = 0, fail = 0;
+
+  for (const fullKey of _seleccionados) {
+    const parts = fullKey.split('/');
+    const col   = parts[0];
+    const docId = parts[1];
+    try {
+      await deleteDoc(doc(db, col, docId));
+      addLog('✓ Borrado: ' + fullKey, 'ok');
+      ok++;
+    } catch(e) {
+      addLog('✗ Error: ' + fullKey + ' — ' + e.message, 'err');
+      fail++;
+    }
+  }
+
+  addLog('─────────────────────────────', 'dim');
+  addLog('✅ Borrados: ' + ok + ' · ❌ Errores: ' + fail, fail > 0 ? 'warn' : 'ok');
+  addLog('Limpieza completada.', 'ok');
+};
+
+function renderLocalStorage() {
+  const lsDiv = document.getElementById('local-list');
+  const claves = [
+    { key: 'dcuserTipo',       desc: 'Tipo de usuario de sesión anterior' },
+    { key: 'dcuserUID',        desc: 'UID de sesión anterior' },
+    { key: 'dcuserNombre',     desc: 'Nombre de sesión anterior' },
+    { key: 'dcCarrito',        desc: 'Carrito de compras activo' },
+    { key: 'dcOrdenActiva',    desc: 'Orden en curso' },
+    { key: 'dcPedidoActivo',   desc: 'Pedido activo' },
+    { key: 'dcTabActiva',      desc: 'Tab activa guardada' },
+    { key: 'dcLastView',       desc: 'Última vista guardada' },
+    { key: 'dcBadges',         desc: 'Badges de notificaciones' },
+    { key: 'dcRestEstado',     desc: 'Estado operativo restaurante' },
+    { key: 'dcNegEstado',      desc: 'Estado operativo negocio' },
+    { key: 'dcPromoActiva',    desc: 'Promo activa en carrusel' },
+  ];
+
+  // Detectar cuáles existen en este navegador
+  let html = '<table><thead><tr><th></th><th>Clave localStorage</th><th>Descripción</th><th>Valor actual</th></tr></thead><tbody>';
+  let encontradas = 0;
+  for (const item of claves) {
+    const val = localStorage.getItem(item.key);
+    const existe = val !== null;
+    if (existe) encontradas++;
+    html += '<tr style="' + (existe ? '' : 'opacity:.35') + '">'
+      + '<td>' + (existe ? '<span class="badge badge-yellow">Existe</span>' : '<span class="badge badge-gray">Vacía</span>') + '</td>'
+      + '<td><code style="font-size:10px;">' + item.key + '</code></td>'
+      + '<td style="font-size:11px;color:#aaa;">' + item.desc + '</td>'
+      + '<td style="font-size:10px;color:#666;max-width:120px;word-break:break-all;">' + (val ? String(val).substring(0,30) : '—') + '</td>'
+      + '</tr>';
+  }
+  html += '</tbody></table>';
+
+  if (encontradas > 0) {
+    html += '<div style="margin-top:14px;">'
+      + '<button class="btn-danger" style="font-size:12px;" onclick="limpiarLS()">🧹 Limpiar localStorage de sesión</button>'
+      + '<span style="font-size:11px;color:#888;margin-left:10px;">(' + encontradas + ' claves encontradas)</span>'
+      + '</div>';
+  } else {
+    html += '<div style="margin-top:10px;font-size:12px;color:#4caf50;">✅ localStorage ya está limpio.</div>';
+  }
+
+  lsDiv.innerHTML = html;
+  document.getElementById('local-card').style.display = '';
+}
+
+window.limpiarLS = function() {
+  if (!confirm('¿Limpiar localStorage de sesión? Esto cierra tu sesión actual en la app.')) return;
+  const claves = [
+    'dcuserTipo','dcuserUID','dcuserNombre','dcCarrito','dcOrdenActiva',
+    'dcPedidoActivo','dcTabActiva','dcLastView','dcBadges',
+    'dcRestEstado','dcNegEstado','dcPromoActiva'
+  ];
+  claves.forEach(k => localStorage.removeItem(k));
+  alert('✅ localStorage limpiado. Recarga la app para iniciar sesión limpia.');
+  renderLocalStorage();
+};
+
+</script>
+</body>
+</html>
