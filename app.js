@@ -45,8 +45,6 @@ var CART_KEY='dcPlazaCartV61';
 var SEL_KEY='dcPlazaCompraSeleccionada';
 var ORDER_KEYS=['dcPlazaOrdenActivaV62'];
 var HIST_KEYS=['dcPlazaComprasHistorial','dcPlazaOrdenesPlazaV62'];
-var LEGACY_CART_KEYS=['dcPlazaCarrito','dcPlazaCarritoEnProceso','dcPlazaCart','dc_plaza_cart','dcPlazaCompraProceso'];
-var META_KEYS=['dcPlazaCartV61Meta','dcPlazaB2AMeta','dcPlazaCartMetaV63'];
 var TAB_KEY='dcPlazaQF42Tab';
 var OPEN_CART='dcPlazaL14CartOpen';
 var VAC_KEY='dcPlazaL14VaciarOpen';
@@ -56,20 +54,14 @@ var OPEN_ORDER='dcPlazaL14OrderOpen';
 // CARRITO / ÓRDENES
 // ══════════════════════════════════════════════
 function cart(){
-  var c=norm(rj(CART_KEY,[])); if(c.length) return c;
-  for(var i=0;i<LEGACY_CART_KEYS.length;i++){
-    var raw=rj(LEGACY_CART_KEYS[i],[]), x=norm(raw);
-    if(x.length&&!(raw&&raw.tipo==='plaza_orden')) return x;
-  }
-  return [];
+  return norm(rj(CART_KEY,[]));
 }
 function saveCart(c){
   c=norm(c);
   wj(CART_KEY,c);
 }
 function clearCart(){
-  wj(CART_KEY,[]); ['dcPlazaCarrito','dcPlazaCarritoEnProceso','dcPlazaCart','dc_plaza_cart'].forEach(function(k){wj(k,[]);});
-  rm('dcPlazaCompraProceso'); META_KEYS.forEach(rm);
+  wj(CART_KEY,[]);
   try{localStorage.setItem(OPEN_CART,'0');localStorage.setItem(OPEN_ORDER,'');localStorage.setItem(VAC_KEY,'0');}catch(_){}
 }
 function collapseAll(){
@@ -961,7 +953,7 @@ try{Object.defineProperty(window,'go',{value:dcGoOficial,writable:false,configur
 
 
 // ══════════════════════════════════════════════
-// NAV AUDIT — patchNav (L33)
+// NAV AUDIT — patchNav
 // ══════════════════════════════════════════════
 (function(){
   function activeId(){var v=document.querySelector('.view.active');return v&&v.id||'';}
@@ -1012,7 +1004,7 @@ try{Object.defineProperty(window,'go',{value:dcGoOficial,writable:false,configur
 
 
 // ══════════════════════════════════════════════
-// FAVORITOS / DETALLE PROVEEDOR BACK (L35)
+// FAVORITOS / DETALLE PROVEEDOR BACK
 // ══════════════════════════════════════════════
 function _goBack(fallback){
   if(typeof window.dcBack==='function') return window.dcBack(fallback||'v-home');
@@ -1106,7 +1098,7 @@ if(!window.DC_ESTADOS_GLOBALES_UI){
 
 
 // ══════════════════════════════════════════════
-// FREEZE — PLAZA ONLINE CLIENTE (Limpieza 2)
+// FREEZE — PLAZA ONLINE CLIENTE
 // ══════════════════════════════════════════════
 (function(){
   var oficiales={
@@ -4822,8 +4814,7 @@ window.cargarMisComprasPlaza = function() {
       if (typeof _rEstadoOpTs !== 'undefined') { _rEstadoOpTs = _tsE; }
       if (typeof _vnegEstadoOpTs !== 'undefined') { _vnegEstadoOpTs = _tsE; }
       var _uidE = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid)
-                 || localStorage.getItem('dcuserUid')
-                 || localStorage.getItem('dcuid');
+                 || localStorage.getItem('dcuserUid');
       // Guardar ts por uid para evitar contaminación cruzada entre roles
       if (_uidE) { try { localStorage.setItem('dcuserEstadoOpTs_' + _uidE, String(_tsE)); } catch(e){} }
       if (_uidE && window._fbDb) {
@@ -4869,7 +4860,8 @@ window.cargarMisComprasPlaza = function() {
     var inp = document.getElementById('mp2-dir-input');
     var dir = inp ? inp.value.trim() : '';
     if (!dir) { return; }
-    var uid = localStorage.getItem('dcuid');
+    var uid = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid)
+              || localStorage.getItem('dcuserUid');
     if (!uid || !window._fbDb) { return; }
     try {
       var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');

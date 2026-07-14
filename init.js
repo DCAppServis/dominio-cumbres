@@ -3,49 +3,6 @@
   // por diseño client-side. Seguridad adicional: configurar dominios
   // permitidos en el dashboard de EmailJS (emailjs.com → Account → Security).
 
-  // ============ CHAT CON FIREBASE ============
-  window._chatUnsubscribe = null;
-  window._chatProveedorId = null;
-  window._chatProveedorNombre = null;
-  window._chatIdExacto = null;
-
-  window.abrirChat = function(proveedorId, proveedorNombre, proveedorIc) {
-    window._chatProveedorId = proveedorId;
-    window._chatProveedorNombre = proveedorNombre || 'Proveedor';
-    window._chatIdExacto = null;
-    const nom = document.getElementById('chat-prov-nombre');
-    const ic  = document.getElementById('chat-prov-ic');
-    const btn = document.querySelector('#v-chat .btn-back');
-    if(nom) nom.textContent = proveedorNombre || 'Proveedor';
-    if(ic)  ic.textContent  = proveedorIc || '🔧';
-    if(btn) btn.onclick = function(){ go('v-serv-det','left'); cerrarChat(); };
-    go('v-chat', 'right');
-    cargarMensajes();
-  };
-
-  // Abre chat desde la bandeja usando chatId exacto — no duplica hilos
-  window.abrirChatExacto = function(chatId, otroId, nombre, backView) {
-    window._chatProveedorId = otroId;
-    window._chatIdExacto = chatId;
-    window._chatProveedorNombre = nombre || 'Usuario';
-    const nom = document.getElementById('chat-prov-nombre');
-    const ic  = document.getElementById('chat-prov-ic');
-    const btn = document.querySelector('#v-chat .btn-back');
-    if(nom) nom.textContent = nombre || 'Usuario';
-    if(ic)  ic.textContent  = '💬';
-    if(btn) btn.onclick = function(){ go(backView||'v-mis-chats','left'); cerrarChat(); };
-    go('v-chat','right');
-    cargarMensajes();
-  };
-
-  window.cerrarChat = function() {
-    if(window._chatUnsubscribe) {
-      window._chatUnsubscribe();
-      window._chatUnsubscribe = null;
-    }
-  };
-  // ============ FIN CHAT ============
-
   window.abrirProveedor = function(uid, p) {
     window._proveedorActual = {uid, ...p};
     const nombre = document.querySelector('#v-serv-det [style*="font-size:18px"]');
@@ -53,47 +10,6 @@
     go('v-serv-det','right');
     setTimeout(function(){ window.dcProvRatingCargar && window.dcProvRatingCargar(uid); }, 200);
   };
-
-  window.contactarProveedor = async function() {
-    const p = window._proveedorActual || {};
-    const provId = p.uid || p.id || p._id || 'demo';
-    const nombre = p.nombre || 'Proveedor';
-
-    // Buscar chat existente antes de abrir
-    const _auth = window._fbAuth;
-    const _db   = window._fbDb;
-    const myUid = _auth && _auth.currentUser && _auth.currentUser.uid;
-
-    if (myUid && _db && provId !== 'demo') {
-      try {
-        const { collection, getDocs, query, where } = window._fs;
-        const q = query(
-          collection(_db, 'chats'),
-          where('participantes', 'array-contains', myUid)
-        );
-        const snap = await getDocs(q);
-        let chatExistente = null;
-        snap.forEach(doc => {
-          const d = doc.data();
-          if (Array.isArray(d.participantes) && d.participantes.includes(provId)) {
-            chatExistente = { id: doc.id, nombre: (d.nombres && d.nombres[myUid]) || nombre };
-          }
-        });
-        if (chatExistente) {
-          window.abrirChatExacto(chatExistente.id, provId, chatExistente.nombre, 'v-serv-det');
-          return;
-        }
-      } catch(e) {
-        // Búsqueda fallida, abriendo nuevo chat
-      }
-    }
-
-    abrirChat(provId, nombre, '🔧');
-  };
-
-  // ============ FIN FIREBASE LOADERS ============
-  // NOTA: auto-carga de v-servicios y v-food está en _goCore (línea ~8035 y 8043)
-  // cargarRestaurantes está definida en firebase.js (versión con _estadoEfectivoDe)
 
   // ── CONFIGURACIÓN EMAILJS ────────────────────────────────
   // INSTRUCCIONES PARA ACTIVAR:

@@ -1,4 +1,73 @@
 
+// ============ CHAT — ESTADO GLOBAL ============
+window._chatUnsubscribe = null;
+window._chatProveedorId = null;
+window._chatProveedorNombre = null;
+window._chatIdExacto = null;
+
+window.abrirChat = function(proveedorId, proveedorNombre, proveedorIc) {
+  window._chatProveedorId = proveedorId;
+  window._chatProveedorNombre = proveedorNombre || 'Proveedor';
+  window._chatIdExacto = null;
+  var nom = document.getElementById('chat-prov-nombre');
+  var ic  = document.getElementById('chat-prov-ic');
+  var btn = document.querySelector('#v-chat .btn-back');
+  if(nom) nom.textContent = proveedorNombre || 'Proveedor';
+  if(ic)  ic.textContent  = proveedorIc || '🔧';
+  if(btn) btn.onclick = function(){ go('v-serv-det','left'); cerrarChat(); };
+  go('v-chat', 'right');
+  cargarMensajes();
+};
+
+window.abrirChatExacto = function(chatId, otroId, nombre, backView) {
+  window._chatProveedorId = otroId;
+  window._chatIdExacto = chatId;
+  window._chatProveedorNombre = nombre || 'Usuario';
+  var nom = document.getElementById('chat-prov-nombre');
+  var ic  = document.getElementById('chat-prov-ic');
+  var btn = document.querySelector('#v-chat .btn-back');
+  if(nom) nom.textContent = nombre || 'Usuario';
+  if(ic)  ic.textContent  = '💬';
+  if(btn) btn.onclick = function(){ go(backView||'v-mis-chats','left'); cerrarChat(); };
+  go('v-chat','right');
+  cargarMensajes();
+};
+
+window.cerrarChat = function() {
+  if(window._chatUnsubscribe) {
+    window._chatUnsubscribe();
+    window._chatUnsubscribe = null;
+  }
+};
+
+window.contactarProveedor = async function() {
+  var p = window._proveedorActual || {};
+  var provId = p.uid || p.id || p._id || 'demo';
+  var nombre = p.nombre || 'Proveedor';
+  var _auth = window._fbAuth;
+  var _db   = window._fbDb;
+  var myUid = _auth && _auth.currentUser && _auth.currentUser.uid;
+  if (myUid && _db && provId !== 'demo') {
+    try {
+      var col = window._fs.collection, gdocs = window._fs.getDocs, qry = window._fs.query, whr = window._fs.where;
+      var q = qry(col(_db, 'chats'), whr('participantes', 'array-contains', myUid));
+      var snap = await gdocs(q);
+      var chatExistente = null;
+      snap.forEach(function(doc) {
+        var d = doc.data();
+        if (Array.isArray(d.participantes) && d.participantes.includes(provId)) {
+          chatExistente = { id: doc.id, nombre: (d.nombres && d.nombres[myUid]) || nombre };
+        }
+      });
+      if (chatExistente) {
+        window.abrirChatExacto(chatExistente.id, provId, chatExistente.nombre, 'v-serv-det');
+        return;
+      }
+    } catch(e) {}
+  }
+  window.abrirChat(provId, nombre, '🔧');
+};
+
 // ============ CHAT — ENVIAR Y RECIBIR MENSAJES ============
 window.enviarMensaje = async function() {
   var auth = window._fbAuth;
