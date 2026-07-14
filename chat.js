@@ -1,0 +1,1830 @@
+
+// ============ MIS CHATS — BANDEJA DE ENTRADA ============
+window.cargarMisChats = async function() {
+  const container = document.getElementById('lista-mis-chats');
+  if(!container) return;
+  container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Cargando tus mensajes...</div>';
+
+  let tries = 0;
+  while((!window._fbDb || !window._fbAuth) && tries < 20) {
+    await new Promise(r => setTimeout(r, 200)); tries++;
+  }
+  if(!window._fbDb || !window._fbAuth || !window._fbAuth.currentUser) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);">Inicia sesión para ver tus chats.</div>';
+    return;
+  }
+
+  try {
+    const { collection, getDocs, query, orderBy, limit } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    const myUid = window._fbAuth.currentUser.uid;
+    const chatsSnap = await getDocs(collection(window._fbDb, 'chats'));
+    const resultados = [];
+    const promises = [];
+
+    chatsSnap.forEach(chatDoc => {
+      const cId = chatDoc.id;
+      if(!cId.includes(myUid)) return;
+
+      const sinPrefijo = cId.replace('chat_', '');
+      const partes = sinPrefijo.split('_');
+      const otroId = partes.find(p => p !== myUid) || partes[0];
+      const d = chatDoc.data();
+
+      // Si el doc raíz tiene datos (enviado con v36+), usarlos directo
+      if(d && d.ultimoMsg) {
+        const ts = d.fecha ? new Date(d.fecha) : new Date();
+        const hora = ts.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+        resultados.push({
+          cId, otroId,
+          nombre: (d.nombres && d.nombres[myUid]) || d.nombreContacto || d.ultimoNombre || 'Usuario',
+          ultimo: d.ultimoMsg,
+          hora, ts,
+          noRespondido: d.ultimoEmisor !== myUid
+        });
+      } else {
+        // Fallback: leer último mensaje de la subcolección (mensajes viejos)
+        promises.push((async () => {
+          const msgsRef = collection(window._fbDb, 'chats', cId, 'mensajes');
+          const q = query(msgsRef, orderBy('timestamp','desc'), limit(1));
+          const msgsSnap = await getDocs(q);
+          if(msgsSnap.empty) return;
+          const last = msgsSnap.docs[0].data();
+          const ts = last.timestamp ? new Date(last.timestamp.seconds * 1000) : new Date();
+          const hora = ts.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+          resultados.push({
+            cId, otroId,
+            nombre: last.remitenteNombre || 'Usuario',
+            ultimo: last.texto || '',
+            hora, ts,
+            noRespondido: last.remitenteId !== myUid
+          });
+        })());
+      }
+    });
+
+    await Promise.all(promises);
+
+    if(resultados.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:30px;font-size:36px;">💬</div><div style="text-align:center;color:var(--text-muted);font-size:13px;">No tienes chats activos en este momento.</div>';
+      return;
+    }
+
+    resultados.sort((a,b) => b.ts - a.ts);
+
+    // XSS-SAFE: r.nombre y r.ultimo se insertan con textContent, nunca con innerHTML
+    container.innerHTML = '';
+    resultados.forEach(function(r) {
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#fff;border-radius:14px;padding:12px 14px;margin:0 14px 8px;display:flex;align-items:center;gap:12px;cursor:pointer;border:.5px solid '+(r.noRespondido?'#f0b8b0':'#efefef')+';box-shadow:0 2px 6px rgba(0,0,0,.05);transition:transform .15s;';
+      card.setAttribute('ontouchstart', "this.style.transform='scale(.98)'");
+      card.setAttribute('ontouchend',   "this.style.transform=''");
+      card.onclick = (function(_cId,_oId,_nom){ return function(){ abrirChatExacto(_cId,_oId,_nom); }; })(r.cId, r.otroId, r.nombre||'Usuario');
+
+      var avatar = document.createElement('div');
+      avatar.style.cssText = 'width:44px;height:44px;border-radius:13px;background:'+(r.noRespondido?'var(--red-light)':'var(--green-light)')+';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;';
+      avatar.textContent = r.noRespondido ? '🔴' : '💬';
+
+      var body = document.createElement('div');
+      body.style.cssText = 'flex:1;min-width:0;';
+
+      var nomEl = document.createElement('div');
+      nomEl.style.cssText = 'font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px;';
+      nomEl.textContent = r.nombre || 'Usuario';   // ← XSS-SAFE
+
+      var ultEl = document.createElement('div');
+      ultEl.style.cssText = 'font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+      ultEl.textContent = r.ultimo || '';           // ← XSS-SAFE
+
+      var horaEl = document.createElement('div');
+      horaEl.style.cssText = 'font-size:10px;color:var(--text-hint);flex-shrink:0;';
+      horaEl.textContent = r.hora || '';
+
+      body.appendChild(nomEl);
+      body.appendChild(ultEl);
+      card.appendChild(avatar);
+      card.appendChild(body);
+      card.appendChild(horaEl);
+      container.appendChild(card);
+    });
+
+  } catch(e) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Error: '+e.message+'</div>';
+  }
+};
+// ============ FIN MIS CHATS ============
+
+// ============ ALERTA PROVEEDOR + REPUTACIÓN v32 ============
+window.verificarChatsProveedor = async function() {
+  const tipo = localStorage.getItem('dcuserTipo') || 'vecino';
+  if(tipo === 'vecino') return; // Solo para proveedores
+
+  if(!window._fbAuth || !window._fbAuth.currentUser) return;
+  if(!window._fbDb) return;
+
+  const myUid = window._fbAuth.currentUser.uid;
+
+  try {
+    const { collection, getDocs, query, orderBy, limit } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    const chatsSnap = await getDocs(collection(window._fbDb, 'chats'));
+    let pendientes = 0;
+
+    const promises = [];
+    chatsSnap.forEach(chatDoc => {
+      if(!chatDoc.id.includes(myUid)) return;
+      const d = chatDoc.data();
+
+      if(d && d.ultimoEmisor) {
+        // Doc raíz tiene datos (v36+): usar directamente
+        if(d.ultimoEmisor !== myUid) pendientes++;
+      } else {
+        // Fallback: leer subcolección
+        promises.push((async () => {
+          const msgsRef = collection(window._fbDb, 'chats', chatDoc.id, 'mensajes');
+          const q = query(msgsRef, orderBy('timestamp','desc'), limit(1));
+          const snap = await getDocs(q);
+          if(snap.empty) return;
+          const last = snap.docs[0].data();
+          if(last.remitenteId !== myUid) pendientes++;
+        })());
+      }
+    });
+    await Promise.all(promises);
+
+    // ── Alerta roja parpadeante en v-mipanel ──────────────
+    const panelScroll = document.querySelector('#v-mipanel .scroll');
+    let alertaEl = document.getElementById('alerta-prov-chats');
+
+    if(pendientes > 0) {
+      if(!alertaEl && panelScroll) {
+        alertaEl = document.createElement('div');
+        alertaEl.id = 'alerta-prov-chats';
+        alertaEl.className = 'prov-alerta-dinero';
+        alertaEl.innerHTML = `
+          <div style="font-size:26px;margin-bottom:6px;">⚠️</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:4px;">¡TIENES TRABAJOS PENDIENTES!</div>
+          <div style="font-size:12px;font-weight:400;line-height:1.6;">
+            Tienes <strong>${pendientes}</strong> cliente${pendientes>1?'s':''} esperando respuesta.<br>
+            Contesta rápido para mantener tu buena calificación.
+          </div>
+          <button onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,300)"
+            style="margin-top:12px;background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.5);
+                   color:#fff;border-radius:10px;padding:9px 20px;font-size:13px;font-weight:700;
+                   cursor:pointer;font-family:'Inter',sans-serif;display:block;width:100%;">
+            Ver mis chats →
+          </button>`;
+        panelScroll.insertBefore(alertaEl, panelScroll.firstChild);
+      } else if(alertaEl) {
+        const s = alertaEl.querySelector('strong');
+        if(s) s.textContent = pendientes;
+      }
+    } else if(alertaEl) {
+      alertaEl.remove();
+    }
+
+    // ── Badge de reputación ──────────────────────────────
+    let badge = document.getElementById('badge-reputacion');
+    if(!badge) {
+      badge = document.createElement('div');
+      badge.id = 'badge-reputacion';
+      badge.style.cssText = 'margin-top:10px;display:block;';
+      const infoCard = document.querySelector('#v-mipanel .scroll > div[style*="margin-bottom:14px"]');
+      if(infoCard) infoCard.appendChild(badge);
+    }
+    badge.className = 'rep-badge ' + (pendientes === 0 ? 'rep-rapido' : 'rep-lento');
+    badge.innerHTML = pendientes === 0 ? '⚡ Responde de inmediato' : '⏳ Suele tardar en responder';
+
+  } catch(e) { }
+};
+// ============ FIN ALERTA PROVEEDOR ============
+
+// ============ NOTIFICACIONES WEB v32 ============
+window.activarNotificacionesProveedor = async function() {
+  if(!window._fbAuth || !window._fbAuth.currentUser) return;
+  if(!window._fbDb || !window._fs) return;
+  const myUid = window._fbAuth.currentUser.uid;
+  try {
+    const { collection, getDocs, query, orderBy, onSnapshot } = window._fs;
+    const db = window._fbDb;
+    const chatsSnap = await getDocs(collection(db, 'chats'));
+    const unsubs = [];
+    chatsSnap.forEach(chatDoc => {
+      if(!chatDoc.id.includes(myUid)) return;
+      const msgsRef = collection(db, 'chats', chatDoc.id, 'mensajes');
+      let init = false;
+      const unsub = onSnapshot(query(msgsRef, orderBy('timestamp','asc')), async snap => {
+        if(!init) { init = true; return; }
+        const last = snap.docs[snap.docs.length - 1];
+        if(!last) return;
+        const m = last.data();
+        if(m.remitenteId === myUid) return;
+        if(document.visibilityState === 'hidden' && Notification.permission === 'granted') {
+          new Notification('Dominio Cumbres 🏡', { body: '¡Tienes un nuevo mensaje de un cliente!' });
+        }
+        // Badge y notificación Firestore — guard 60s por chatId
+        const _cid = chatDoc.id;
+        const _now = Date.now();
+        if(!window._provChatNotifTs) window._provChatNotifTs = {};
+        if(!window._provChatNotifTs[_cid] || _now - window._provChatNotifTs[_cid] > 60000) {
+          window._provChatNotifTs[_cid] = _now;
+          try {
+            const { addDoc: _add, collection: _col, serverTimestamp: _st } =
+              await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+            await _add(_col(db, 'notificaciones'), {
+              uid: myUid, tipo: 'chat', modulo: 'chats',
+              titulo: 'Nuevo mensaje', mensaje: m.remitenteNombre || 'Un cliente te escribió.',
+              leida: false, eliminada: false, prioridad: 'normal',
+              chatId: _cid, fecha: _st()
+            });
+            window.actualizarBadgesReales && window.actualizarBadgesReales();
+          } catch(_ne) { }
+        }
+        window.verificarChatsProveedor && window.verificarChatsProveedor();
+      });
+      unsubs.push(unsub);
+    });
+    window._provNotifUnsub = () => unsubs.forEach(u => u());
+  } catch(e) { }
+};
+// ============ FIN NOTIFICACIONES ============
+
+// ── Contactar proveedor moderno — busca chat existente antes de abrir ──
+window._contactarProveedorModerno = async function(btn) {
+  const p = window._proveedorActual || {};
+  const provId = p.uid || p.id || p._id || '';
+  const nombre = p.nombre || 'Proveedor';
+
+  if (!provId) { return; }
+
+  const _auth = window._fbAuth;
+  const _db   = window._fbDb;
+  const myUid = _auth && _auth.currentUser && _auth.currentUser.uid;
+
+  if (!myUid || !_db) {
+    // Fallback seguro: abrir chat con configuración manual
+    window._chatProveedorId      = provId;
+    window._chatIdExacto         = null;
+    window._chatProveedorNombre  = nombre;
+    const nom = document.getElementById('chat-prov-nombre');
+    const ic  = document.getElementById('chat-prov-ic');
+    const bk  = document.querySelector('#v-chat .btn-back');
+    if (nom) nom.textContent = nombre;
+    if (ic)  ic.textContent  = '🔧';
+    if (bk)  bk.onclick = function(){ go('v-serv-det','left'); window.cerrarChat&&window.cerrarChat(); };
+    go('v-chat','right');
+    window.cargarMensajes && window.cargarMensajes();
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
+
+  try {
+    const { collection, getDocs, query, where } = window._fs;
+    const q    = query(collection(_db, 'chats'), where('participantes', 'array-contains', myUid));
+    const snap = await getDocs(q);
+
+    let chatExistente = null;
+    snap.forEach(function(doc) {
+      const d = doc.data();
+      if (Array.isArray(d.participantes) && d.participantes.includes(provId)) {
+        chatExistente = { id: doc.id, nombre: (d.nombres && d.nombres[myUid]) || nombre };
+      }
+    });
+
+    if (chatExistente) {
+      window.abrirChatExacto(chatExistente.id, provId, chatExistente.nombre, 'v-serv-det');
+    } else {
+      window._chatProveedorId      = provId;
+      window._chatIdExacto         = null;
+      window._chatProveedorNombre  = nombre;
+      const nom = document.getElementById('chat-prov-nombre');
+      const ic  = document.getElementById('chat-prov-ic');
+      const bk  = document.querySelector('#v-chat .btn-back');
+      if (nom) nom.textContent = nombre;
+      if (ic)  ic.textContent  = '🔧';
+      if (bk)  bk.onclick = function(){ go('v-serv-det','left'); window.cerrarChat&&window.cerrarChat(); };
+      go('v-chat','right');
+      window.cargarMensajes && window.cargarMensajes();
+    }
+  } catch(e) {
+    // Fallback: abrir chat directamente
+    window._chatProveedorId      = provId;
+    window._chatIdExacto         = null;
+    window._chatProveedorNombre  = nombre;
+    const nom = document.getElementById('chat-prov-nombre');
+    const ic  = document.getElementById('chat-prov-ic');
+    const bk  = document.querySelector('#v-chat .btn-back');
+    if (nom) nom.textContent = nombre;
+    if (ic)  ic.textContent  = '🔧';
+    if (bk)  bk.onclick = function(){ go('v-serv-det','left'); window.cerrarChat&&window.cerrarChat(); };
+    go('v-chat','right');
+    window.cargarMensajes && window.cargarMensajes();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💬 Contactar proveedor →'; }
+  }
+};
+// ── FIN contactar proveedor moderno ──────────────────────────
+
+/* NAVIGATION — v23: History API + botón Atrás nativo */
+function _goCore(id,dir){
+  const cur=document.querySelector('.view.active');
+  const tgt=document.getElementById(id);
+  if(!tgt||tgt===cur)return;
+  cur.classList.remove('active');
+  cur.classList.add(dir==='right'?'go-left':'go-right');
+  tgt.classList.remove('go-left','go-right','active');
+  tgt.classList.add(dir==='right'?'go-right':'go-left');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    tgt.classList.remove('go-right','go-left');
+    tgt.classList.add('active');
+    // Manejo de shells (restaurante/negocio): elevar el shell de la vista activa, bajar los demás
+    try {
+      var _vrSh = document.getElementById('vr-shell');
+      var _vnSh = document.getElementById('vn-shell');
+      var enVr = !!(_vrSh && _vrSh.contains(tgt));
+      var enVn = !!(_vnSh && _vnSh.contains(tgt));
+      if (_vrSh) { _vrSh.style.zIndex = enVr ? '50' : '1'; _vrSh.style.pointerEvents = enVr ? 'auto' : 'none'; }
+      if (_vnSh) { _vnSh.style.zIndex = enVn ? '50' : '1'; _vnSh.style.pointerEvents = enVn ? 'auto' : 'none'; }
+    } catch(e){}
+    // Limpiar listener de estado en vivo al salir del restaurante
+  try { var _foodViews=['v-food-det','v-carrito','v-food']; if (_foodViews.indexOf(id)===-1 && window._restEstadoUnsub) { window._restEstadoUnsub(); window._restEstadoUnsub = null; } } catch(e){}
+  // Reconectar listener en vivo al volver a la ficha del restaurante
+  try { if (id === 'v-food-det' && _S && _S.rest && _S.rest._id) { window._dcfConectarEstadoVivo && window._dcfConectarEstadoVivo(_S.rest._id); } } catch(e){}
+  // REGLA UNIVERSAL: toda pantalla inicia desde arriba
+    try{tgt.scrollTop=0;tgt.querySelectorAll('*').forEach(function(el){if(el.scrollTop)el.scrollTop=0;});}catch(e){}
+    // REGLA UNIVERSAL: pantallas con pestañas siempre abren en la primera pestaña
+    try{tgt.querySelectorAll('.pill-row,.tabs-row').forEach(function(g){var b=g.querySelector('button[onclick]');if(b&&!b.classList.contains('on')&&!b.classList.contains('dcf-on'))b.click();});}catch(e){}
+    if(window._dcDirtyV&&window._dcDirtyV!==tgt.id)window._dcDirtyV=null;
+    // Auto-trigger data-onenter
+    const fn=tgt.getAttribute('data-onenter');
+    if(fn&&window[fn])setTimeout(()=>window[fn](),200);
+    // Auto-load modules
+    if(id==='v-servicios'){
+      const intentarCargar=(intentos)=>{
+        if(window.cargarProveedores){window.cargarProveedores();}
+        else if(intentos<20){setTimeout(()=>intentarCargar(intentos+1),300);}
+      };
+      setTimeout(()=>intentarCargar(0),200);
+      window.actualizarBtnSolicitudRol && window.actualizarBtnSolicitudRol();
+    }
+    if(id==='v-food')setTimeout(()=>window.dcFood_init&&window.dcFood_init(),200);
+    if(id==='v-panel-rest')setTimeout(()=>window.dcFood_cargarPanelRest&&window.dcFood_cargarPanelRest(),200);
+    if(id==='v-repartidor')setTimeout(()=>window.dcFood_cargarPedidosRep&&window.dcFood_cargarPedidosRep(),200);
+    if(id==='v-home')window.actualizarBadgesReales&&window.actualizarBadgesReales();
+    if(id==='vn-home'){window.vnegCargarConfig&&window.vnegCargarConfig();window._updateHora&&window._updateHora();setTimeout(function(){window._calcMetricasNeg&&window._calcMetricasNeg();},120);}
+    if(id==='vn-config'){window.vnegCargarConfig&&window.vnegCargarConfig();}
+    if(id==='vn-cmv'){setTimeout(function(){window.vnegCmvCargar&&window.vnegCmvCargar();},100);}
+    if(id==='vn-pedidos'){_vnegPedTab='pedidos';setTimeout(function(){window.vnegRenderPedidos&&window.vnegRenderPedidos();},100);}
+    if(id==='vn-menu')setTimeout(function(){window.vnegCargarMenu&&window.vnegCargarMenu();},100);
+    if(id==='vn-ventas'){window._vnvMesOffset=0;setTimeout(function(){window._vnvCalc&&window._vnvCalc();},100);}
+    if(id==='v-mis-pedidos-food')setTimeout(()=>window.dcFood_cargarMisPedidos&&window.dcFood_cargarMisPedidos(),200);
+    if(id==='v-mis-pedidos-food')window._marcarPedidosLeidos&&window._marcarPedidosLeidos();
+    if(id==='v-plaza')setTimeout(()=>window.cargarPlaza&&window.cargarPlaza(),200);
+    if(id==='v-ride')setTimeout(()=>window.cargarRepartidores&&window.cargarRepartidores(),200);
+    if(id==='v-admin-solicitudes')setTimeout(()=>window.cargarSolicitudes&&window.cargarSolicitudes(),300);
+    if(id==='v-admin-analytics')setTimeout(()=>window.cargarAnalytics&&window.cargarAnalytics(),300);
+    if(id==='v-home')setTimeout(()=>{window.renderHomePersonalizado&&window.renderHomePersonalizado();},50);
+    if(id==='v-home'){var _t=(localStorage.getItem('dcuserTipo')||'').toLowerCase();if(_t==='restaurante'){window._restCargarHorariosYRepintar&&window._restCargarHorariosYRepintar();setTimeout(()=>{window._calcMetricasRest&&window._calcMetricasRest('hoy');},120);
+// B3: arrancar timer restaurante desde v-home si aún no está corriendo
+if(!window._rHoraTimer){window._rHoraTimer=setInterval(window._updateHora||function(){},30000);}}if(_t==='negocio'){window._vnegCargarHorariosYRepintar&&window._vnegCargarHorariosYRepintar();setTimeout(()=>{window._calcMetricasNeg&&window._calcMetricasNeg();},120);
+// B3: arrancar timer negocio desde v-home si aún no está corriendo
+if(!window._nHoraTimer){window._nHoraTimer=setInterval(function(){if(window._updateHora)window._updateHora();},30000);}}}
+    if(id==='v-mipanel')setTimeout(()=>{window.cargarMiPerfil&&window.cargarMiPerfil();window.verificarChatsProveedor&&window.verificarChatsProveedor();},300);
+    if(id==='v-mi-perfil')setTimeout(()=>{window.cargarMiPerfilDetalle&&window.cargarMiPerfilDetalle();},300);
+    if(id==='v-mi-negocio')setTimeout(()=>{window._cargarBizStats&&window._cargarBizStats();},100);
+    if(id==='v-mi-restaurante')setTimeout(()=>{window._cargarRestStats&&window._cargarRestStats();},100);
+    if(id==='vr-home')setTimeout(()=>window.dcRest_init&&window.dcRest_init(),200);
+    if(id==='vr-pedidos')setTimeout(()=>window.dcRest_onViewEnter&&window.dcRest_onViewEnter('vr-pedidos'),200);
+    if(id==='vr-det-pedido')setTimeout(()=>window.dcRest_onViewEnter&&window.dcRest_onViewEnter('vr-det-pedido'),200);
+    if(id==='vr-menu')setTimeout(()=>window.dcRest_onViewEnter&&window.dcRest_onViewEnter('vr-menu'),200);
+    if(id==='vr-prod-form')setTimeout(()=>window.dcRest_onViewEnter&&window.dcRest_onViewEnter('vr-prod-form'),200);
+    if(id==='vr-promos')setTimeout(()=>window.dcRest_onViewEnter&&window.dcRest_onViewEnter('vr-promos'),200);
+    if(id==='vr-notif')setTimeout(()=>window.dcRest_onViewEnter&&window.dcRest_onViewEnter('vr-notif'),200);
+    if(id==='vr-config')setTimeout(()=>window.dcRest_onViewEnter&&window.dcRest_onViewEnter('vr-config'),200);
+    if(id==='v-busqueda')setTimeout(()=>{window._initBusqueda&&window._initBusqueda();},80);
+    if(id==='v-notificaciones')setTimeout(()=>{window.renderNotificaciones&&window.renderNotificaciones();},100);
+    if(id==='v-agenda')setTimeout(()=>{window._renderAgenda&&window._renderAgenda();},100);
+    if(id==='v-agenda-reservas')setTimeout(()=>{window._renderAgendaReservas&&window._renderAgendaReservas();},100);
+    if(id==='v-reservar')setTimeout(()=>{window._renderReservar&&window._renderReservar();},100);
+    if(id==='v-favoritos')setTimeout(cargarFavoritos,400);
+    if(id==='v-mi-agenda')setTimeout(()=>window._initMiAgenda&&window._initMiAgenda(),200);
+    if(id==='v-mis-chats')setTimeout(()=>window.cargarMisChats&&window.cargarMisChats(),300);
+    if(id==='v-carrito')setTimeout(()=>window.dcFood_renderCarrito&&window.dcFood_renderCarrito(),50);
+    // Al entrar a cualquier vista de registro, limpiar checkboxes y formulario
+    if(['v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz'].includes(id)){
+      ['v-chk1','v-chk2',
+       'p-chk1','p-chk2','p-chk3','p-chk4',
+       'r-chk1','r-chk2','r-chk3','r-chk4',
+       'b-chk1','b-chk2','b-chk3','b-chk4'
+      ].forEach(cid=>{
+        const cel=document.getElementById(cid);
+        if(cel)cel.classList.remove('on');
+      });
+      // Reset registro vecino btn siempre al entrar
+      const _bv=document.getElementById('btn-reg-vecino');
+      if(_bv){_bv.textContent='Crear mi cuenta →';_bv.disabled=false;}
+      // Bug 3: reset ride y biz buttons
+      const _br=document.getElementById('btn-reg-ride');
+      if(_br){_br.textContent='Enviar solicitud →';_br.disabled=false;}
+      const _bb=document.getElementById('btn-reg-biz');
+      if(_bb){_bb.textContent='Enviar solicitud →';_bb.disabled=false;}
+      // Bug 2c: reset biz selects and hide category groups
+      if(id==='v-reg-biz'){
+        ['b-tipo-negocio','b-cat-restaurante','b-cat-negocio',
+         'b-operacion','b-entrega','b-cobertura','b-anios','b-tel-prefijo'
+        ].forEach(function(sid){var s=document.getElementById(sid);if(s)s.selectedIndex=0;});
+        if(typeof bTipoChange==='function')bTipoChange();
+      }
+    }
+  }));
+}
+// Estado inicial en el historial (replaceState = no añade entrada extra al historial)
+(function(){
+  const ini=document.querySelector('.view.active');
+  history.replaceState({viewId:ini?ini.id:'v-splash'},'','');
+})();
+// Botón Atrás del navegador y del celular
+window.addEventListener('popstate',function(e){
+  // REGLA UNIVERSAL #2: si hay un modal/overlay abierto, atrás lo cierra primero
+  var ovs = ['dcf-ocupado-ov','dcf-cerrado-ov','dcf-toast-estado'];
+  var cerrado = false;
+  for (var i=0;i<ovs.length;i++){ var el=document.getElementById(ovs[i]); if(el){ el.remove(); cerrado=true; } }
+  if (cerrado) { try{ history.pushState(e.state||{},'',''); }catch(_e){} return; }
+  if(e.state&&e.state.viewId){_goCore(e.state.viewId,'left');}
+});
+// ===== REGLA UNIVERSAL DE REGRESO =====
+// Todo botón ‹ regresa a la pantalla inmediata anterior (historial real),
+// el mismo mecanismo del botón atrás del celular que ya funciona.
+// Excepción: el Centro Operativo (vr-*) conserva su propio historial interno.
+document.addEventListener('click',function(ev){
+  var b=ev.target&&ev.target.closest?ev.target.closest('.btn-back'):null;
+  if(!b)return;
+  if(b.closest('#vr-shell'))return;
+    if(b.closest('#vn-shell'))return;
+  var oc=(b.getAttribute('onclick')||'');
+  if(oc.indexOf('navTo')!==-1||oc.indexOf('navBack')!==-1)return;
+  ev.preventDefault();ev.stopImmediatePropagation();ev.stopPropagation();
+  var cur=document.querySelector('.view.active');
+  if(cur&&cur.id==='v-plaza-seguimiento'){
+    try{
+      localStorage.setItem('dcPlazaL14CartOpen','0');
+      localStorage.setItem('dcPlazaL14OrderOpen','');
+      localStorage.setItem('dcPlazaL14VaciarOpen','0');
+      localStorage.setItem('dcPlazaQF42Tab',JSON.stringify('proceso'));
+      window._misComprasPlazaTab='proceso';
+    }catch(_plzBack){}
+    try{history.replaceState({viewId:'v-mis-compras-plaza'},'','');}catch(_hst){}
+    _goCore('v-mis-compras-plaza','left');
+    setTimeout(function(){try{if(typeof window.dcPlazaLimpieza15Render==='function')window.dcPlazaLimpieza15Render();}catch(_r){}},60);
+    return;
+  }
+  if(cur&&typeof window._dcConfirmarSalida==='function'&&!window._dcConfirmarSalida(cur.id))return;
+  if(cur&&cur.id==='v-chat'&&typeof cerrarChat==='function'){try{cerrarChat();}catch(e){}}
+  if(cur&&cur.id==='v-reg-vecino'){var _b=document.getElementById('btn-reg-vecino');if(_b){_b.textContent='Crear mi cuenta \u2192';_b.disabled=false;}}
+  history.back();
+},true);
+// ===== REGLA UNIVERSAL: CAMBIOS SIN GUARDAR (toda la app) =====
+// Cualquier captura en cualquier pantalla marca la pantalla como "con cambios".
+// Al intentar REGRESAR de esa pantalla, se pide confirmación.
+// Excepciones: búsquedas, chat y login (no son capturas que se "guarden").
+window._dcDirtyV = null;
+var _DC_DIRTY_VISTAS_EXCL = ['v-login','v-admin-login','v-busqueda','v-chat','v-prov-cmv','v-serv-det','v-membresia','v-agenda','v-agenda-reservas','v-reservar','v-mi-agenda'];
+var _DC_DIRTY_IDS_EXCL = ['busqueda-input','chat-input','menu-search-inp'];
+document.addEventListener('change', _dcDirtyUniv, true);
+document.addEventListener('input',  _dcDirtyUniv, true);
+function _dcDirtyUniv(ev){
+  var t=ev.target; if(!t||!t.closest) return;
+  if (t.getAttribute && t.getAttribute('data-no-dirty') === '1') return;
+  if (t.id === 'dcf-cat-select' || t.id === 'plaza-cat-select') return;
+  if(_DC_DIRTY_IDS_EXCL.indexOf(t.id)!==-1) return;
+  var ph=(t.getAttribute&&t.getAttribute('placeholder'))||'';
+  if(ph.toLowerCase().indexOf('buscar')!==-1) return;
+  var v=t.closest('.view'); if(!v||!v.id) return;
+  if(v.closest('#vr-shell')) return; // el Centro Operativo tiene su propio aviso
+  if(_DC_DIRTY_VISTAS_EXCL.indexOf(v.id)!==-1) return;
+  window._dcDirtyV=v.id;
+}
+window._dcConfirmarSalida=function(curId){
+  if(!window._dcDirtyV||window._dcDirtyV!==curId) return true;
+  var ok=window.confirm('\u26A0\uFE0F Tienes cambios sin guardar.\n\nPresiona CANCELAR para quedarte,\no ACEPTAR para salir sin guardar.');
+  if(ok) window._dcDirtyV=null;
+  return ok;
+};
+
+/* FAVORITOS */
+function cargarFavoritos() {
+  const lista = document.getElementById('favs-lista');
+  if (!lista) return;
+
+  // M2-H: usar clave por usuario (con retrocompatibilidad a fav_prov_*)
+  let favs = [];
+  // Nueva clave por usuario
+  try {
+    const uid = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.uid) || '';
+    const key = uid ? 'dcFavoritos_' + uid : 'dcFavoritos_t_' + (localStorage.getItem('dcuserTipo')||'u');
+    favs = JSON.parse(localStorage.getItem(key) || '[]');
+  } catch(e) { favs = []; }
+
+  // Retrocompatibilidad: incluir favs guardados con el sistema anterior (fav_prov_*)
+  const legacy = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('fav_prov_')) {
+      try {
+        const obj = JSON.parse(localStorage.getItem(k));
+        if (obj && obj.nombre && !favs.some(f => f.id === (obj._id||obj.nombre))) {
+          legacy.push({ id: obj._id||obj.nombre, tipo:'proveedor',
+                        nombre: obj.nombre||'—', categoria: obj.categoria||'',
+                        datos: obj, _legacyKey: k, fecha: 0 });
+        }
+      } catch(e) {}
+    }
+  }
+  const all = favs.concat(legacy);
+
+  if (all.length === 0) {
+    lista.innerHTML = '<div style="padding:30px 14px;text-align:center;">'
+      + '<div style="font-size:40px;margin-bottom:10px;">❤️</div>'
+      + '<div style="font-size:14px;font-weight:700;color:#222;margin-bottom:6px;">Todavía no tienes favoritos</div>'
+      + '<div style="font-size:12px;color:#888;line-height:1.5;">Toca 🤍 en cualquier proveedor<br>para guardarlo aquí.</div>'
+      + '</div>';
+    return;
+  }
+
+  const ICONOS = {plomero:'💧',electricista:'⚡',jardinero:'🌿',limpieza:'🧹',pintura:'🎨',ac:'❄️',cerrajero:'🔒',mascotas:'🐾',tecnologia:'🖥️',belleza:'💆',otro:'🔧'};
+
+  lista.innerHTML = '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:12px 14px 6px;">'
+    + all.length + ' guardado' + (all.length !== 1 ? 's' : '') + '</div>';
+
+  all.forEach((f, idx) => {
+    const cat = (f.categoria||'otro').toLowerCase();
+    const ic  = ICONOS[cat] || '🔧';
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:.5px solid #f5f5f5;cursor:pointer;';
+
+    div.innerHTML = `
+      <div style="width:44px;height:44px;border-radius:14px;background:#E8F5EE;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">${ic}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:#111;margin-bottom:2px;">${f.nombre||'—'}</div>
+        <div style="font-size:11px;color:#888;">${f.categoria||'Proveedor'}</div>
+      </div>`;
+
+    // Botón quitar
+    const qBtn = document.createElement('button');
+    qBtn.textContent = '❤️';
+    qBtn.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;flex-shrink:0;padding:4px;';
+    qBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (f._legacyKey) localStorage.removeItem(f._legacyKey);
+      else window.toggleFav && window.toggleFav(f.datos || f);
+      cargarFavoritos();
+    };
+    div.appendChild(qBtn);
+
+    // Tap → abrir detalle si hay datos reales
+    div.onclick = () => {
+      if (f.datos && window.abrirDetalleProveedor) {
+        window.abrirDetalleProveedor(f.datos);
+        setTimeout(function(){
+          var back = document.querySelector('#v-serv-det #det-header button');
+          if (back) back.onclick = function(){ go('v-favoritos','left'); setTimeout(cargarFavoritos,200); };
+          var chatBack = document.querySelector('#v-chat .btn-back');
+          if (chatBack) chatBack.onclick = function(){ go('v-serv-det','left'); cerrarChat&&cerrarChat(); };
+        },80);
+      } else {
+        if (window.showToast) window.showToast(f.nombre + ' · Detalle no disponible todavía.');
+      }
+    };
+
+    lista.appendChild(div);
+  });
+}
+
+/* PASSWORD */
+function togglePass(id,btn){
+  const inp=document.getElementById(id);
+  inp.type=inp.type==='password'?'text':'password';
+  btn.textContent=inp.type==='password'?'👁️':'🙈';
+}
+function checkPass(id1,id2,sid){
+  const p1=document.getElementById(id1);
+  const p2=document.getElementById(id2);
+  const s=document.getElementById(sid);
+  if(!p2||!s)return;
+  if(!p2.value){s.innerHTML='';return;}
+  if(p1.value.length<6){s.innerHTML='<span style="color:#D63A2A;">🔐 Mínimo 6 números</span>';return;}
+  if(p1.value===p2.value){s.innerHTML='<span style="color:#1FC26A;">✅ Contraseñas coinciden</span>';}
+  else{s.innerHTML='<span style="color:#D63A2A;">❌ No coinciden</span>';}
+}
+
+/* ── VALIDACIONES VECINO ── */
+const usedUsr=['juanc','maria42','dominio1','vecino99'];
+
+// Sugerir usuario desde nombre
+function _toTitleCase(str){
+  return str.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+}
+// ── Helpers Registro Proveedor ──────────────────────────────
+const _P_OFICIOS = [
+  {v:'plomero',t:'Plomero'},{v:'electricista',t:'Electricista'},
+  {v:'jardinero',t:'Jardinero'},{v:'limpieza',t:'Limpieza del hogar'},
+  {v:'albanileria',t:'Albañilería'},{v:'pintura',t:'Pintura'},
+  {v:'ac',t:'Aire acondicionado'},{v:'cerrajero',t:'Cerrajero'},
+  {v:'mascotas',t:'Cuidado de mascotas'},{v:'belleza',t:'Spa / Belleza a domicilio'},
+  {v:'tecnologia',t:'Tecnología'},{v:'otro',t:'Otro servicio'}
+];
+
+function pNombreInput(el){
+  const pos=el.selectionStart;
+  el.value=el.value.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  try{el.setSelectionRange(pos,pos);}catch(e){}
+}
+
+function pUsrInput(el){
+  el.value=el.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  const s=document.getElementById('p-usr-st');
+  if(!s)return;
+  if(!el.value){s.textContent='';return;}
+  s.innerHTML='<span style="color:#1FC26A;">✅ '+el.value+' disponible</span>';
+}
+
+function pTelInput(el){
+  if(!el)return;
+  el.value=el.value.replace(/[^0-9]/g,'');
+  const s=document.getElementById('p-tel-st');
+  if(!s)return;
+  const pref=(document.getElementById('p-tel-prefijo')?.value||'+52').replace('-CA','');
+  const reglas={'+52':10,'+1':10,'+34':9,'+57':10};
+  const msgs={'+52':'WhatsApp México debe tener 10 dígitos','+1':'WhatsApp USA/Canadá debe tener 10 dígitos','+34':'WhatsApp España debe tener 9 dígitos','+57':'WhatsApp Colombia debe tener 10 dígitos'};
+  const n=el.value.length;
+  if(!el.value){s.textContent='Solo dígitos, sin espacios ni guiones';s.style.color='#aaa';return;}
+  const req=reglas[pref];
+  if(req){
+    if(n!==req){s.innerHTML='<span style="color:#D63A2A;">⚠️ '+msgs[pref]+'</span>';}
+    else{s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';}
+  } else {
+    if(n<8||n>15){s.innerHTML='<span style="color:#D63A2A;">⚠️ Entre 8 y 15 dígitos</span>';}
+    else{s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';}
+  }
+}
+
+function pOficioChange(){
+  const v1=document.getElementById('p-oficio1')?.value||'';
+  const v2=document.getElementById('p-oficio2')?.value||'';
+  const v3=document.getElementById('p-oficio3')?.value||'';
+  const sel=[v1,v2,v3].filter(Boolean);
+
+  // Show/hide oficio2 when oficio1 is selected
+  const g2=document.getElementById('p-oficio2-group');
+  const g3=document.getElementById('p-oficio3-group');
+  if(g2) g2.style.display=v1?'block':'none';
+  if(g3) g3.style.display=(v1&&v2)?'block':'none';
+
+  // Rebuild oficio2 and oficio3 options excluding already-selected values
+  function _rebuild(selEl, excludeVals){
+    if(!selEl)return;
+    const cur=selEl.value;
+    selEl.innerHTML='<option value="">(ninguno)</option>';
+    _P_OFICIOS.forEach(o=>{
+      if(!excludeVals.includes(o.v)){
+        const opt=document.createElement('option');
+        opt.value=o.v;opt.textContent=o.t;
+        if(o.v===cur)opt.selected=true;
+        selEl.appendChild(opt);
+      }
+    });
+  }
+  _rebuild(document.getElementById('p-oficio2'),[v1]);
+  _rebuild(document.getElementById('p-oficio3'),[v1,v2]);
+
+  // Show/hide "otro" description field
+  const otroGroup=document.getElementById('p-otro-group');
+  if(otroGroup) otroGroup.style.display=(sel.includes('otro'))?'block':'none';
+}
+
+function pDescInput(el){
+  const s=document.getElementById('p-desc-st');
+  if(!s)return;
+  const n=el.value.trim().length;
+  if(!n){s.textContent='';return;}
+  if(n<20){s.innerHTML='<span style="color:#D63A2A;">⚠️ Mínimo 20 caracteres ('+n+'/20)</span>';}
+  else{s.innerHTML='<span style="color:#1FC26A;">✅ Descripción válida</span>';}
+}
+
+// ── Helpers Registro Transporte/Repartidor ───────────────
+// ── Helpers Registro Negocio/Restaurante ─────────────
+function bTipoChange(){
+  const t=document.getElementById('b-tipo-negocio')?.value||'';
+  const gr=document.getElementById('b-cat-restaurante-group');
+  const gn=document.getElementById('b-cat-negocio-group');
+  if(gr)gr.style.display=t==='restaurante'?'block':'none';
+  if(gn)gn.style.display=t==='negocio'?'block':'none';
+  // Limpiar la categoría del tipo contrario al cambiar
+  if(t==='restaurante'){var cn=document.getElementById('b-cat-negocio');if(cn)cn.selectedIndex=0;
+    var go2=document.getElementById('b-cat-otro-neg-group');if(go2)go2.style.display='none';
+    var oi2=document.getElementById('b-cat-otro-neg');if(oi2)oi2.value='';}
+  if(t==='negocio'){var cr=document.getElementById('b-cat-restaurante');if(cr)cr.selectedIndex=0;
+    var go3=document.getElementById('b-cat-otro-rest-group');if(go3)go3.style.display='none';
+    var oi3=document.getElementById('b-cat-otro-rest');if(oi3)oi3.value='';}
+  if(!t){var cn2=document.getElementById('b-cat-negocio');if(cn2)cn2.selectedIndex=0;
+         var cr2=document.getElementById('b-cat-restaurante');if(cr2)cr2.selectedIndex=0;
+         var g1=document.getElementById('b-cat-otro-rest-group');if(g1)g1.style.display='none';
+         var g2=document.getElementById('b-cat-otro-neg-group');if(g2)g2.style.display='none';}
+}
+function bCatChange(t){
+  const suffix=t==='rest'?'rest':'neg';
+  const sel=document.getElementById('b-cat-'+suffix==='rest'?'restaurante':'negocio');
+  // simpler:
+  const selId=t==='rest'?'b-cat-restaurante':'b-cat-negocio';
+  const grpId='b-cat-otro-'+suffix+'-group';
+  const inpId='b-cat-otro-'+suffix;
+  const selEl=document.getElementById(selId);
+  const grp=document.getElementById(grpId);
+  const inp=document.getElementById(inpId);
+  const isOtro=selEl&&(selEl.value==='otro_rest'||selEl.value==='otro_neg');
+  if(grp)grp.style.display=isOtro?'block':'none';
+  if(!isOtro&&inp)inp.value='';
+}
+function bNombreInput(el){
+  const pos=el.selectionStart;
+  el.value=el.value.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  try{el.setSelectionRange(pos,pos);}catch(e){}
+}
+function bUsrInput(el){
+  el.value=el.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  const s=document.getElementById('b-usr-st');
+  if(!s)return;
+  if(!el.value){s.textContent='';return;}
+  s.innerHTML='<span style="color:#1FC26A;">✅ '+el.value+' disponible</span>';
+}
+function bTelInput(el){
+  if(!el)return;
+  el.value=el.value.replace(/[^0-9]/g,'');
+  const s=document.getElementById('b-tel-st');
+  if(!s)return;
+  const pref=(document.getElementById('b-tel-prefijo')?.value||'+52').replace('-CA','');
+  const reglas={'+52':10,'+1':10,'+34':9,'+57':10};
+  const msgs={'+52':'WhatsApp México debe tener 10 dígitos','+1':'WhatsApp USA/Canadá 10 dígitos','+34':'WhatsApp España 9 dígitos','+57':'WhatsApp Colombia 10 dígitos'};
+  const n=el.value.length;
+  if(!el.value){s.textContent='Solo dígitos, sin espacios ni guiones';s.style.color='#aaa';return;}
+  const req=reglas[pref];
+  if(req){
+    if(n!==req)s.innerHTML='<span style="color:#D63A2A;">⚠️ '+msgs[pref]+'</span>';
+    else s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';
+  }else{
+    if(n<8||n>15)s.innerHTML='<span style="color:#D63A2A;">⚠️ Entre 8 y 15 dígitos</span>';
+    else s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';
+  }
+}
+function bCorreoInput(el){
+  const s=document.getElementById('b-correo-st');
+  if(!s)return;
+  const val=el.value.trim();
+  if(!val){s.textContent='';return;}
+  const err=vValidarCorreo(val);
+  if(err){s.innerHTML='<span style="color:#D63A2A;">'+err+'</span>';return;}
+  const dom=_detectarTypoCorreo(val);
+  if(dom)s.innerHTML='<span style="color:#D63A2A;">¿Quisiste escribir @'+dom+'?</span>';
+  else s.innerHTML='<span style="color:#1FC26A;">✅ Correo válido</span>';
+}
+function bDescInput(el){
+  const s=document.getElementById('b-desc-st');
+  if(!s)return;
+  const n=el.value.trim().length;
+  if(!n){s.textContent='';return;}
+  if(n<20)s.innerHTML='<span style="color:#D63A2A;">⚠️ Mínimo 20 caracteres ('+n+'/20)</span>';
+  else s.innerHTML='<span style="color:#1FC26A;">✅ Descripción válida</span>';
+}
+
+function rNombreInput(el){
+  const pos=el.selectionStart;
+  el.value=el.value.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  try{el.setSelectionRange(pos,pos);}catch(e){}
+}
+function rUsrInput(el){
+  el.value=el.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  const s=document.getElementById('r-usr-st');
+  if(!s)return;
+  if(!el.value){s.textContent='';return;}
+  s.innerHTML='<span style="color:#1FC26A;">✅ '+el.value+' disponible</span>';
+}
+function rTelInput(el){
+  if(!el)return;
+  el.value=el.value.replace(/[^0-9]/g,'');
+  const s=document.getElementById('r-tel-st');
+  if(!s)return;
+  const pref=(document.getElementById('r-tel-prefijo')?.value||'+52').replace('-CA','');
+  const reglas={'+52':10,'+1':10,'+34':9,'+57':10};
+  const msgs={'+52':'WhatsApp México debe tener 10 dígitos','+1':'WhatsApp USA/Canadá 10 dígitos','+34':'WhatsApp España 9 dígitos','+57':'WhatsApp Colombia 10 dígitos'};
+  const n=el.value.length;
+  if(!el.value){s.textContent='Solo dígitos, sin espacios ni guiones';s.style.color='#aaa';return;}
+  const req=reglas[pref];
+  if(req){
+    if(n!==req)s.innerHTML='<span style="color:#D63A2A;">⚠️ '+msgs[pref]+'</span>';
+    else s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';
+  }else{
+    if(n<8||n>15)s.innerHTML='<span style="color:#D63A2A;">⚠️ Entre 8 y 15 dígitos</span>';
+    else s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';
+  }
+}
+function rCorreoInput(el){
+  const s=document.getElementById('r-correo-st');
+  if(!s)return;
+  const val=el.value.trim();
+  if(!val){s.textContent='';return;}
+  const err=vValidarCorreo(val);
+  if(err){s.innerHTML='<span style="color:#D63A2A;">'+err+'</span>';return;}
+  const dom=_detectarTypoCorreo(val);
+  if(dom)s.innerHTML='<span style="color:#D63A2A;">¿Quisiste escribir @'+dom+'?</span>';
+  else s.innerHTML='<span style="color:#1FC26A;">✅ Correo válido</span>';
+}
+function rDescInput(el){
+  const s=document.getElementById('r-desc-st');
+  if(!s)return;
+  const n=el.value.trim().length;
+  if(!n){s.textContent='';return;}
+  if(n<20)s.innerHTML='<span style="color:#D63A2A;">⚠️ Mínimo 20 caracteres ('+n+'/20)</span>';
+  else s.innerHTML='<span style="color:#1FC26A;">✅ Descripción válida</span>';
+}
+
+function vNombreInput(el){
+  const pos=el.selectionStart;
+  el.value=_toTitleCase(el.value);
+  try{el.setSelectionRange(pos,pos);}catch(e){}
+  sugerirUsr(el.value);
+}
+function sugerirUsr(v){
+  const u=document.getElementById('v-usr');
+  const s=document.getElementById('v-usr-st');
+  if(!v){s.textContent='Escribe tu nombre arriba para sugerencia';s.style.color='#aaa';return;}
+  const parts=v.trim().split(' ');
+  const sug=(parts[0]+(parts[1]?parts[1][0]:'')+Math.floor(Math.random()*90+10)).toLowerCase();
+  if(!u.value){u.placeholder='Ej. '+sug;s.innerHTML='💡 Sugerencia: <strong style="color:#1FC26A;">'+sug+'</strong>';s.style.color='#1FC26A';}
+}
+
+// Campo usuario: forzar minúsculas y caracteres válidos
+function vUsrInput(el){
+  const original=el.value;
+  let v=el.value.toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  el.value=v; // fuerza minúsculas y limpia caracteres no válidos
+  const s=document.getElementById('v-usr-st');
+  if(!v){s.textContent='Solo letras minúsculas, números, _ y -';s.style.color='#aaa';return;}
+  const hint=original!==v?' (convertido a minúsculas)':'';
+  if(usedUsr.includes(v)){s.innerHTML='❌ "'+v+'" ya existe — prueba otro';s.style.color='#D63A2A';}
+  else{s.innerHTML='✅ "'+v+'" disponible'+hint;s.style.color='#1FC26A';}
+}
+
+// Validar correo — devuelve mensaje de error o ''
+// Mapa de dominios mal escritos → corrección
+const _TYPOS_CORREO = {
+  // Gmail
+  'gmil.com':'gmail.com','gmal.com':'gmail.com','gamil.com':'gmail.com',
+  'gmaill.com':'gmail.com','gmai.com':'gmail.com','gmali.com':'gmail.com',
+  'gml.com':'gmail.com','gimail.com':'gmail.com','gmail.con':'gmail.com',
+  'gmail.cmo':'gmail.com','gmail.co':'gmail.com',
+  // Hotmail
+  'hotmial.com':'hotmail.com','hotmal.com':'hotmail.com','homail.com':'hotmail.com',
+  'hotmail.con':'hotmail.com','hotmail.cmo':'hotmail.com','hotamail.com':'hotmail.com',
+  // Outlook
+  'outlok.com':'outlook.com','outloook.com':'outlook.com','otlook.com':'outlook.com',
+  'outllok.com':'outlook.com','outlook.con':'outlook.com','outook.com':'outlook.com',
+  // Live
+  'live.con':'live.com','live.cmo':'live.com','lve.com':'live.com',
+  // iCloud
+  'icloud.con':'icloud.com','icloud.cmo':'icloud.com','icould.com':'icloud.com',
+  // Yahoo
+  'yahoo.con':'yahoo.com','yahooo.com':'yahoo.com','yhoo.com':'yahoo.com',
+  'yaho.com':'yahoo.com','yahoo.cmo':'yahoo.com'
+};
+
+// Devuelve dominio corregido si hay typo, o null si el dominio es válido/desconocido
+function _detectarTypoCorreo(correo){
+  if(!correo||!correo.includes('@')) return null;
+  const dom=(correo.split('@')[1]||'').toLowerCase();
+  return _TYPOS_CORREO[dom]||null;
+}
+
+function vValidarCorreo(correo){
+  if(!correo) return '⚠️ Escribe tu correo electrónico';
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo))
+    return '📧 Correo inválido — verifica que tenga @ y dominio (ej. .com)';
+  return ''; // typos se manejan por separado con modal
+}
+
+// Modal de sugerencia de correo
+window._mostrarSugerenciaCorreo = function(correoOriginal, dominioCorregido){
+  const partes = correoOriginal.split('@');
+  const correoSugerido = partes[0] + '@' + dominioCorregido;
+  const ya = document.getElementById('modal-correo-typo');
+  const html =
+    '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:10px;">⚠️ Revisa tu correo</div>'+
+    '<div style="font-size:13px;color:#555;margin-bottom:6px;">Escribiste:</div>'+
+    '<div style="font-size:13px;font-weight:700;color:#D63A2A;margin-bottom:12px;">'+correoOriginal+'</div>'+
+    '<div style="font-size:13px;color:#555;margin-bottom:6px;">¿Quisiste decir?</div>'+
+    '<div style="font-size:13px;font-weight:700;color:#1FC26A;margin-bottom:20px;">'+correoSugerido+'</div>'+
+    '<button onclick="window._corregirCorreo(\''+correoSugerido+'\')" '+
+    'style="width:100%;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;margin-bottom:8px;">Corregir</button>'+
+    '<button onclick="window._continuarConCorreo()" '+
+    'style="width:100%;background:#f0f0f0;color:#333;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:\'Inter\',sans-serif;margin-bottom:10px;">Continuar con mi correo</button>'+
+    '<div style="font-size:11px;color:#aaa;text-align:center;line-height:1.5;">Solo es una sugerencia. Algunos dominios personalizados pueden ser válidos.</div>';
+  if(ya){ya.querySelector('.modal-correo-body').innerHTML=html;ya.style.display='flex';return;}
+  const m=document.createElement('div');
+  m.id='modal-correo-typo';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  m.innerHTML='<div class="modal-correo-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;">'+html+'</div>';
+  document.body.appendChild(m);
+};
+
+window._corregirCorreo = function(correoNuevo){
+  const el=document.getElementById('v-correo');
+  if(el){
+    el.value=correoNuevo;
+    vCorreoInput(el);
+  }
+  const m=document.getElementById('modal-correo-typo');
+  if(m)m.style.display='none';
+};
+
+// Continuar con el correo original sin corregir
+window._omitirTypoCorreo = false;
+window._continuarConCorreo = function(){
+  const m=document.getElementById('modal-correo-typo');
+  if(m)m.style.display='none';
+  window._omitirTypoCorreo = true;
+  window.registrarVecino && window.registrarVecino();
+  window._omitirTypoCorreo = false;
+};
+
+// Feedback en tiempo real para correo
+function vCorreoInput(el){
+  const s=document.getElementById('v-correo-st');
+  if(!s)return;
+  const val=el.value.trim();
+  if(!val){s.textContent='';return;}
+  const err=vValidarCorreo(val);
+  if(err){s.innerHTML='<span style="color:#D63A2A;">'+err+'</span>';return;}
+  const dom=_detectarTypoCorreo(val);
+  if(dom){s.innerHTML='<span style="color:#D63A2A;">📧 ¿Quisiste escribir @'+dom+'?</span>';}
+  else{s.innerHTML='<span style="color:#1FC26A;">✅ Correo válido</span>';}
+}
+
+// Limpiar y validar teléfono en tiempo real
+function vTelInput(el){
+  el.value=el.value.replace(/[^0-9]/g,'');
+  const s=document.getElementById('v-tel-st');
+  if(!s)return;
+  const n=el.value.length;
+  if(!el.value){s.textContent='Solo dígitos, sin espacios ni guiones';s.style.color='#aaa';return;}
+  // Leer prefijo y aplicar misma regla que registrarVecino
+  const pref=(document.getElementById('v-tel-prefijo')?.value||'+52').replace('-CA','');
+  const reglas={'+52':10,'+1':10,'+34':9,'+57':10};
+  const msgs={
+    '+52':'WhatsApp México debe tener 10 dígitos',
+    '+1':'WhatsApp USA/Canadá debe tener 10 dígitos',
+    '+34':'WhatsApp España debe tener 9 dígitos',
+    '+57':'WhatsApp Colombia debe tener 10 dígitos'
+  };
+  const requerido=reglas[pref];
+  if(requerido){
+    if(n!==requerido){
+      s.innerHTML='<span style="color:#D63A2A;">⚠️ '+msgs[pref]+'</span>';
+    } else {
+      s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';
+    }
+  } else {
+    if(n<8||n>15){
+      s.innerHTML='<span style="color:#D63A2A;">⚠️ Entre 8 y 15 dígitos</span>';
+    } else {
+      s.innerHTML='<span style="color:#1FC26A;">✅ Número válido</span>';
+    }
+  }
+}
+
+// Modal simple de Términos y Condiciones
+function abrirTerminos(){
+  const ya=document.getElementById('modal-terminos');
+  if(ya){ya.style.display='flex';return;}
+  const m=document.createElement('div');
+  m.id='modal-terminos';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  m.innerHTML=`<div style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;">
+    <div style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">📄 Términos y Condiciones</div>
+    <div style="font-size:13px;color:#444;line-height:1.7;">
+      <strong>1. Uso de la app</strong><br>
+      Dominio Cumbres AppServis es una plataforma de publicidad y marketplace local. No garantiza contrataciones ni resultados de servicios.<br><br>
+      <strong>2. Privacidad</strong><br>
+      Tu dirección y datos personales son privados. Solo se comparten con proveedores cuando tú lo solicitas expresamente.<br><br>
+      <strong>3. Responsabilidad</strong><br>
+      La app conecta vecinos con proveedores. Cualquier acuerdo económico es entre las partes. AppServis no es responsable de la calidad del servicio.<br><br>
+      <strong>4. Conducta</strong><br>
+      Toda negociación debe realizarse dentro del chat de la app. Conducta inapropiada resulta en suspensión de cuenta.<br><br>
+      <strong>5. Datos</strong><br>
+      Al registrarte autorizas el uso de tu correo para notificaciones relacionadas con la app únicamente.
+    </div>
+    <button onclick="document.getElementById('modal-terminos').style.display='none'" style="margin-top:20px;width:100%;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Entendido</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',function(e){if(e.target===m)m.style.display='none';});
+}
+
+/* ZONA / FRACCIONAMIENTO */
+const fracs={
+  'Dominio Cumbres':['Alboradas','Alinka','Altaira','Altavia','Atera','Aura','Ayucca','Cerradas Lumina','Cumbres Altta','Cumbres Andara','Cumbres Ferrara','Cumbres La Joya de la Montaña','Cumbres La Rioja','El Cielo','La Montaña','Los Olivos','Lux','Mirador','Montencinos','Montessa','Monticello','Montserrat','Murano','Novelia','Paloblanco','PietrAlta','Pietralta Castelo','Porto Cumbres','Privalia Cumbres','Provenza Privada Terra','Provenza Sector Aqua','Provenza Sector Britania','Provenza Sector Vento','Ravello','Rincón De La Sierra','Rincón Del Obispado','Santoral','Santoral II','Santoral III','Solana','Tivoli','Toscana','Vernazza'],
+  'La Reserva':[],'Valle de Cumbres':[],'Península':[]
+};
+function onZona(z){
+  const fg=document.getElementById('frac-group');
+  const fs=document.getElementById('frac-sel');
+  const ab=document.getElementById('agregar-box');
+  const cg=document.getElementById('calle-group');
+  const fh=document.getElementById('frac-hint');
+  ab.classList.remove('show');
+  cg.style.display='none';
+  // Ocultar y limpiar número
+  const ng=document.getElementById('numero-group');
+  if(ng)ng.style.display='none';
+  // Limpiar calle y número
+  const ci=document.getElementById('v-calle');
+  if(ci)ci.value='';
+  const ni=document.getElementById('v-numero');
+  if(ni)ni.value='';
+  // Limpiar fraccionamiento nuevo
+  const fn=document.getElementById('frac-nuevo-inp');
+  if(fn)fn.value='';
+  // Resetear fraccionamiento select
+  if(fs){fs.selectedIndex=0;}
+  if(!z){fg.style.display='none';return;}
+  fg.style.display='block';
+  fs.innerHTML='<option value="">Selecciona tu fraccionamiento...</option>';
+  const listaBase=fracs[z]||[];
+  // Cargar también fraccionamientos registrados en Firestore para esta zona
+  async function _poblarFracs(extra){
+    const todos=[...new Set([...listaBase,...extra])].sort();
+    fs.innerHTML='<option value="">Selecciona tu fraccionamiento...</option>';
+    todos.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=f;fs.appendChild(o);});
+    const add=document.createElement('option');add.value='agregar';add.textContent='+ Agregar mi fraccionamiento';fs.appendChild(add);
+    fh.textContent=todos.length>0?'🗺️ ¿No aparece el tuyo? Selecciona "+ Agregar"':'✍️ Selecciona "+ Agregar" para registrar el tuyo';
+  }
+  _poblarFracs([]);
+  if(window._fbDb){
+    import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js')
+      .then(({getDocs,collection,query,where})=>{
+        return getDocs(query(collection(window._fbDb,'usuarios'),where('zona','==',z)));
+      }).then(snap=>{
+        const extras=[];
+        snap.forEach(d=>{const f=d.data().fraccionamiento;if(f&&f!=='agregar')extras.push(f);});
+        _poblarFracs(extras);
+      }).catch(()=>{});
+  }
+}
+function onFrac(v){
+  const ab=document.getElementById('agregar-box');
+  const cg=document.getElementById('calle-group');
+  const ng=document.getElementById('numero-group');
+  const ci=document.getElementById('v-calle');
+  const ni=document.getElementById('v-numero');
+  if(v==='agregar'){
+    ab.classList.add('show');
+    if(cg)cg.style.display='block';
+    if(ng)ng.style.display='block';
+    if(ci)ci.value='';
+    if(ni)ni.value='';
+  } else if(v){
+    ab.classList.remove('show');
+    if(cg)cg.style.display='block';
+    if(ng)ng.style.display='block';
+    if(ci)ci.value='';
+    if(ni)ni.value='';
+  } else {
+    ab.classList.remove('show');
+    if(cg)cg.style.display='none';
+    if(ng)ng.style.display='none';
+    if(ci)ci.value='';
+    if(ni)ni.value='';
+  }
+}
+
+/* CATEGORÍA NEGOCIO */
+function showCatHint(sel){
+  const h=document.getElementById('cat-hint');
+  if(sel.value==='food'){h.innerHTML='🍽️ Tu negocio aparecerá en <strong>Dominio Food</strong>';h.style.color='#c8940a';}
+  else if(sel.value==='plaza'){h.innerHTML='🏪 Tu negocio aparecerá en <strong>Plaza Online</strong>';h.style.color='#1A7AB5';}
+  else{h.textContent='';}
+}
+
+/* CÓDIGO AUTO-AVANCE */
+document.querySelectorAll('.code-inp').forEach((inp,i,arr)=>{
+  inp.addEventListener('input',()=>{if(inp.value&&arr[i+1])arr[i+1].focus();});
+});
+
+
+/* go() → ver función maestra arriba */
+
+// CARRITO
+const items={bistec:{n:'Taco de Bistec',p:85,q:0},pastor:{n:'Taco de Pastor',p:75,q:0},arrachera:{n:'Taco de Arrachera',p:90,q:0},agua:{n:'Agua Fresca',p:35,q:0},refresco:{n:'Refresco',p:25,q:0}};
+function changeQty(k,d,p){
+  items[k].q=Math.max(0,items[k].q+d);
+  document.getElementById('q-'+k).textContent=items[k].q;
+  updateCartBar();
+}
+function updateCartBar(){
+  const total=Object.values(items).reduce((a,i)=>a+i.q*i.p,0);
+  const count=Object.values(items).reduce((a,i)=>a+i.q,0);
+  const bar=document.getElementById('cart-bar');
+  if(count>0){
+    bar.style.display='flex';
+    document.getElementById('cart-count').textContent=count;
+    document.getElementById('cart-total').textContent='$'+total;
+  } else {
+    bar.style.display='none';
+  }
+}
+function renderCarrito(){
+  const container=document.getElementById('carrito-items');
+  const active=Object.entries(items).filter(([k,v])=>v.q>0);
+  if(!active.length){
+    // demo por defecto
+    items.bistec.q=2;items.pastor.q=1;items.agua.q=1;
+    document.getElementById('q-bistec').textContent=2;
+    document.getElementById('q-pastor').textContent=1;
+    document.getElementById('q-agua').textContent=1;
+    updateCartBar();
+    return renderCarrito();
+  }
+  const sub=active.reduce((a,[k,v])=>a+v.q*v.p,0);
+  container.innerHTML=active.map(([k,v])=>`
+    <div class="carrito-item">
+      <div style="font-size:24px;width:40px;text-align:center;">🌮</div>
+      <div class="si03"><div class="si33">${v.n}</div><div class="si01">${v.q} x $${v.p}</div></div>
+      <div class="si29">$${v.q*v.p}</div>
+      <button class="del-btn" onclick="removeItem('${k}')">✕</button>
+    </div>`).join('');
+  document.getElementById('sub-txt').textContent='$'+sub;
+  document.getElementById('total-txt').textContent='$'+(sub+25);
+}
+function removeItem(k){items[k].q=0;document.getElementById('q-'+k).textContent=0;updateCartBar();renderCarrito();}
+
+function setFilter(btn){document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+function setCat(btn){
+  document.querySelectorAll('.cat-ic').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('.cat-nm').forEach(c=>c.classList.remove('on'));
+  btn.querySelector('.cat-ic').classList.add('on');
+  btn.querySelector('.cat-nm').classList.add('on');
+}
+function setPago(el){
+  document.querySelectorAll('.pago-opt').forEach(p=>{p.classList.remove('on');p.querySelector('.radio-c').classList.remove('on');});
+  el.classList.add('on');el.querySelector('.radio-c').classList.add('on');
+}
+function toggleFav(id){const b=document.getElementById(id);b.textContent=b.textContent==='🤍'?'❤️':'🤍';}
+
+
+/* go() → ver función maestra arriba */
+function setSvc(el){document.querySelectorAll('.svc-tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');}
+function selRider(el,price,name,time){
+  document.querySelectorAll('.rider-chip').forEach(r=>r.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('rider-price').textContent='$'+price;
+  document.getElementById('rider-lbl').textContent=name+' · '+time+' · Moto';
+}
+function setCatS(btn){
+  document.querySelectorAll('#cat-grid-servicios .cat-ic').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('#cat-grid-servicios .cat-nm').forEach(c=>c.classList.remove('on'));
+  btn.querySelector('.cat-ic').classList.add('on');
+  btn.querySelector('.cat-nm').classList.add('on');
+  const cat = btn.dataset.oficio || btn.querySelector('.cat-nm').textContent.trim().toLowerCase();
+  if(window.cargarProveedores) window.cargarProveedores(cat);
+}
+function setStars(n){
+  const stars=document.querySelectorAll('#ride-stars .rate-star');
+  stars.forEach((s,i)=>s.textContent=i<n?'⭐':'☆');
+}
+
+
+/* go() → ver función maestra arriba */
+function switchTab(i,btn){
+  document.querySelectorAll('#informa-tabs .tab-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['tab-noticias','tab-proyectos','tab-reportes'].forEach((t,j)=>{
+    const el=document.getElementById(t);
+    el.classList.toggle('show',i===j);
+    el.style.display=i===j?'flex':'none';
+    if(i===j)el.style.flexDirection='column';
+  });
+}
+function showSOS(){const o=document.getElementById('sos-overlay');o.style.display='flex';}
+function hideSOS(){const o=document.getElementById('sos-overlay');o.style.display='none';}
+document.querySelectorAll('.voto-btn').forEach(b=>{b.addEventListener('click',e=>{e.stopPropagation();b.classList.toggle('on');});});
+
+
+/* go() → ver función maestra arriba */
+function showAdminTab(i,btn){
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  document.querySelectorAll('.a-sec').forEach((s,j)=>{
+    s.classList.toggle('show',i===j);
+    s.style.display=i===j?'block':'none';
+  });
+  document.querySelectorAll('.ani').forEach((a,j)=>{
+    a.classList.toggle('on',i===j);
+    const lb=a.querySelector('.ani-lb');
+    lb.style.color=i===j?'var(--yellow)':'rgba(255,255,255,.3)';
+  });
+}
+
+  // Restore username on load
+  (function(){
+    const u = localStorage.getItem('dcuser');
+    if(u) document.querySelectorAll('.user-name-display').forEach(el=>el.textContent=u);
+    // Show loading screen on startup then show splash
+    const loadingEl = document.getElementById('v-loading');
+    const splashEl  = document.getElementById('v-splash');
+    if(loadingEl && splashEl) {
+      splashEl.classList.remove('active');
+      loadingEl.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0C1A10;z-index:999;';
+      setTimeout(() => {
+        loadingEl.style.display = 'none';
+        splashEl.classList.add('active');
+      }, 1600);
+    }
+
+    // Auto-avance en inputs de código
+    document.querySelectorAll('.code-inp').forEach((inp, i, arr) => {
+      inp.addEventListener('input', () => {
+        if (inp.value.length === 1 && i < arr.length - 1) arr[i+1].focus();
+      });
+    });
+
+    // Si el proveedor ya tenía sesión activa, activar alertas al cargar
+    const tipoGuardado = localStorage.getItem('dcuserTipo') || 'vecino';
+    if(tipoGuardado !== 'vecino') {
+      setTimeout(() => {
+        if('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+        window.verificarChatsProveedor && window.verificarChatsProveedor();
+        window.activarNotificacionesProveedor && window.activarNotificacionesProveedor();
+      }, 2500);
+    }
+  })();
+
+  // ─── PANEL ADMIN ────────────────────────────────────────
+  const ADMIN_USERS = {
+    'DominioCumbres2026': { pass: 'appl1225', rol: 'maestro' }
+    // Para agregar más admins:
+    // 'usuarioJunior':   { pass: 'su_pass', rol: 'junior' }
+    // 'usuarioPremium':  { pass: 'su_pass', rol: 'premium' }
+  };
+
+  // Navigation helper for admin sections
+  window.goAdminSec = function(sec) {
+    const map = {
+      solicitudes: 'v-admin-solicitudes',
+      admins: 'v-admin-admins',
+      monetizacion: 'v-admin-monetizacion',
+      analytics: 'v-admin-analytics',
+      publicaciones: 'v-admin-publicaciones',
+      alertas: 'v-admin-alertas',
+      config: 'v-admin-config'
+    };
+    if(map[sec]) {
+      showLoading();
+      setTimeout(() => {
+        hideLoading();
+        go(map[sec], 'right');
+        if(sec === 'solicitudes') { setTimeout(()=>cargarSolicitudes(), 300); }
+        if(sec === 'admins') { renderAdminsList(); }
+        if(sec === 'analytics') { cargarAnalytics(); }
+      }, 800);
+    }
+  };
+
+  // Loading screen helpers
+  window.showLoading = function() {
+    const v = document.getElementById('v-loading');
+    if(v) { v.style.zIndex='999'; v.classList.add('active'); }
+  };
+  window.hideLoading = function() {
+    const v = document.getElementById('v-loading');
+    if(v) { v.classList.remove('active'); v.style.zIndex=''; }
+  };
+
+  // Analytics loader
+  window.cargarAnalytics = async function() {
+    const lista = document.getElementById('analytics-lista');
+    if(!lista) return;
+    lista.innerHTML = '<div class="si61">Cargando... ⏳</div>';
+    try {
+      const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      const snap = await getDocs(collection(window._fbDb, 'usuarios'));
+      let vecinos=0, proveedores=0, negocios=0, pendientes=0;
+      snap.forEach(d => {
+        const u = d.data();
+        if(u.tipo==='vecino') vecinos++;
+        else if(u.tipo==='proveedor') proveedores++;
+        else if(u.tipo==='negocio'||u.tipo==='restaurante') negocios++;
+        if(u.estado==='pendiente_revision') pendientes++;
+      });
+      document.getElementById('stat-vecinos').textContent = vecinos;
+      document.getElementById('stat-proveedores').textContent = proveedores;
+      document.getElementById('stat-negocios').textContent = negocios;
+      document.getElementById('stat-pendientes-count').textContent = pendientes;
+      lista.innerHTML = '<div style="font-size:12px;color:var(--white-50);text-align:center;padding:16px;">✅ Datos cargados desde Firebase</div>';
+      // Update notif badge
+      if(pendientes > 0) {
+        const nb = document.getElementById('notif-solicitudes');
+        if(nb) { nb.textContent = pendientes; nb.style.display='flex'; }
+      }
+    } catch(e) {
+      lista.innerHTML = '<div style="color:#D63A2A;font-size:12px;padding:10px;">Error: '+e.message+'</div>';
+    }
+  };
+
+  window.entrarAdmin = function() {
+    const usr = document.getElementById('admin-usr-input').value.trim();
+    const p   = document.getElementById('admin-pass-input').value;
+    const err = document.getElementById('admin-pass-err');
+    const cuenta = ADMIN_USERS[usr];
+    if (!cuenta || cuenta.pass !== p) {
+      err.style.display = 'block';
+      err.textContent = '❌ Usuario o contraseña incorrectos';
+      return;
+    }
+    err.style.display = 'none';
+    window._adminRol = cuenta.rol;
+    window._adminUsr = usr;
+    // Show loading then go to panel
+    showLoading();
+    setTimeout(() => {
+      hideLoading();
+      go('v-admin-panel', 'right');
+      // Sync visual tab + data using same path as manual click
+      const _fbtnP = document.getElementById('fbtn-pendientes');
+      if (_fbtnP && window.setFiltroMain) {
+        window.setFiltroMain(_fbtnP, 'pendientes');
+      } else {
+        window._filtroMain = 'pendientes';
+        window._filtroSub = 'todos';
+        cargarSolicitudes();
+      }
+      // Update role display
+      const rolEl = document.getElementById('admin-rol-display');
+      if(rolEl) rolEl.textContent = 'Admin ' + (cuenta.rol === 'maestro' ? 'Master' : cuenta.rol.charAt(0).toUpperCase() + cuenta.rol.slice(1));
+      // Hide admins card for non-maestro
+      if(cuenta.rol !== 'maestro') {
+        const cardAdmins = document.getElementById('card-admins');
+        if(cardAdmins) cardAdmins.style.display='none';
+      }
+      // Load pending count
+      cargarAnalytics().catch(()=>{});
+    }, 1000);
+  };
+
+  window.cerrarSesionAdmin = function() {
+    window._adminRol = null;
+    window._adminUsr = null;
+    document.getElementById('admin-usr-input').value = '';
+    document.getElementById('admin-pass-input').value = '';
+    document.getElementById('admin-pass-err').style.display = 'none';
+    go('v-splash', 'left');
+  };
+
+  window.switchAdminTab = function(tab) {
+    // Fix botones — solo uno activo a la vez
+    const btnP = document.getElementById('tab-pendientes-btn');
+    const btnT = document.getElementById('tab-todos-btn');
+    if(btnP && btnT) {
+      btnP.style.background = tab==='pendientes' ? '#1FC26A' : '#162A1D';
+      btnP.style.color = tab==='pendientes' ? '#000' : '#aaa';
+      btnT.style.background = tab==='todos' ? '#1FC26A' : '#162A1D';
+      btnT.style.color = tab==='todos' ? '#000' : '#aaa';
+    }
+    // Legacy compatibility - redirect to new sections
+    if(tab === 'pendientes') { cargarSolicitudes(); return; }
+    if(tab === 'todos') { verTodosUsuarios(); return; }
+    if(tab === 'admins') { goAdminSec('admins'); return; }
+    const tabs = ['pendientes','todos','admins'];
+    tabs.forEach(t => {
+      const btn = document.getElementById('tab-'+t+'-btn');
+      if(btn){ btn.style.background = t===tab ? '#1FC26A' : '#162A1D'; btn.style.color = t===tab ? '#000' : '#aaa'; }
+    });
+    document.getElementById('admin-lista').style.display = tab !== 'admins' ? 'block' : 'none';
+    document.getElementById('admin-admins-sec').style.display = tab === 'admins' ? 'block' : 'none';
+    if(tab === 'pendientes') cargarSolicitudes();
+    if(tab === 'todos') verTodosUsuarios();
+    if(tab === 'admins') renderAdminsList();
+    // Solo maestro puede ver tab de admins
+    if(tab === 'admins' && window._adminRol !== 'maestro') {
+      document.getElementById('admin-admins-sec').innerHTML = '<div style="text-align:center;padding:30px;color:#D63A2A;font-size:13px;">⛔ Solo el administrador maestro puede gestionar admins.</div>';
+    }
+  };
+
+  window.renderAdminsList = function() {
+    const lista = document.getElementById('admin-admins-lista');
+    lista.innerHTML = '';
+    Object.entries(ADMIN_USERS).forEach(([usr, data]) => {
+      const rolColor = data.rol==='maestro' ? '#F5C518' : data.rol==='premium' ? '#1FC26A' : '#64B5F6';
+      const div = document.createElement('div');
+      div.style.cssText = 'background:#162A1D;border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid #1A3A25;display:flex;justify-content:space-between;align-items:center;';
+      div.innerHTML = `
+        <div>
+          <div class="si53">@${usr}</div>
+          <div class="si10">Rol: <span style="color:${rolColor};font-weight:700;">${data.rol.toUpperCase()}</span></div>
+        </div>
+        ${data.rol !== 'maestro' ? `<button onclick="eliminarAdmin('${usr}')" style="background:#D63A2A20;border:1px solid #D63A2A60;color:#D63A2A;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">🗑 Eliminar</button>` : '<span style="font-size:10px;color:#555;">cuenta maestra</span>'}
+      `;
+      lista.appendChild(div);
+    });
+  };
+
+  window.agregarAdmin = function() {
+    const usr  = document.getElementById('new-admin-usr').value.trim();
+    const pass = document.getElementById('new-admin-pass').value;
+    const rol  = document.getElementById('new-admin-rol').value;
+    const err  = document.getElementById('new-admin-err');
+    if (!usr || !pass) { err.style.display='block'; err.textContent='⚠️ Llena usuario y contraseña'; return; }
+    if (pass.length < 6) { err.style.display='block'; err.textContent='🔐 La contraseña debe tener mínimo 6 caracteres'; return; }
+    if (ADMIN_USERS[usr]) { err.style.display='block'; err.textContent='❌ Ese usuario ya existe'; return; }
+    err.style.display = 'none';
+    ADMIN_USERS[usr] = { pass, rol };
+    document.getElementById('new-admin-usr').value = '';
+    document.getElementById('new-admin-pass').value = '';
+    renderAdminsList();
+    const toast = document.getElementById('admin-toast');
+    toast.textContent = `✅ Admin @${usr} (${rol}) agregado`;
+    toast.style.display = 'block';
+    setTimeout(() => toast.style.display = 'none', 3000);
+  };
+
+  window.eliminarAdmin = function(usr) {
+    window._dcConfirmar('¿Eliminar al admin @' + usr + '?', function() {
+      delete ADMIN_USERS[usr];
+      renderAdminsList();
+      const toast = document.getElementById('admin-toast');
+      toast.textContent = '🗑 Admin @' + usr + ' eliminado';
+      toast.style.display = 'block';
+      setTimeout(() => toast.style.display = 'none', 3000);
+    });
+  };
+
+  // ─── FILTROS SOLICITUDES ─────────────────────────────────
+  window._filtroMain   = 'pendientes'; // 'pendientes' | 'aprobados'
+  window._filtroSub    = 'todos';      // submenú activo
+  window._todosUsuarios = [];
+
+  // Botón principal: Pendientes / Aprobados
+  window.setFiltroMain = async function(btn, filtro) {
+    document.querySelectorAll('#fbtn-pendientes,#fbtn-aprobados,#fbtn-rechazados').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    window._filtroMain = filtro;
+    // Siempre sincronizar subfiltro a 'todos' al cambiar tab principal
+    window._filtroSub = 'todos';
+    document.querySelectorAll('#sbtn-todos,#sbtn-residentes,#sbtn-proveedores,#sbtn-transporte,#sbtn-restaurante,#sbtn-negocio').forEach(b => b.classList.remove('on'));
+    const _sbT=document.getElementById('sbtn-todos'); if(_sbT)_sbT.classList.add('on');
+    const _subRes=document.getElementById('subfiltro-residentes'); if(_subRes)_subRes.style.display='none';
+    if(!window._todosUsuarios || window._todosUsuarios.length === 0) {
+      await cargarSolicitudes();
+    } else {
+      aplicarFiltros();
+    }
+  };
+
+  // Submenú: 6 tipos
+  window.setSubFiltro = async function(btn, subtipo) {
+    document.querySelectorAll('#sbtn-todos,#sbtn-residentes,#sbtn-proveedores,#sbtn-transporte,#sbtn-restaurante,#sbtn-negocio').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    window._filtroSub = subtipo;
+    // Mostrar zona/frac solo en Residentes
+    const subRes = document.getElementById('subfiltro-residentes');
+    if(subRes) subRes.style.display = subtipo === 'vecino' ? 'block' : 'none';
+    // Reset zona/frac si no es residente
+    if(subtipo !== 'vecino') {
+      const fz = document.getElementById('filtro-zona');
+      const ff = document.getElementById('filtro-frac');
+      if(fz) fz.value = '';
+      if(ff) ff.innerHTML = '<option value="">Todos los fraccionamientos</option>';
+    }
+    if(!window._todosUsuarios || window._todosUsuarios.length === 0) {
+      await cargarSolicitudes();
+    } else {
+      aplicarFiltros();
+    }
+  };
+
+  window.onFiltroZona = function(zona) {
+    const ff = document.getElementById('filtro-frac');
+    if(!ff) return;
+    ff.innerHTML = '<option value="">Todos los fraccionamientos</option>';
+    const fracsPorZona = {
+      'Dominio Cumbres':['Alboradas','Alinka','Altaira','Altavia','Atera','Aura','Ayucca','Cerradas Lumina','Cumbres Altta','Cumbres Andara','Cumbres Ferrara','Cumbres La Joya de la Montaña','Cumbres La Rioja','El Cielo','La Montaña','Los Olivos','Lux','Mirador','Montencinos','Montessa','Monticello','Montserrat','Murano','Novelia','Paloblanco','PietrAlta','Pietralta Castelo','Porto Cumbres','Privalia Cumbres','Provenza Privada Terra','Provenza Sector Aqua','Provenza Sector Britania','Provenza Sector Vento','Ravello','Rincón De La Sierra','Rincón Del Obispado','Santoral','Santoral II','Santoral III','Solana','Tivoli','Toscana','Vernazza'],
+      'La Reserva':[],'Valle de Cumbres':[],'Península':[]
+    };
+    const listaBase = fracsPorZona[zona] || [];
+    const fracsFirebase = [...new Set(window._todosUsuarios.filter(u => (u.zona||'') === zona && u.fraccionamiento).map(u => u.fraccionamiento))];
+    const todasFracs = [...new Set([...listaBase, ...fracsFirebase])].sort();
+    todasFracs.forEach(f => {
+      const o = document.createElement('option');
+      o.value = f; o.textContent = f;
+      ff.appendChild(o);
+    });
+    aplicarFiltros();
+  };
+
+  window.aplicarFiltros = function() {
+    const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    let datos = window._todosUsuarios;
+    const sub = window._filtroSub || 'todos';
+
+    if(window._filtroMain === 'pendientes') {
+      datos = datos.filter(u => u.estado === 'pendiente_revision');
+      // subfiltro por tipo dentro de pendientes
+      if(sub === 'vecino')      datos = datos.filter(u => u.tipo === 'vecino');
+      else if(sub === 'proveedor')   datos = datos.filter(u => u.tipo === 'proveedor');
+      else if(sub === 'transporte')  datos = datos.filter(u => ['transporte','repartidor','ambos','transportista','rider'].includes(u.tipo));
+      else if(sub === 'restaurante') datos = datos.filter(u => ['restaurante','restaurant'].includes(u.tipo));
+      else if(sub === 'negocio')     datos = datos.filter(u => ['negocio','tienda','comercio'].includes(u.tipo));
+      // 'todos' no filtra más
+    } else if(window._filtroMain === 'rechazados') {
+      datos = datos.filter(u => u.estado === 'rechazado');
+      if(sub === 'vecino')           datos = datos.filter(u => u.tipo === 'vecino');
+      else if(sub === 'proveedor')   datos = datos.filter(u => u.tipo === 'proveedor');
+      else if(sub === 'transporte')  datos = datos.filter(u => ['transporte','repartidor','ambos','transportista','rider'].includes(u.tipo));
+      else if(sub === 'restaurante') datos = datos.filter(u => ['restaurante','restaurant'].includes(u.tipo));
+      else if(sub === 'negocio')     datos = datos.filter(u => ['negocio','tienda','comercio'].includes(u.tipo));
+    } else {
+      // APROBADOS
+      // Vecinos registrados antes del sistema de estados no tienen campo 'estado' → igual se muestran
+      const esAprobado = u =>
+        u.estado === 'activo' ||
+        u.estado === 'aprobado_pendiente_pago' ||
+        (u.tipo === 'vecino' && (u.estado === undefined || u.estado === null || u.estado === ''));
+      datos = datos.filter(esAprobado);
+
+      if(sub === 'vecino') {
+        datos = datos.filter(u => u.tipo === 'vecino');
+        const zona = (document.getElementById('filtro-zona')||{}).value || '';
+        const frac = (document.getElementById('filtro-frac')||{}).value || '';
+        if(zona) datos = datos.filter(u => norm(u.zona) === norm(zona));
+        if(frac) datos = datos.filter(u => norm(u.fraccionamiento) === norm(frac));
+      } else if(sub === 'proveedor')   { datos = datos.filter(u => u.tipo === 'proveedor'); }
+      else if(sub === 'transporte')    { datos = datos.filter(u => ['transporte','repartidor','ambos','transportista','rider'].includes(u.tipo)); }
+      else if(sub === 'restaurante')   { datos = datos.filter(u => ['restaurante','restaurant'].includes(u.tipo)); }
+      else if(sub === 'negocio')       { datos = datos.filter(u => ['negocio','tienda','comercio'].includes(u.tipo)); }
+      // sub==='todos' → ya filtrado por esAprobado arriba
+    }
+    renderLista(datos);
+  };
+
+  window.renderLista = function(datos) {
+    const lista = document.getElementById('admin-lista');
+    if(!datos.length) {
+      lista.innerHTML = '<div class="si24">&#10003; Sin resultados para este filtro</div>';
+      return;
+    }
+    lista.innerHTML = '';
+    datos.forEach(u => {
+      const color = u.estado==='activo'?'#1FC26A':u.estado==='rechazado'?'#D63A2A':u.estado==='aprobado_pendiente_pago'?'#1A7AB5':'#F5C518';
+      const div = document.createElement('div');
+      div.style.cssText = 'background:#162A1D;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid #1A3A25;';
+      const esPendiente = u.estado === 'pendiente_revision' && u.tipo !== 'vecino';
+      const esAprobado  = u.estado === 'activo' || u.estado === 'aprobado_pendiente_pago'
+                         || (u.tipo === 'vecino' && (u.estado === undefined || u.estado === null || u.estado === ''));
+      const esRechazado = u.estado === 'rechazado';
+      div.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#fff;">${u.nombre||u.nombreNegocio||'&#8212;'}</div>
+            <div class="si10">${u.correo||'&#8212;'}</div>
+            <div style="font-size:10px;color:#555;margin-top:2px;">${u.fraccionamiento ? '&#128205; '+u.fraccionamiento : (u.zona ? '&#128506; '+u.zona : '&#8212;')} ${u.zona && u.fraccionamiento ? '&middot; '+u.zona : ''}</div>
+          </div>
+          <div style="text-align:right;">
+            <span style="background:#F5C51820;color:#F5C518;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;border:1px solid #F5C51840;display:block;margin-bottom:4px;">${(u.tipo||'').toUpperCase()}</span>
+            <span style="font-size:10px;font-weight:700;color:${color};">${u.estado==='aprobado_pendiente_pago'?'PENDIENTE PAGO':(u.estado||'').toUpperCase()}</span>
+          </div>
+        </div>
+        ${esPendiente ? `<div style="margin-top:8px;">
+          <button onclick="window.verDetalleAdmin('${u._id}')" style="width:100%;background:#F5C51820;border:1px solid #F5C51860;color:#F5C518;border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">&#128269; Revisar solicitud</button>
+        </div>` : ''}
+        ${esAprobado ? `<div style="margin-top:8px;">
+          <button onclick="window.verDetalleAdmin('${u._id}')" style="width:100%;background:#1FC26A20;border:1px solid #1FC26A60;color:#1FC26A;border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">&#128203; Ver detalle</button>
+        </div>` : ''}
+        ${esRechazado ? '<div style="margin-top:8px;">'
+          +'<button onclick="window.verDetalleAdmin(\''+u._id+'\')" style="width:100%;background:#D63A2A20;border:1px solid #D63A2A60;color:#D63A2A;border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">&#128203; Ver detalle</button>'
+          +(u.motivoRechazo ? '<div style="margin-top:6px;font-size:11px;color:#D63A2A;padding:6px 8px;background:#D63A2A10;border-radius:8px;">&#128172; '+(u.motivoRechazo||'').slice(0,80)+((u.motivoRechazo||'').length>80?'\u2026':'')+'</div>' : '')
+          +'</div>' : ''}
+      `;
+      lista.appendChild(div);
+    });
+  };
+  // ── Modal de detalle admin ──────────────────────────────────
+  window.verDetalleAdmin = function(uid) {
+    const u = (window._todosUsuarios||[]).find(x => x._id === uid);
+    if (!u) return;
+
+    // R: always show, empty -> em dash
+    const R = (label, val) => {
+      const v = (val===null||val===undefined||val==='')?'&#8212;':String(val);
+      return '<div style="margin-bottom:10px;">'
+        +'<div style="font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">'+label+'</div>'
+        +'<div style="font-size:13px;color:#1a1a1a;font-weight:500;word-break:break-all;">'+v+'</div></div>';
+    };
+    const S = t => '<div style="font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;padding-top:10px;border-top:1.5px solid #f0f0f0;">'+t+'</div>';
+
+    const fecha  = u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '&#8212;';
+    const esRide = ['transporte','repartidor','ambos'].includes(u.tipo);
+    const esNeg  = ['negocio','restaurante'].includes(u.tipo);
+    const esProv = u.tipo === 'proveedor';
+
+    let campos = '';
+
+    // DATOS PERSONALES
+    campos += S('Datos personales');
+    campos += R('Nombre', u.nombre||u.nombreNegocio);
+    campos += R('Usuario', u.usuario);
+    campos += R('Correo', u.correo);
+    campos += R('Prefijo WhatsApp', u.prefijoWhatsapp);
+    campos += R('Tel\u00e9fono', u.telefono);
+    campos += R('WhatsApp', u.whatsapp);
+
+    // DATOS ESPECIFICOS
+    if (esProv) {
+      campos += S('Servicio');
+      campos += R('Oficio 1', u.oficio1);
+      campos += R('Oficio 2', u.oficio2);
+      campos += R('Oficio 3', u.oficio3);
+      campos += R('Descripci\u00f3n Otro', u.otroDesc);
+      campos += R('Oficios adicionales', u.oficiosExtra);
+      campos += R('Descripci\u00f3n / Especialidad', u.descripcion);
+      campos += R('Experiencia', u.experiencia);
+      campos += R('Calificaci\u00f3n', u.calificacion);
+      campos += R('Total calificaciones', u.totalCalificaciones);
+      campos += S('Direcci\u00f3n privada');
+      campos += R('Calle', u.calle);
+      campos += R('N\u00famero', u.numero||u.numeroProv);
+      campos += R('Colonia', u.colonia);
+    } else if (esRide) {
+      const tl={'transporte':'Transporte','repartidor':'Repartidor','ambos':'Transporte y Repartidor'};
+      campos += S('Servicio de transporte');
+      campos += R('Tipo de servicio', tl[u.tipo]||u.tipo);
+      campos += R('Tipo de veh\u00edculo', u.tipoVehiculo);
+      campos += R('Marca', u.marca);
+      campos += R('Modelo', u.modelo);
+      campos += R('Color', u.color);
+      campos += R('Placas', u.placas);
+      campos += R('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres Garc\u00eda':u.cobertura==='dominio_cumbres'?'Solo Dominio Cumbres':u.cobertura);
+      campos += R('Descripci\u00f3n', u.descripcion);
+    } else if (esNeg) {
+      campos += S('Datos del negocio');
+      campos += R('Nombre comercial', u.nombreNegocio);
+      campos += R('Tipo', u.tipo==='restaurante'?'Restaurante':'Negocio');
+      campos += R('Categor\u00eda', u.categoria);
+      campos += R('Categor\u00eda (otro)', u.categoriaOtro);
+      campos += R('Operaci\u00f3n', u.operacion);
+      campos += R('Entrega', u.entrega);
+      campos += R('Cobertura', u.cobertura==='cumbres_garcia'?'Toda Cumbres Garc\u00eda':u.cobertura==='dominio_cumbres'?'Solo Dominio Cumbres':u.cobertura);
+      campos += R('Descripci\u00f3n', u.descripcion);
+      campos += R('A\u00f1os operando', u.aniosOperando);
+      campos += S('Direcci\u00f3n privada');
+      campos += R('Calle', u.calle);
+      campos += R('N\u00famero', u.numero);
+      campos += R('Colonia', u.colonia);
+    } else {
+      // Vecino
+      campos += S('Ubicaci\u00f3n');
+      campos += R('Zona', u.zona);
+      campos += R('Fraccionamiento', u.fraccionamiento);
+      campos += R('Calle', u.calle);
+      campos += R('N\u00famero', u.numero);
+      campos += R('Direcci\u00f3n', u.direccion);
+    }
+
+    // SISTEMA
+    campos += S('Sistema');
+    campos += R('UID', uid);
+    campos += R('Tipo', u.tipo);
+    campos += R('Estado', u.estado);
+    campos += R('Registro', fecha);
+    if (u.motivoRechazo) campos += R('Motivo rechazo', u.motivoRechazo);
+    if (u.rechazadoEn)   campos += R('Rechazado el', new Date(u.rechazadoEn).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}));
+
+    // BOTONES
+    const nomSafe = (u.nombre||u.nombreNegocio||'').replace(/'/g,'');
+    let acciones = '';
+    if (u.estado === 'pendiente_revision') {
+      acciones =
+        '<div style="display:flex;gap:8px;margin-top:16px;">'
+        +'<button onclick="aprobarUsuario(\''+uid+'\',\''+u.correo+'\',\''+nomSafe+'\',\''+u.tipo+'\');document.getElementById(\'modal-detalle-admin\').style.display=\'none\'" '
+        +'style="flex:1;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">&#10003; Aprobar</button>'
+        +'<button onclick="window._abrirModalRechazo(\''+uid+'\',\''+u.correo+'\',\''+nomSafe+'\')" '
+        +'style="flex:1;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">&#10007; Rechazar</button>'
+        +'</div>';
+    }
+    acciones += '<button onclick="document.getElementById(\'modal-detalle-admin\').style.display=\'none\'" '
+      +'style="width:100%;margin-top:8px;background:#f0f0f0;color:#555;border:none;border-radius:12px;padding:11px;font-size:13px;cursor:pointer;font-family:\'Inter\',sans-serif;">Cerrar</button>';
+
+    const html = '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:4px;">'+(u.nombre||u.nombreNegocio||'&#8212;')+'</div>'
+      + campos + acciones;
+
+    const ya = document.getElementById('modal-detalle-admin');
+    if (ya) { ya.querySelector('.mda-body').innerHTML = html; ya.style.display='flex'; return; }
+    const m = document.createElement('div');
+    m.id = 'modal-detalle-admin';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+    m.innerHTML = '<div class="mda-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;">'+html+'</div>';
+    m.addEventListener('click', e => { if(e.target===m) m.style.display='none'; });
+    document.body.appendChild(m);
+  };
+
+  window.aprobarUsuario = async function(uid, correo, nombre, tipo) {
+    try {
+      const { updateDoc, doc: fsDoc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      // Leer tipo directamente de Firestore — no depender del param que puede llegar vacío
+      const snap = await getDoc(fsDoc(window._fbDb, 'usuarios', uid));
+      const tipoReal = snap.exists() ? (snap.data().tipo || '') : (tipo || '');
+      const nuevoEstado = ['proveedor','negocio','restaurante'].includes(tipoReal) ? 'aprobado_pendiente_pago' : 'activo';
+      await updateDoc(fsDoc(window._fbDb, 'usuarios', uid), { estado: nuevoEstado });
+      notificarAprobado(nombre, correo);
+      const msg = tipo === 'proveedor'
+        ? `✅ ${nombre} aprobado — pendiente de pago`
+        : `✅ ${nombre} aprobado — se le notificó por correo`;
+      document.getElementById('admin-toast').textContent = msg;
+      document.getElementById('admin-toast').style.display = 'block';
+      setTimeout(()=>document.getElementById('admin-toast').style.display='none', 4000);
+      cargarSolicitudes();
+    } catch(e) {
+      const _at=document.getElementById('admin-toast'); if(_at){_at.textContent='❌ Error al aprobar: '+e.message;_at.style.display='block';setTimeout(()=>{_at.style.display='none';},4000);}
+    }
+  };
+
+  // Modal de motivo de rechazo
+  window._abrirModalRechazo = function(uid, correo, nombre) {
+    const ya = document.getElementById('modal-rechazo-motivo');
+    const html =
+      '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:12px;">'+'\u274C Motivo de rechazo</div>'
+      +'<div style="font-size:12px;color:#666;margin-bottom:8px;">Este mensaje ser\u00e1 visible para el solicitante al iniciar sesi\u00f3n.</div>'
+      +'<textarea id="rechazo-motivo-inp" rows="4" maxlength="500" placeholder="Describe el motivo (m\u00ednimo 20 caracteres)..." '
+      +'style="width:100%;box-sizing:border-box;border:1.5px solid #ddd;border-radius:10px;padding:10px;font-size:13px;font-family:\'Inter\',sans-serif;resize:none;margin-bottom:4px;"></textarea>'
+      +'<div id="rechazo-motivo-st" style="font-size:11px;color:#aaa;margin-bottom:12px;">0 / 500 caracteres</div>'
+      +'<button onclick="window._confirmarRechazo(\''+uid+'\',\''+correo+'\',\''+nombre+'\')" '
+      +'style="width:100%;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;margin-bottom:8px;">Confirmar rechazo</button>'
+      +'<button onclick="document.getElementById(\'modal-rechazo-motivo\').style.display=\'none\'" '
+      +'style="width:100%;background:#f0f0f0;color:#555;border:none;border-radius:12px;padding:11px;font-size:13px;cursor:pointer;font-family:\'Inter\',sans-serif;">Cancelar</button>';
+    if (ya) { ya.querySelector('.mrm-body').innerHTML = html; ya.style.display='flex'; }
+    else {
+      const m = document.createElement('div');
+      m.id = 'modal-rechazo-motivo';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:flex-end;justify-content:center;';
+      m.innerHTML = '<div class="mrm-body" style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;">'+html+'</div>';
+      document.body.appendChild(m);
+    }
+    // live counter
+    setTimeout(() => {
+      const ta = document.getElementById('rechazo-motivo-inp');
+      const st = document.getElementById('rechazo-motivo-st');
+      if (ta && st) ta.addEventListener('input', () => { st.textContent = ta.value.length + ' / 500 caracteres'; });
+    }, 100);
+  };
+
+  window._confirmarRechazo = async function(uid, correo, nombre) {
+    const ta = document.getElementById('rechazo-motivo-inp');
+    const motivo = (ta ? ta.value.trim() : '');
+    if (!motivo || motivo.length < 20) {
+      const st = document.getElementById('rechazo-motivo-st');
+      if (st) { st.textContent = '\u26a0\ufe0f M\u00ednimo 20 caracteres'; st.style.color='#D63A2A'; }
+      return;
+    }
+    const m = document.getElementById('modal-rechazo-motivo');
+    if (m) m.style.display = 'none';
+    const mda = document.getElementById('modal-detalle-admin');
+    if (mda) mda.style.display = 'none';
+    await window.rechazarUsuario(uid, correo, nombre, motivo);
+  };
+
+  window.rechazarUsuario = async function(uid, correo, nombre, motivo) {
+    try {
+      const { updateDoc, doc: fsDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      await updateDoc(fsDoc(window._fbDb, 'usuarios', uid), {
+        estado: 'rechazado',
+        motivoRechazo: motivo || '',
+        rechazadoEn: new Date().toISOString()
+      });
+      document.getElementById('admin-toast').textContent = `🚫 ${nombre||'Solicitud'} rechazada`;
+      document.getElementById('admin-toast').style.display = 'block';
+      setTimeout(()=>document.getElementById('admin-toast').style.display='none', 3000);
+      cargarSolicitudes();
+    } catch(e) {
+      const _at=document.getElementById('admin-toast'); if(_at){_at.textContent='❌ Error al rechazar: '+e.message;_at.style.display='block';setTimeout(()=>{_at.style.display='none';},4000);}
+    }
+  };
+
+  window.verTodosUsuarios = async function() {
+    await cargarSolicitudes();
+  };
+
+  window.verificarCodigo = function() {
+    const inputs = document.querySelectorAll('.code-inp');
+    const codigo = Array.from(inputs).map(i => i.value).join('');
+    const errEl = document.getElementById('codigo-err');
+    if (codigo.length < 4 || /\s/.test(codigo)) {
+      errEl.style.display = 'block';
+      return;
+    }
+    errEl.style.display = 'none';
+    go('v-home', 'right');
+  };

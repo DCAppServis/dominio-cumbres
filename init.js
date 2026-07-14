@@ -1,4 +1,7 @@
-  window.VERSION_APP = "V68-CATALOGO-NAVCORR-20260624";
+  window.VERSION_APP = "1.0.0";
+  // EmailJS public key: riesgo aceptado. Las public keys de EmailJS son
+  // por diseño client-side. Seguridad adicional: configurar dominios
+  // permitidos en el dashboard de EmailJS (emailjs.com → Account → Security).
 
   // ============ CHAT CON FIREBASE ============
   window._chatUnsubscribe = null;
