@@ -1449,61 +1449,72 @@ function showAdminTab(i,btn){
     const usr = document.getElementById('admin-usr-input').value.trim();
     const p   = document.getElementById('admin-pass-input').value;
     const err = document.getElementById('admin-pass-err');
-    const cuenta = ADMIN_USERS[usr];
-    if (!cuenta) {
-      err.style.display = 'block';
-      err.textContent = '❌ Usuario o contraseña incorrectos';
+    if(!usr || !p){ err.style.display='block'; err.textContent='⚠️ Ingresa usuario y contraseña'; return; }
+
+    // Resolver el correo Firebase: por ADMIN_USERS (Maestro hardcodeado) o directamente si es email
+    const cuentaLegacy = ADMIN_USERS[usr];
+    let fbEmail;
+    if(cuentaLegacy && cuentaLegacy.fbEmail) {
+      fbEmail = cuentaLegacy.fbEmail;
+    } else if(usr.includes('@')) {
+      fbEmail = usr;
+    } else {
+      err.style.display='block';
+      err.textContent='❌ Usuario no encontrado. Los administradores nuevos deben ingresar su correo electrónico.';
       return;
     }
-    err.style.display = 'none';
+    err.style.display='none';
+
+    let adminData;
     try {
       const { signInWithEmailAndPassword, signOut } = await import(
         "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js"
       );
-      await signInWithEmailAndPassword(window._fbAuth, cuenta.fbEmail, p);
+      await signInWithEmailAndPassword(window._fbAuth, fbEmail, p);
       const uid = window._fbAuth.currentUser.uid;
-      const { getDoc, doc } = await import(
+      const { getDoc, doc, updateDoc, serverTimestamp } = await import(
         "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js"
       );
       const snap = await getDoc(doc(window._fbDb, 'usuarios', uid));
-      const data = snap.exists() ? snap.data() : {};
-      const esAdmin = data.esAdmin === true || data.rol === 'maestro' || data.rol === 'admin';
-      if (!esAdmin) {
+      adminData = snap.exists() ? snap.data() : {};
+      const esAdmin = adminData.esAdmin === true || adminData.rol === 'maestro' || adminData.rol === 'admin';
+      if(!esAdmin) {
         await signOut(window._fbAuth);
-        err.style.display = 'block';
-        err.textContent = '⛔ Esta cuenta no tiene permisos de administrador';
-        return;
+        err.style.display='block'; err.textContent='⛔ Esta cuenta no tiene permisos de administrador'; return;
       }
+      if(adminData.activo === false) {
+        await signOut(window._fbAuth);
+        err.style.display='block'; err.textContent='⛔ Esta cuenta está suspendida'; return;
+      }
+      // Registrar último acceso en segundo plano
+      updateDoc(doc(window._fbDb,'usuarios',uid), { ultimoAcceso: serverTimestamp() }).catch(function(){});
     } catch(fbErr) {
-      err.style.display = 'block';
-      err.textContent = '❌ Contraseña incorrecta o error de autenticación';
+      err.style.display='block';
+      err.textContent='❌ Contraseña incorrecta o error de autenticación';
       return;
     }
-    window._adminRol = cuenta.rol;
-    window._adminUsr = usr;
-    // Show loading then go to panel
+
+    const rol = adminData.rol || (cuentaLegacy && cuentaLegacy.rol) || 'junior';
+    window._adminRol = rol;
+    window._adminUsr = adminData.usuario || usr;
     showLoading();
     setTimeout(() => {
       hideLoading();
       go('v-admin-panel', 'right');
-      // Sync visual tab + data using same path as manual click
       const _fbtnP = document.getElementById('fbtn-pendientes');
-      if (_fbtnP && window.setFiltroMain) {
+      if(_fbtnP && window.setFiltroMain) {
         window.setFiltroMain(_fbtnP, 'pendientes');
       } else {
         window._filtroMain = 'pendientes';
         window._filtroSub = 'todos';
         cargarSolicitudes();
       }
-      // Update role display
       const rolEl = document.getElementById('admin-rol-display');
-      if(rolEl) rolEl.textContent = 'Admin ' + (cuenta.rol === 'maestro' ? 'Master' : cuenta.rol.charAt(0).toUpperCase() + cuenta.rol.slice(1));
-      // Hide admins card for non-maestro
-      if(cuenta.rol !== 'maestro') {
+      if(rolEl) rolEl.textContent = 'Admin ' + (rol === 'maestro' ? 'Master' : rol.charAt(0).toUpperCase() + rol.slice(1));
+      if(rol !== 'maestro') {
         const cardAdmins = document.getElementById('card-admins');
         if(cardAdmins) cardAdmins.style.display='none';
       }
-      // Load pending count
       cargarAnalytics().catch(()=>{});
     }, 1000);
   };
@@ -1522,7 +1533,6 @@ function showAdminTab(i,btn){
   };
 
   window.switchAdminTab = function(tab) {
-    // Fix botones — solo uno activo a la vez
     const btnP = document.getElementById('tab-pendientes-btn');
     const btnT = document.getElementById('tab-todos-btn');
     if(btnP && btnT) {
@@ -1531,72 +1541,19 @@ function showAdminTab(i,btn){
       btnT.style.background = tab==='todos' ? '#1FC26A' : '#162A1D';
       btnT.style.color = tab==='todos' ? '#000' : '#aaa';
     }
-    // Legacy compatibility - redirect to new sections
     if(tab === 'pendientes') { cargarSolicitudes(); return; }
     if(tab === 'todos') { verTodosUsuarios(); return; }
-    if(tab === 'admins') { goAdminSec('admins'); return; }
-    const tabs = ['pendientes','todos','admins'];
-    tabs.forEach(t => {
-      const btn = document.getElementById('tab-'+t+'-btn');
-      if(btn){ btn.style.background = t===tab ? '#1FC26A' : '#162A1D'; btn.style.color = t===tab ? '#000' : '#aaa'; }
-    });
-    document.getElementById('admin-lista').style.display = tab !== 'admins' ? 'block' : 'none';
-    document.getElementById('admin-admins-sec').style.display = tab === 'admins' ? 'block' : 'none';
-    if(tab === 'pendientes') cargarSolicitudes();
-    if(tab === 'todos') verTodosUsuarios();
-    if(tab === 'admins') renderAdminsList();
-    // Solo maestro puede ver tab de admins
-    if(tab === 'admins' && window._adminRol !== 'maestro') {
-      document.getElementById('admin-admins-sec').innerHTML = '<div style="text-align:center;padding:30px;color:#D63A2A;font-size:13px;">⛔ Solo el administrador maestro puede gestionar admins.</div>';
-    }
   };
 
-  window.renderAdminsList = function() {
-    const lista = document.getElementById('admin-admins-lista');
-    lista.innerHTML = '';
-    Object.entries(ADMIN_USERS).forEach(([usr, data]) => {
-      const rolColor = data.rol==='maestro' ? '#F5C518' : data.rol==='premium' ? '#1FC26A' : '#64B5F6';
-      const div = document.createElement('div');
-      div.style.cssText = 'background:#162A1D;border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid #1A3A25;display:flex;justify-content:space-between;align-items:center;';
-      div.innerHTML = `
-        <div>
-          <div class="si53">@${usr}</div>
-          <div class="si10">Rol: <span style="color:${rolColor};font-weight:700;">${data.rol.toUpperCase()}</span></div>
-        </div>
-        ${data.rol !== 'maestro' ? `<button onclick="eliminarAdmin('${usr}')" style="background:#D63A2A20;border:1px solid #D63A2A60;color:#D63A2A;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">🗑 Eliminar</button>` : '<span style="font-size:10px;color:#555;">cuenta maestra</span>'}
-      `;
-      lista.appendChild(div);
-    });
-  };
-
-  window.agregarAdmin = function() {
-    const usr  = document.getElementById('new-admin-usr').value.trim();
-    const pass = document.getElementById('new-admin-pass').value;
-    const rol  = document.getElementById('new-admin-rol').value;
-    const err  = document.getElementById('new-admin-err');
-    if (!usr || !pass) { err.style.display='block'; err.textContent='⚠️ Llena usuario y contraseña'; return; }
-    if (pass.length < 6) { err.style.display='block'; err.textContent='🔐 La contraseña debe tener mínimo 6 caracteres'; return; }
-    if (ADMIN_USERS[usr]) { err.style.display='block'; err.textContent='❌ Ese usuario ya existe'; return; }
-    err.style.display = 'none';
-    ADMIN_USERS[usr] = { pass, rol };
-    document.getElementById('new-admin-usr').value = '';
-    document.getElementById('new-admin-pass').value = '';
-    renderAdminsList();
-    const toast = document.getElementById('admin-toast');
-    toast.textContent = `✅ Admin @${usr} (${rol}) agregado`;
-    toast.style.display = 'block';
-    setTimeout(() => toast.style.display = 'none', 3000);
-  };
-
-  window.eliminarAdmin = function(usr) {
-    window._dcConfirmar('¿Eliminar al admin @' + usr + '?', function() {
-      delete ADMIN_USERS[usr];
-      renderAdminsList();
-      const toast = document.getElementById('admin-toast');
-      toast.textContent = '🗑 Admin @' + usr + ' eliminado';
-      toast.style.display = 'block';
-      setTimeout(() => toast.style.display = 'none', 3000);
-    });
+  // Acceso directo desde Configuración → Administradores
+  window.irAdministradores = function() {
+    showLoading();
+    setTimeout(function(){
+      hideLoading();
+      go('v-admin-usuarios', 'right');
+      window._admuNavStack = [];
+      admuSelTipo('admin');
+    }, 800);
   };
 
   // ─── ADMINISTRACIÓN DE USUARIOS ──────────────────────────
@@ -1685,17 +1642,26 @@ function showAdminTab(i,btn){
     }
   };
 
-  function admuCargarAdmins() {
+  async function admuCargarAdmins() {
     admuShow('admu-lista-sec');
     var t = document.getElementById('admu-lista-titulo');
     if(t) t.textContent = 'Administradores';
     var addBtn = document.getElementById('admu-add-admin-btn');
-    if(addBtn) addBtn.style.display = 'block';
+    if(addBtn) addBtn.style.display = window._adminRol === 'maestro' ? 'block' : 'none';
     var search = document.getElementById('admu-search');
     if(search) search.value = '';
-    // Build datos from ADMIN_USERS
-    window._admuDatos = Object.entries(ADMIN_USERS).map(function(e){ return { uid: e[0], nombre: '@'+e[0], rol: e[1].rol, tipo:'admin' }; });
-    admuRenderListaAdmins(window._admuDatos);
+    var lista = document.getElementById('admu-lista');
+    if(lista) lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Cargando... ⏳</div>';
+    try {
+      var { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      var q = query(collection(window._fbDb,'usuarios'), where('esAdmin','==',true));
+      var snap = await getDocs(q);
+      window._admuDatos = [];
+      snap.forEach(function(d){ window._admuDatos.push(Object.assign({ uid: d.id }, d.data())); });
+      admuRenderListaAdmins(window._admuDatos);
+    } catch(e) {
+      if(lista) lista.innerHTML = '<div style="color:#D63A2A;font-size:12px;padding:10px;">Error: '+e.message+'</div>';
+    }
   }
 
   function admuRenderListaProv(datos) {
@@ -1836,15 +1802,40 @@ function showAdminTab(i,btn){
   function admuRenderListaAdmins(datos) {
     var lista = document.getElementById('admu-lista');
     if(!lista) return;
-    if(!datos.length) { lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Sin administradores</div>'; return; }
+    if(!datos.length) { lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Sin administradores registrados</div>'; return; }
     lista.innerHTML = '<div style="border-radius:14px;overflow:hidden;border:.5px solid var(--card-border);">'
       + datos.map(function(u, i){
         var rolColor = u.rol==='maestro' ? '#F5C518' : u.rol==='premium' ? '#1FC26A' : '#64B5F6';
         var borde = i < datos.length-1 ? 'border-bottom:1px solid rgba(255,255,255,.06);' : '';
-        return '<div style="background:var(--card-dark);'+borde+'padding:13px 14px;display:flex;align-items:center;gap:10px;">'
-          +'<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#fff;">'+u.nombre+'</div>'
-          +'<div style="font-size:11px;color:'+rolColor+';font-weight:700;margin-top:2px;">'+u.rol.toUpperCase()+'</div></div>'
-          +(u.rol !== 'maestro' ? '<button onclick="admuEliminarAdmin(\''+u.uid+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:6px 9px;font-size:14px;color:#D63A2A;cursor:pointer;">🗑</button>' : '<span style="font-size:10px;color:#555;">Maestra</span>')
+        var esMaestro = u.rol === 'maestro';
+        var activo = u.activo !== false;
+        var estadoColor = activo ? '#1FC26A' : '#D63A2A';
+        var estadoLabel = activo ? 'ACTIVO' : 'SUSPENDIDO';
+        var correo = u.correo || u.email || '—';
+        var ultimoAcceso = u.ultimoAcceso ? new Date(u.ultimoAcceso.seconds*1000).toLocaleDateString('es-MX') : '—';
+        var creadoEn = u.creadoEn ? new Date(u.creadoEn.seconds*1000).toLocaleDateString('es-MX') : '—';
+        var creadoPor = u.creadoPor || '—';
+        var acciones = esMaestro
+          ? '<span style="font-size:10px;color:#555;">Cuenta maestra</span>'
+          : (window._adminRol === 'maestro'
+              ? (activo
+                  ? '<button onclick="admuSuspenderAdmin(\''+u.uid+'\')" style="background:#F5A62318;border:1px solid #F5A62360;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:700;color:#F5A623;cursor:pointer;font-family:\'Inter\',sans-serif;white-space:nowrap;">⏸ Suspender</button>'
+                  : '<button onclick="admuReactivarAdmin(\''+u.uid+'\')" style="background:#1FC26A18;border:1px solid #1FC26A50;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:\'Inter\',sans-serif;white-space:nowrap;">✅ Reactivar</button>')
+              : '');
+        return '<div style="background:var(--card-dark);'+borde+'padding:13px 14px;">'
+          +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">'
+          +'<div style="flex:1;">'
+          +'<div style="font-size:13px;font-weight:700;color:#fff;">@'+(u.usuario||u.uid)+'</div>'
+          +'<div style="font-size:11px;font-weight:700;margin-top:2px;color:'+rolColor+';">'+u.rol.toUpperCase()+'&nbsp;·&nbsp;<span style="color:'+estadoColor+';">'+estadoLabel+'</span></div>'
+          +'</div>'
+          +acciones
+          +'</div>'
+          +'<div style="font-size:11px;color:rgba(255,255,255,.4);display:grid;grid-template-columns:1fr 1fr;gap:3px;">'
+          +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📧 '+correo+'</span>'
+          +'<span>🗓 Alta: '+creadoEn+'</span>'
+          +'<span>👤 Por: '+creadoPor+'</span>'
+          +'<span>⏱ Acceso: '+ultimoAcceso+'</span>'
+          +'</div>'
           +'</div>';
       }).join('')
       + '</div>';
@@ -1928,14 +1919,30 @@ function showAdminTab(i,btn){
     });
   };
 
-  window.admuEliminarAdmin = function(usr) {
-    window._dcConfirmar('¿Eliminar al admin @'+usr+'?', function() {
-      delete ADMIN_USERS[usr];
-      window._admuDatos = Object.entries(ADMIN_USERS).map(function(e){ return { uid:e[0], nombre:'@'+e[0], rol:e[1].rol, tipo:'admin' }; });
+  window.admuSuspenderAdmin = function(uid) {
+    window._dcConfirmar('¿Suspender a este administrador? No podrá iniciar sesión hasta ser reactivado.', async function() {
+      try {
+        var { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+        await updateDoc(doc(window._fbDb,'usuarios',uid), { activo: false });
+        var u = window._admuDatos.find(function(x){ return x.uid===uid; });
+        if(u) u.activo = false;
+        admuRenderListaAdmins(window._admuDatos);
+        var toast = document.getElementById('admin-toast');
+        if(toast){ toast.textContent='⏸ Administrador suspendido'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+      } catch(e) { alert('Error: '+e.message); }
+    });
+  };
+
+  window.admuReactivarAdmin = async function(uid) {
+    try {
+      var { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      await updateDoc(doc(window._fbDb,'usuarios',uid), { activo: true });
+      var u = window._admuDatos.find(function(x){ return x.uid===uid; });
+      if(u) u.activo = true;
       admuRenderListaAdmins(window._admuDatos);
       var toast = document.getElementById('admin-toast');
-      if(toast){ toast.textContent='🗑 Admin @'+usr+' eliminado'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
-    });
+      if(toast){ toast.textContent='✅ Administrador reactivado'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+    } catch(e) { alert('Error: '+e.message); }
   };
 
   window.admuAbrirModal = function(uid) {
@@ -1983,10 +1990,14 @@ function showAdminTab(i,btn){
   };
 
   window.admuAgregarAdmin = function() {
+    if(window._adminRol !== 'maestro') {
+      var toast=document.getElementById('admin-toast');
+      if(toast){ toast.textContent='⛔ Solo el administrador maestro puede crear cuentas'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+      return;
+    }
     window._admuNavStack.push('admu-lista-sec');
     admuShow('admu-form-admin');
-    var inputs = ['admu-new-usr','admu-new-pass'];
-    inputs.forEach(function(id){ var el=document.getElementById(id); if(el)el.value=''; });
+    ['admu-new-usr','admu-new-email','admu-new-pass','admu-new-pass2'].forEach(function(id){ var el=document.getElementById(id); if(el)el.value=''; });
     var err=document.getElementById('admu-new-err'); if(err)err.style.display='none';
   };
 
@@ -1995,19 +2006,91 @@ function showAdminTab(i,btn){
     admuCargarAdmins();
   };
 
-  window.admuConfirmarAgregarAdmin = function() {
-    var usr  = (document.getElementById('admu-new-usr').value||'').trim();
-    var pass = document.getElementById('admu-new-pass').value;
-    var rol  = document.getElementById('admu-new-rol').value;
-    var err  = document.getElementById('admu-new-err');
-    if(!usr||!pass){ err.style.display='block'; err.textContent='⚠️ Llena usuario y contraseña'; return; }
-    if(pass.length<6){ err.style.display='block'; err.textContent='🔐 Mínimo 6 caracteres'; return; }
-    if(ADMIN_USERS[usr]){ err.style.display='block'; err.textContent='❌ Ese usuario ya existe'; return; }
-    err.style.display='none';
-    ADMIN_USERS[usr] = { pass: pass, rol: rol };
-    admuBack2Form();
-    var toast=document.getElementById('admin-toast');
-    if(toast){ toast.textContent='✅ Admin @'+usr+' ('+rol+') agregado'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+  window.admuConfirmarAgregarAdmin = async function() {
+    var usr   = (document.getElementById('admu-new-usr').value||'').trim();
+    var email = (document.getElementById('admu-new-email').value||'').trim().toLowerCase();
+    var pass  = document.getElementById('admu-new-pass').value;
+    var pass2 = document.getElementById('admu-new-pass2').value;
+    var rol   = document.getElementById('admu-new-rol').value;
+    var errEl = document.getElementById('admu-new-err');
+    var btn   = document.querySelector('#admu-form-admin .btn-green');
+    function showErr(msg){ errEl.style.display='block'; errEl.textContent=msg; if(btn){btn.disabled=false;btn.textContent='Agregar admin →';} }
+
+    // Validaciones
+    if(!usr){ showErr('⚠️ El nombre de usuario es obligatorio'); return; }
+    if(!/^[a-zA-Z0-9_]{3,30}$/.test(usr)){ showErr('⚠️ Usuario: solo letras, números y guión bajo (3-30 caracteres)'); return; }
+    if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showErr('⚠️ Ingresa un correo electrónico válido'); return; }
+    if(pass.length<6){ showErr('🔐 La contraseña debe tener mínimo 6 caracteres'); return; }
+    if(pass!==pass2){ showErr('❌ Las contraseñas no coinciden'); return; }
+    if(window._adminRol!=='maestro'){ showErr('⛔ Solo el administrador maestro puede crear cuentas'); return; }
+    errEl.style.display='none';
+    if(btn){ btn.disabled=true; btn.textContent='Creando...'; }
+
+    try {
+      var { getDocs, collection, query, where, doc, setDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      // Verificar correo no repetido
+      var snapEmail = await getDocs(query(collection(window._fbDb,'usuarios'), where('correo','==',email)));
+      if(!snapEmail.empty){ showErr('❌ Ese correo ya está registrado'); return; }
+      // Verificar usuario no repetido
+      var snapUsr = await getDocs(query(collection(window._fbDb,'usuarios'), where('usuario','==',usr)));
+      if(!snapUsr.empty){ showErr('❌ Ese nombre de usuario ya existe'); return; }
+
+      // Crear cuenta Firebase Auth con instancia secundaria (no afecta sesión del Maestro)
+      var { initializeApp, getApp } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js");
+      var { getAuth, createUserWithEmailAndPassword: createUser, signOut: signOutSec } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js");
+      var secApp;
+      try { secApp = getApp('_adminCreation'); } catch(_) {
+        secApp = initializeApp({
+          apiKey:'AIzaSyDMQe7mPjzrzuxqLXPu4Ft0A4r2ZggqV14',
+          authDomain:'dominio-cumbres-appservis.firebaseapp.com',
+          projectId:'dominio-cumbres-appservis',
+          storageBucket:'dominio-cumbres-appservis.firebasestorage.app',
+          messagingSenderId:'904496349672',
+          appId:'1:904496349672:web:6b9975dab5e922bd36e45d'
+        }, '_adminCreation');
+      }
+      var secAuth = getAuth(secApp);
+      var newCred;
+      try {
+        newCred = await createUser(secAuth, email, pass);
+      } catch(authErr) {
+        var code = authErr.code||'';
+        if(code==='auth/email-already-in-use') showErr('❌ Ese correo ya tiene cuenta en Firebase Authentication');
+        else if(code==='auth/weak-password') showErr('🔐 Contraseña demasiado débil');
+        else showErr('❌ Error al crear cuenta: '+(authErr.message||code));
+        return;
+      }
+      var newUid = newCred.user.uid;
+
+      // Guardar documento en Firestore (con sesión principal del Maestro intacta)
+      try {
+        await setDoc(doc(window._fbDb,'usuarios',newUid), {
+          usuario: usr,
+          correo: email,
+          rol: rol,
+          esAdmin: true,
+          activo: true,
+          creadoPor: window._adminUsr || 'maestro',
+          creadoEn: serverTimestamp(),
+          ultimoAcceso: null
+        });
+      } catch(fsErr) {
+        // Revertir: eliminar cuenta Firebase Auth recién creada
+        try { await newCred.user.delete(); } catch(_){}
+        await signOutSec(secAuth).catch(function(){});
+        showErr('❌ Error al guardar. La cuenta de autenticación fue eliminada.');
+        return;
+      }
+      await signOutSec(secAuth).catch(function(){});
+
+      // Actualizar lista en memoria y renderizar
+      window._admuDatos.push({ uid:newUid, usuario:usr, correo:email, rol:rol, esAdmin:true, activo:true, creadoPor:window._adminUsr||'maestro', ultimoAcceso:null });
+      admuBack2Form();
+      var toast=document.getElementById('admin-toast');
+      if(toast){ toast.textContent='✅ Admin @'+usr+' ('+rol+') creado correctamente'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+    } catch(e) {
+      showErr('❌ Error inesperado: '+e.message);
+    }
   };
 
   // Migrar vecinos con estado 'pendiente' → 'activo' en masa (una sola vez al cargar)
@@ -2030,10 +2113,11 @@ function showAdminTab(i,btn){
       await admuEnsureAuth();
       var { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
       var snap = await getDocs(collection(window._fbDb,'usuarios'));
-      var cVecino=0, cProv=0;
+      var cVecino=0, cProv=0, cAdmin=0;
       var cEstados = {};
       snap.forEach(function(d){
         var u=d.data();
+        if(u.esAdmin){ cAdmin++; return; }
         var esVecino = u.tipo==='vecino';
         var esProv = u.tipo==='restaurante'||u.tipo==='negocio'||u.tipo==='proveedor';
         if(!esVecino && !esProv) return;
@@ -2041,7 +2125,6 @@ function showAdminTab(i,btn){
         var e = u.estado||'activo';
         cEstados[e] = (cEstados[e]||0) + 1;
       });
-      var cAdmin = Object.keys(ADMIN_USERS).length;
       var total = cVecino + cProv;
       var set = function(id,v){ var el=document.getElementById(id); if(el)el.textContent=v; };
       set('admu-cnt-vecino',cVecino);
