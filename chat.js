@@ -2057,40 +2057,39 @@ function showAdminTab(i,btn){
     window._dcConfirmar('¿Eliminar usuario "'+nombre+'" definitivamente? Se borrará todo su contenido.', async function() {
       try {
         await admuEnsureAuth();
-        var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-        var S = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js");
-        var db = window._fbDb;
-        var storage = window._fbStorage;
-        // Borrar subcolecciones conocidas
-        var subcols = ['notificaciones','reservas','agendas','mensajes','productos','menu','horarios','ordenes'];
-        for(var i=0;i<subcols.length;i++){
-          try{
-            var snap = await F.getDocs(F.collection(db,'usuarios',uid,subcols[i]));
-            var batch = F.writeBatch(db);
-            snap.forEach(function(d){ batch.delete(d.ref); });
-            if(!snap.empty) await batch.commit();
-          }catch(_){}
-        }
-        // Borrar archivos en Storage
-        try{
-          var listRef = S.ref(storage,'usuarios/'+uid);
-          var list = await S.listAll(listRef);
-          await Promise.all(list.items.map(function(item){ return S.deleteObject(item); }));
-        }catch(_){}
-        try{
-          var listRef2 = S.ref(storage,'proveedores/'+uid);
-          var list2 = await S.listAll(listRef2);
-          await Promise.all(list2.items.map(function(item){ return S.deleteObject(item); }));
-        }catch(_){}
-        // Eliminar de Auth y Firestore mediante Cloud Function (Maestro requerido)
+        // 1. Eliminar Auth + Firestore primero (crítico, no depende de Storage)
         var { getApp: _getAppEU } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js");
         var { getFunctions: _gfEU, httpsCallable: _hcEU } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-functions.js");
         var _fnEU = _hcEU(_gfEU(_getAppEU(), 'us-central1'), 'adminEliminarUsuario');
         var _resEU = await _fnEU({ uidObjetivo: uid });
         if(!_resEU.data || _resEU.data.ok !== true) throw new Error('La función no confirmó la eliminación.');
+        // Actualizar UI inmediatamente
         window._admuDatos = window._admuDatos.filter(function(u){ return u.uid !== uid; });
         admuFiltrarLista();
         _dcAlerta('✅ Usuario eliminado correctamente.');
+        // 2. Limpiar subcolecciones y Storage en segundo plano (errores ignorados)
+        var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+        var subcols = ['notificaciones','reservas','agendas','mensajes','productos','menu','horarios','ordenes'];
+        for(var i=0;i<subcols.length;i++){
+          try{
+            var snap = await F.getDocs(F.collection(window._fbDb,'usuarios',uid,subcols[i]));
+            var batch = F.writeBatch(window._fbDb);
+            snap.forEach(function(d){ batch.delete(d.ref); });
+            if(!snap.empty) await batch.commit();
+          }catch(_){}
+        }
+        try{
+          var S = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js");
+          var listRef = S.ref(window._fbStorage,'usuarios/'+uid);
+          var list = await S.listAll(listRef);
+          await Promise.all(list.items.map(function(item){ return S.deleteObject(item); }));
+        }catch(_){}
+        try{
+          var S2 = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js");
+          var listRef2 = S2.ref(window._fbStorage,'proveedores/'+uid);
+          var list2 = await S2.listAll(listRef2);
+          await Promise.all(list2.items.map(function(item){ return S2.deleteObject(item); }));
+        }catch(_){}
       } catch(e) { alert('Error al eliminar: '+e.message); }
     });
   };
