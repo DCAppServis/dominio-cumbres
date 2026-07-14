@@ -9226,7 +9226,6 @@ window.cargarRestaurantes = window.dcFood_cargarRestaurantes;
         set: function(fn){
           if (fn === _foodListadoOficial) return;
           // No aceptamos loaders legacy encima del oficial 7A.
-          console.warn && console.warn('Food 7A: intento de sobrescribir cargarRestaurantes ignorado.');
         }
       });
       Object.defineProperty(window, 'dcFood_cargarRestaurantes', {
@@ -9236,7 +9235,6 @@ window.cargarRestaurantes = window.dcFood_cargarRestaurantes;
         set: function(fn){
           if (fn === _foodListadoOficial) return;
           if (!_foodListadoOficial && typeof fn === 'function') { _foodListadoOficial = fn; return; }
-          console.warn && console.warn('Food 7A: intento de sobrescribir dcFood_cargarRestaurantes ignorado.');
         }
       });
     } catch(e) {
@@ -9254,7 +9252,6 @@ window.cargarRestaurantes = window.dcFood_cargarRestaurantes;
         set: function(fn){
           if (fn === _foodMenuOficial) return;
           if (!_foodMenuOficial && typeof fn === 'function') { _foodMenuOficial = fn; return; }
-          console.warn && console.warn('Food 7A: intento de sobrescribir dcFood_cargarMenu ignorado.');
         }
       });
     } catch(e) {
