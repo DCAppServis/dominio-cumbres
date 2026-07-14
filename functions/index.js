@@ -318,3 +318,102 @@ exports.impulsaVerificarVencimientos = functions.pubsub
 
     return null;
   });
+
+// ── mpActivarImpulsa ──────────────────────────────────────────────────────────
+// Procesa el pago de Plan Impulsa via MercadoPago y activa el plan en Firestore.
+// Llamado desde el Payment Brick con el formData del usuario.
+// Credenciales TEST — cambiar a producción cuando esté listo.
+const https = require("https");
+const MP_ACCESS_TOKEN = "TEST-2837337824054515-071320-5944edb7b9cbf858f4c81c5f8b62c2ca-3539621175";
+const MP_MONTOS = { mensual: 199, anual: 1999 };
+
+exports.mpActivarImpulsa = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "No autenticado.");
+  }
+
+  const uid = context.auth.uid;
+  const { formData, planTipo, email } = data;
+
+  const monto = MP_MONTOS[planTipo];
+  if (!monto) {
+    throw new functions.https.HttpsError("invalid-argument", "Plan inválido.");
+  }
+
+  // Construir body del pago
+  const payerEmail = email || context.auth.token.email || "pago@dominiocumbres.mx";
+  const paymentBody = {
+    transaction_amount: monto,
+    token:              formData.token,
+    description:        `Plan Impulsa ${planTipo === "mensual" ? "Mensual" : "Anual"} - Dominio Cumbres`,
+    installments:       formData.installments || 1,
+    payment_method_id:  formData.payment_method_id,
+    payer: {
+      email: payerEmail,
+      identification: (formData.payer && formData.payer.identification) || undefined,
+    },
+  };
+
+  // Llamar API de MercadoPago
+  const mpResult = await new Promise((resolve, reject) => {
+    const body = JSON.stringify(paymentBody);
+    const options = {
+      hostname: "api.mercadopago.com",
+      port: 443,
+      path: "/v1/payments",
+      method: "POST",
+      headers: {
+        "Content-Type":   "application/json",
+        "Authorization":  `Bearer ${MP_ACCESS_TOKEN}`,
+        "Content-Length": Buffer.byteLength(body),
+      },
+    };
+    const req = https.request(options, (res) => {
+      let raw = "";
+      res.on("data", (chunk) => { raw += chunk; });
+      res.on("end", () => {
+        try { resolve(JSON.parse(raw)); }
+        catch(e) { reject(new Error("Respuesta inválida de MercadoPago")); }
+      });
+    });
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
+
+  if (mpResult.status !== "approved") {
+    const detail = mpResult.status_detail || mpResult.status || "Pago no aprobado";
+    throw new functions.https.HttpsError("aborted", detail);
+  }
+
+  // Pago aprobado — activar plan en Firestore
+  const ahora = admin.firestore.Timestamp.now();
+  const fin = new Date();
+  fin.setMonth(fin.getMonth() + (planTipo === "anual" ? 12 : 1));
+  const planVence = admin.firestore.Timestamp.fromDate(fin);
+
+  await db.collection("usuarios").doc(uid).update({
+    plan:            "impulsa",
+    planTipo:        planTipo,
+    planInicio:      ahora,
+    planVence:       planVence,
+    planPagoId:      String(mpResult.id),
+    planUltimoMonto: monto,
+  });
+
+  // Notificación al usuario
+  await db.collection("notificaciones").add({
+    uid,
+    tipo:      "impulsa",
+    modulo:    "impulsa",
+    titulo:    "⭐ Plan Impulsa activado",
+    mensaje:   `Tu plan ${planTipo} está activo hasta el ${fin.toLocaleDateString("es-MX")}`,
+    leida:     false,
+    eliminada: false,
+    prioridad: "high",
+    fecha:     ahora,
+    expiresAt: fin,
+  });
+
+  return { ok: true, planVence: fin.toISOString() };
+});
