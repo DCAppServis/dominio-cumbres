@@ -1,4 +1,102 @@
 
+// ============ CHAT — ENVIAR Y RECIBIR MENSAJES ============
+window.enviarMensaje = async function() {
+  var auth = window._fbAuth;
+  var db   = window._fbDb;
+  var fs   = window._fs;
+  if (!auth || !auth.currentUser) { if(typeof toast==='function') toast('⚠️ Inicia sesión para enviar mensajes.'); return; }
+  var input = document.getElementById('chat-input');
+  if(!input || !input.value.trim()) return;
+  var texto = input.value.trim();
+  input.value = '';
+  var container = document.getElementById('chat-msgs-container');
+  var hora = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  var divLocal = document.createElement('div');
+  divLocal.className = 'msg msg-s';
+  var _tLocal = document.createTextNode(texto);
+  var _hLocal = document.createElement('div');
+  _hLocal.className = 'msg-time';
+  _hLocal.textContent = hora;
+  divLocal.appendChild(_tLocal);
+  divLocal.appendChild(_hLocal);
+  if(container) { container.appendChild(divLocal); container.scrollTop = container.scrollHeight; }
+  var userId = auth.currentUser.uid;
+  var userName = localStorage.getItem('dcuser') || 'Vecino';
+  var provId = window._chatProveedorId || '';
+  if (!provId) { if(typeof toast==='function') toast('⚠️ Selecciona un proveedor para chatear.'); return; }
+  var idsOrdenados = [userId, provId].sort().join('_');
+  var chatId = 'chat_' + idsOrdenados;
+  try {
+    await fs.addDoc(fs.collection(db, 'chats', chatId, 'mensajes'), {
+      texto: texto, remitenteId: userId, remitenteNombre: userName,
+      timestamp: fs.serverTimestamp()
+    });
+    var _fb2 = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+    await _fb2.setDoc(_fb2.doc(db, 'chats', chatId), {
+      participantes: [userId, provId],
+      ultimoMsg: texto,
+      ultimoNombre: userName,
+      nombreContacto: window._chatProveedorNombre || 'Usuario',
+      ultimoEmisor: userId,
+      respondido: false,
+      fecha: Date.now()
+    }, { merge: true });
+  } catch(e) { }
+};
+
+window.cargarMensajes = async function() {
+  var auth = window._fbAuth;
+  var db   = window._fbDb;
+  var fs   = window._fs;
+  var container = document.getElementById('chat-msgs-container');
+  if(!container) return;
+  var hora = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  container.innerHTML = '';
+  if (!auth || !db || !fs) return;
+  await new Promise(function(resolve) {
+    if(auth.currentUser) return resolve();
+    var unsub = auth.onAuthStateChanged(function(u) { unsub(); resolve(); });
+  });
+  var userId = auth.currentUser ? auth.currentUser.uid : 'anonimo';
+  window._chatUserId = userId;
+  var provId = window._chatProveedorId || '';
+  var chatId = window._chatIdExacto || (provId ? ('chat_' + [userId, provId].sort().join('_')) : null);
+  if (!chatId) return;
+  window._chatIdExacto = null;
+  try {
+    var msgsRef = fs.collection(db, 'chats', chatId, 'mensajes');
+    if(window._chatUnsubscribe) window._chatUnsubscribe();
+    window._chatUnsubscribe = fs.onSnapshot(fs.query(msgsRef, fs.orderBy('timestamp','asc')), function(snap) {
+      container.innerHTML = '';
+      if(snap.empty) {
+        var sys = document.createElement('div');
+        sys.className = 'msg msg-sys';
+        sys.textContent = 'Chat iniciado · ' + hora;
+        container.appendChild(sys);
+        var bienvenida = document.createElement('div');
+        bienvenida.className = 'msg msg-r';
+        bienvenida.innerHTML = '¡Hola! ¿En qué le puedo ayudar? 🔧<div class="msg-time">'+hora+'</div>';
+        container.appendChild(bienvenida);
+        return;
+      }
+      snap.forEach(function(d) {
+        var m = d.data();
+        var div = document.createElement('div');
+        div.className = 'msg ' + (m.remitenteId === userId ? 'msg-s' : 'msg-r');
+        var h = m.timestamp ? new Date(m.timestamp.toDate()).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : hora;
+        var _tMsg = document.createTextNode(m.texto||'');
+        var _hMsg = document.createElement('div');
+        _hMsg.className = 'msg-time';
+        _hMsg.textContent = h;
+        div.appendChild(_tMsg);
+        div.appendChild(_hMsg);
+        container.appendChild(div);
+      });
+      container.scrollTop = container.scrollHeight;
+    });
+  } catch(e) { }
+};
+
 // ============ MIS CHATS — BANDEJA DE ENTRADA ============
 window.cargarMisChats = async function() {
   const container = document.getElementById('lista-mis-chats');

@@ -26,103 +26,6 @@
   const { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, onSnapshot, updateDoc, doc: fsDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
   window._fs = { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, onSnapshot, updateDoc, fsDoc, doc, getDoc, setDoc };
 
-  // enviarMensaje DENTRO del módulo — acceso directo a Firestore
-  window.enviarMensaje = async function() {
-    if (!auth.currentUser) { if(typeof toast==='function') toast('⚠️ Inicia sesión para enviar mensajes.'); return; }
-    const input = document.getElementById('chat-input');
-    if(!input || !input.value.trim()) return;
-    const texto = input.value.trim();
-    input.value = '';
-    const container = document.getElementById('chat-msgs-container');
-    const hora = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-    const divLocal = document.createElement('div');
-    divLocal.className = 'msg msg-s';
-    // XSS-SAFE: texto de usuario nunca con innerHTML
-    const _tLocal = document.createTextNode(texto);
-    const _hLocal = document.createElement('div');
-    _hLocal.className = 'msg-time';
-    _hLocal.textContent = hora;
-    divLocal.appendChild(_tLocal);
-    divLocal.appendChild(_hLocal);
-    if(container) { container.appendChild(divLocal); container.scrollTop = container.scrollHeight; }
-    const userId = auth.currentUser.uid;
-    const userName = localStorage.getItem('dcuser') || 'Vecino';
-    const provId = window._chatProveedorId || '';
-    if (!provId) { if(typeof toast==='function') toast('⚠️ Selecciona un proveedor para chatear.'); return; }
-    const idsOrdenados = [userId, provId].sort().join('_');
-    const chatId = 'chat_' + idsOrdenados;
-    try {
-      // Guardar mensaje en subcolección
-      await addDoc(collection(db, 'chats', chatId, 'mensajes'), {
-        texto, remitenteId: userId, remitenteNombre: userName,
-        timestamp: serverTimestamp()
-      });
-      // Actualizar documento raíz del chat para que cargarMisChats y verificarChatsProveedor lo encuentren
-      const { setDoc, doc: fsDoc2 } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
-      await setDoc(fsDoc2(db, 'chats', chatId), {
-        participantes: [userId, provId],
-        ultimoMsg: texto,
-        ultimoNombre: userName,
-        nombreContacto: window._chatProveedorNombre || 'Usuario',
-        ultimoEmisor: userId,
-        respondido: false,
-        fecha: Date.now()
-      }, { merge: true });
-    } catch(e) { }
-  };
-
-  // cargarMensajes DENTRO del módulo
-  window.cargarMensajes = async function() {
-    const container = document.getElementById('chat-msgs-container');
-    if(!container) return;
-    const hora = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-    container.innerHTML = '';
-    // Esperar a que auth esté listo
-    await new Promise(resolve => {
-      if(auth.currentUser) return resolve();
-      const unsub = auth.onAuthStateChanged(u => { unsub(); resolve(); });
-    });
-    const userId = auth.currentUser ? auth.currentUser.uid : 'anonimo';
-    window._chatUserId = userId;
-    const provId = window._chatProveedorId || '';
-    const chatId = window._chatIdExacto || (provId ? ('chat_' + [userId, provId].sort().join('_')) : null);
-    if (!chatId) return;
-    window._chatIdExacto = null;
-    try {
-      const msgsRef = collection(db, 'chats', chatId, 'mensajes');
-      if(window._chatUnsubscribe) window._chatUnsubscribe();
-      window._chatUnsubscribe = onSnapshot(query(msgsRef, orderBy('timestamp','asc')), (snap) => {
-        container.innerHTML = '';
-        if(snap.empty) {
-          const sys = document.createElement('div');
-          sys.className = 'msg msg-sys';
-          sys.textContent = 'Chat iniciado · ' + hora;
-          container.appendChild(sys);
-          const bienvenida = document.createElement('div');
-          bienvenida.className = 'msg msg-r';
-          bienvenida.innerHTML = '¡Hola! ¿En qué le puedo ayudar? 🔧<div class="msg-time">'+hora+'</div>';
-          container.appendChild(bienvenida);
-          return;
-        }
-        snap.forEach(d => {
-          const m = d.data();
-          const div = document.createElement('div');
-          div.className = 'msg ' + (m.remitenteId === userId ? 'msg-s' : 'msg-r');
-          const h = m.timestamp ? new Date(m.timestamp.toDate()).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : hora;
-          // XSS-SAFE: texto de usuario nunca con innerHTML
-          const _tMsg = document.createTextNode(m.texto||'');
-          const _hMsg = document.createElement('div');
-          _hMsg.className = 'msg-time';
-          _hMsg.textContent = h;
-          div.appendChild(_tMsg);
-          div.appendChild(_hMsg);
-          container.appendChild(div);
-        });
-        container.scrollTop = container.scrollHeight;
-      });
-    } catch(e) { }
-  };
-
   // Abrir detalle de proveedor con datos reales
   window.abrirDetalleProveedor = function(p) {
     window._proveedorActual = p;
@@ -279,8 +182,8 @@
           <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px;">
             <div class="prov-av" style="background:${bg};">${ic}<div class="prov-badge" style="background:${premium?'var(--yellow)':'var(--green)'};">${premium?'💎':'✓'}</div></div>
             <div class="si03">
-              <div class="si17">${p.nombre||'—'}</div>
-              <div class="si01">${p.descripcion||p.oficio1||p.categoria||'Proveedor'}</div>
+              <div class="si17">${_esc(p.nombre||'—')}</div>
+              <div class="si01">${_esc(p.descripcion||p.oficio1||p.categoria||'Proveedor')}</div>
               <div class="si59">★ ${ratingHtml}</div>
             </div>
           </div>
@@ -289,7 +192,7 @@
             <span class="tag tag-g">✅ Verificado</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:.5px solid #f0f0f0;">
-            <span class="si16">${p.precio||'Consultar precio'}</span>
+            <span class="si16">${_esc(p.precio||'Consultar precio')}</span>
             <span style="font-size:11px;font-weight:700;color:var(--green);">Disponible</span>
           </div>`;
         div.onclick = () => abrirDetalleProveedor(p);
@@ -779,10 +682,10 @@
           </div>
           <div class="rest-body">
             <div class="si05">
-              <div class="rest-name">${r.nombreNegocio||r.nombre||'—'}</div>
+              <div class="rest-name">${_esc(r.nombreNegocio||r.nombre||'—')}</div>
               <span class="si44" style="${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'background:#FDECEA;color:#D63A2A':_e==='pausado'?'background:#FFF0E6;color:#E87722':_e==='ocupado'?'background:#FFF8E1;color:#d97706':'background:var(--green-lt);color:var(--green-dk)';})()}">${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'🔴 Cerrado':_e==='pausado'?'🟠 Pausado':_e==='ocupado'?'🟡 Ocupado':'🟢 Abierto';})()}</span>
             </div>
-            <div style="font-size:11px;color:var(--text-hint);margin-top:3px;">${r.ratingPromedio?'⭐ '+Number(r.ratingPromedio).toFixed(1)+' ('+( r.ratingTotal||0)+' op.) · ':''}${r.descripcion||r.categoria||''}</div>
+            <div style="font-size:11px;color:var(--text-hint);margin-top:3px;">${r.ratingPromedio?'⭐ '+Number(r.ratingPromedio).toFixed(1)+' ('+( r.ratingTotal||0)+' op.) · ':''  }${_esc(r.descripcion||r.categoria||'')}</div>
             <div class="rest-footer"><span class="si01">Envío disponible</span><span class="si16">Pedir →</span></div>
           </div>`;
         div.onclick = () => go('v-food-det','right');
@@ -1632,6 +1535,7 @@ window.cargarMisComprasPlaza = function() {
     pausado: { ic:'🟠', lbl:'Pausado', col:'#E87722', bg:'#FFF0E6', desc:'Sin nuevos pedidos por ahora', dotEl:'naranja' },
     cerrado: { ic:'🔴', lbl:'Cerrado', col:'#D63A2A', bg:'#FDECEA', desc:'No disponible hoy' },
   };
+  window._DC_ESTADOS = DC_ESTADOS;
   // REGLA UNIVERSAL DE ESTADO: catálogo unificado (Mi Panel = Configuración).
   // Estados antiguos guardados (vacaciones/invisible/fuera_horario) se tratan como Pausado.
   window._normEstadoOp = function(v){
@@ -2228,7 +2132,6 @@ window.cargarMisComprasPlaza = function() {
     } catch(e){ console.error('[NOTIF]',e.message); }
   };
 
-  // FIX B: los puntitos se refrescan solos cada 45 seg sin navegar
   if (!window._badgeTimer) {
     window._badgeTimer = setInterval(function() {
       if (window._fbAuth && window._fbAuth.currentUser) {
@@ -2567,370 +2470,6 @@ window.cargarMisComprasPlaza = function() {
     });
   };
 
-  // ── M2-A: renderHomeM2 — Home multirol real ──────────────────
-  // Lee tipo/estado/nombre de localStorage (escritos por loginFirebase).
-  // Reescribe SOLO el interior del scroll de v-home.
-  // No crea vistas nuevas. No toca go(). No toca login.
-  window.renderHomeM2 = function() {
-    var tipo   = (localStorage.getItem('dcuserTipo')   || 'vecino').toLowerCase();
-    var estado = (localStorage.getItem('dcuserEstado') || '').toLowerCase();
-    var nombre = localStorage.getItem('dcuser') || 'Usuario';
-
-    // ── 1. Header dinámico ──────────────────────────────────────
-    var h = new Date().getHours();
-    var saludo = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
-
-    // Actualizar saludo en el badge existente
-    var elS = document.getElementById('home-saludo');
-    if (elS) elS.textContent = saludo + ',';
-
-    // Paleta por rol
-    var PALETA = {
-      vecino:      { color:'#1FC26A', bg:'#e8f5e1', label:'Vecino',                  ic:'🏠' },
-      proveedor:   { color:'#F5C518', bg:'#FFF8DC', label:'Proveedor',               ic:'🔧' },
-      transporte:  { color:'#1A7AB5', bg:'#E8F0F8', label:'Transporte / Repartidor', ic:'🚗' },
-      repartidor:  { color:'#1A7AB5', bg:'#E8F0F8', label:'Repartidor',              ic:'🏍️' },
-      ambos:       { color:'#1A7AB5', bg:'#E8F0F8', label:'Transporte / Reparto',    ic:'🚗' },
-      restaurante: { color:'#D63A2A', bg:'#FDECEA', label:'Restaurante',             ic:'🍽️' },
-      negocio:     { color:'#7B3FA0', bg:'#F0EBF8', label:'Negocio',                 ic:'🏪' },
-    };
-    var pal = PALETA[tipo] || PALETA.vecino;
-
-    // Actualizar badge de tipo
-    var elT = document.getElementById('home-tipo-label');
-    if (elT) {
-      elT.style.background = pal.bg;
-      elT.style.color = pal.color;
-      elT.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:'+pal.color+';display:inline-block;flex-shrink:0;margin-right:5px;"></span>'
-        + pal.ic + ' ' + pal.label;
-    }
-
-    // ── M2-D: Estado operativo en Home ────────────────────────
-    // Solo para no-vecino. Vecino no tiene estado de operación.
-    var elEst = document.getElementById('home-estado-op');
-    if (tipo !== 'vecino') {
-      var estKey = window.getEstadoEfectivoActual ? window.getEstadoEfectivoActual() : window.getEstadoOperativo();
-      var estCfg = DC_ESTADOS[estKey] || DC_ESTADOS.activo;
-      if (!elEst) {
-        // Crear el label si no existe (primera carga)
-        var wrapper = document.getElementById('home-tipo-label') &&
-                      document.getElementById('home-tipo-label').parentNode;
-        if (wrapper) {
-          var newEl = document.createElement('span');
-          newEl.id = 'home-estado-op';
-          newEl.style.cssText = 'display:inline-flex;align-items:center;margin-left:6px;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;';
-          wrapper.appendChild(newEl);
-          elEst = newEl;
-        }
-      }
-      if (elEst) {
-        elEst.textContent = estCfg.ic + ' ' + estCfg.lbl;
-        elEst.style.background = estCfg.bg;
-        elEst.style.color = estCfg.col;
-      }
-    } else if (elEst) {
-      elEst.style.display = 'none';
-    }
-
-    // ── M2-G: Mostrar barra de búsqueda solo para vecino/negocio (no restaurante)
-    var searchWrap = document.getElementById('home-search-wrap');
-    if (searchWrap) {
-      var showSearch = ['vecino','negocio'].indexOf(tipo) !== -1;
-      searchWrap.style.display = showSearch ? 'block' : 'none';
-    }
-
-    // ── 2. Banners de publicidad: rotar según rol ───────────────
-    var track = document.getElementById('home-ads-track');
-    if (track) {
-      // Reordenar: poner el banner relevante al rol primero
-      var relevante = { vecino:'comida', proveedor:'servicios', transporte:'ride',
-                        repartidor:'ride', ambos:'ride', restaurante:'comida', negocio:'plaza' };
-      var cat = relevante[tipo] || 'comida';
-      var slides = Array.from(track.children);
-      var first = slides.find(function(s){ return s.dataset.adCategory === cat; });
-      if (first && first !== slides[0]) track.insertBefore(first, slides[0]);
-    }
-    // Insertar promos activas al inicio del carrusel
-    window.renderPromoEnCarrusel && window.renderPromoEnCarrusel();
-
-    // ── 3. Contenido del scroll ────────────────────────────────
-    var scroll = document.querySelector('#v-home .scroll');
-    if (!scroll) return;
-
-    // ══════════════════════════════════════════════════════════
-    // ── M2-C: SISTEMA DE BADGES ───────────────────────────────
-    // Badges solo se muestran si existen en localStorage via setBadge().
-    // No se siembra nada automáticamente.
-    var BADGE_KEY = 'dc_badges_v1';
-
-    window.getBadges = function() {
-      try { return JSON.parse(localStorage.getItem(BADGE_KEY) || '{}'); }
-      catch(e) { return {}; }
-    };
-
-    window.setBadge = function(m, count, urgencia) {
-      var all = window.getBadges();
-      if (count <= 0) { delete all[m]; }
-      else { all[m] = { count: count, urgencia: urgencia || 'normal', ts: Date.now() }; }
-      localStorage.setItem(BADGE_KEY, JSON.stringify(all));
-    };
-
-    // Limpia datos de sesión anterior que no correspondan al tipo actual
-    // Evita mostrar badges de otro rol o de mocks previos
-    (function limpiarBadgesExpirados() {
-      // Módulos válidos por rol
-      var modulosPorRol = {
-        vecino:      ['informa', 'solicitudes_vecino', 'pedidos'],
-        proveedor:   ['solicitudes','chats'],
-        transporte:  ['solicitudes','chats'],
-        repartidor:  ['solicitudes','chats'],
-        ambos:       ['solicitudes','chats'],
-        restaurante: ['pedidos','chats'],
-        negocio:     ['solicitudes','chats','pedidos'],
-      };
-      var validos = modulosPorRol[tipo] || [];
-      var all = window.getBadges();
-      var changed = false;
-      Object.keys(all).forEach(function(k) {
-        if (validos.indexOf(k) === -1) { delete all[k]; changed = true; }
-      });
-      if (changed) localStorage.setItem(BADGE_KEY, JSON.stringify(all));
-    })();
-
-    // M2-I: actualizar badges con datos reales de Firestore (async, no bloquea render)
-    window.actualizarBadgesReales && window.actualizarBadgesReales();
-
-    window.marcarModuloVisto = function(m) {
-      var all = window.getBadges();
-      delete all[m];
-      localStorage.setItem(BADGE_KEY, JSON.stringify(all));
-      var vh = document.getElementById('v-home');
-      if (vh && vh.classList.contains('active')) {
-        window.renderHomeM2 && window.renderHomeM2();
-      }
-    };
-
-    window.renderBadge = function(m) {
-      var b = window.getBadges()[m];
-      if (!b || b.count <= 0) return '';
-      var n = b.count > 9 ? '9+' : String(b.count);
-      return n + (b.urgencia === 'critical' ? '🔥' : b.urgencia === 'aged' ? '⏳' : '');
-    };
-
-    // ── helpers de layout ─────────────────────────────────────
-    function chip(ic, lbl, ruta, badgeKey) {
-      var txt = badgeKey ? window.renderBadge(badgeKey) : '';
-      var b = txt ? '<span style="position:absolute;top:-5px;right:-5px;background:#D63A2A;color:#fff;font-size:8px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;white-space:nowrap;">' + txt + '</span>' : '';
-      return '<div onclick="' + ruta + '" style="position:relative;display:inline-flex;flex-direction:column;align-items:center;gap:4px;background:#fff;border-radius:14px;padding:10px 14px;border:.5px solid #e8e8e8;cursor:pointer;min-width:58px;box-shadow:0 1px 3px rgba(0,0,0,.04);">'
-        + b + '<span style="font-size:20px;">' + ic + '</span>'
-        + '<span style="font-size:10px;font-weight:600;color:#444;">' + lbl + '</span></div>';
-    }
-
-    function modulo(ic, bg, lbl, sub, ruta, badgeKey) {
-      var txt = badgeKey ? window.renderBadge(badgeKey) : '';
-      var dot = txt ? '<div style="position:absolute;top:8px;right:8px;background:#D63A2A;color:#fff;font-size:8px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;white-space:nowrap;">' + txt + '</div>' : '';
-      return '<div onclick="' + ruta + '" style="position:relative;background:#fff;border-radius:16px;padding:14px 14px 13px;display:flex;flex-direction:column;gap:9px;border:.5px solid #e8e8e8;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;">'
-        + dot
-        + '<div style="width:40px;height:40px;border-radius:11px;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:20px;">' + ic + '</div>'
-        + '<div><div style="font-size:13px;font-weight:700;color:#1a1a1a;line-height:1.2;">' + lbl + '</div>'
-        + (sub ? '<div style="font-size:10px;color:#888;margin-top:2px;">' + sub + '</div>' : '')
-        + '</div></div>';
-    }
-
-    function secLabel(txt) {
-      return '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:0 18px;margin-bottom:10px;">'+txt+'</div>';
-    }
-
-    function panelBtn(ruta) {
-      return '<div onclick="'+ruta+'" style="margin:0 14px 18px;background:#f8f8f8;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:10px;border:.5px solid #eee;cursor:pointer;" ontouchstart="this.style.opacity=\'.8\'" ontouchend="this.style.opacity=\'1\'">'
-        + '<div style="width:36px;height:36px;border-radius:10px;background:'+pal.bg+';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">👤</div>'
-        + '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#111;">Mi Panel</div><div style="font-size:10px;color:#888;margin-top:1px;">Perfil · métricas · cuenta</div></div>'
-        + '<div style="font-size:18px;color:#ccc;">›</div>'
-        + '</div>';
-    }
-
-    function descubrimiento(tieneActividad) {
-      if (tieneActividad) return '';
-      return '<div style="margin:0 0 18px;">'
-        + '<div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.8px;text-transform:uppercase;padding:0 18px;margin-bottom:10px;">✨ Descubre hoy</div>'
-        + '<div id="home-discover-list" style="padding:0 14px;"></div>'
-        + '<div style="padding:0 18px;"><div style="font-size:11px;font-weight:700;color:#1f7a38;cursor:pointer;" onclick="go(\'v-busqueda\',\'right\')">Ver más →</div></div>'
-        + '</div>';
-    }
-
-    // ── CONTENIDO POR ROL ─────────────────────────────────────
-    var html = '';
-    var tieneActividad = false;
-
-    // ── VECINO ────────────────────────────────────────────────
-    if (tipo === 'vecino') {
-      html += secLabel('¿Qué necesitas hoy?');
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px;margin-bottom:12px;">'
-        + modulo('🍽️','#FDECEA','Pedir Comida','<span id="hm-mod-food">...</span>',"go('v-food','right')")
-        + modulo('🔧','#e8f5e1','Servicios','<span id="hm-mod-serv">...</span>',"go('v-servicios','right')")
-        + modulo('🚗','#F5F5F5','Ride','Proximamente',"window._dcProximamente('Ride estará disponible próximamente.')")
-        + modulo('🏪','#E3F0FF','Plaza Online','<span id="hm-mod-plaza">...</span>',"go('v-plaza','right')")
-        + '</div>';
-
-      html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 14px;margin-bottom:18px;">'
-        + chip('📰','Informa', "window.marcarModuloVisto('informa');go('v-informa','right')", 'informa')
-        + chip('🎪','Eventos', "go('v-eventos','right')")
-        + chip('🚨','Seguridad',"go('v-seguridad','right')")
-        + chip('❤️','Favoritos',"go('v-favoritos','right');setTimeout(cargarFavoritos,400)")
-        + '</div>';
-
-      html += descubrimiento(tieneActividad);
-      html += secLabel('Actividad reciente');
-      html += '<div id="home-actividad" style="padding:0 14px;">'
-        + '<div style="background:#F5F6F0;border-radius:14px;padding:14px;text-align:center;border:.5px solid #e0e0e0;">'
-        + '<div style="font-size:22px;margin-bottom:6px;">📋</div>'
-        + '<div style="font-size:12px;font-weight:700;color:#222;margin-bottom:4px;">Sin actividad aún</div>'
-        + '<div style="font-size:11px;color:#999;">Tus pedidos y servicios aparecerán aquí</div>'
-        + '</div></div>';
-      // Actualizar contadores reales en diferido (no bloquea render)
-      setTimeout(function(){ _actualizarContadoresHome(); }, 300);
-    }
-
-    // ── PROVEEDOR ─────────────────────────────────────────────
-    else if (tipo === 'proveedor') {
-      html += secLabel('Operación');
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px;margin-bottom:18px;">'
-        + modulo('📋','#FFF8DC','Solicitudes','Ver pedidos',
-            "window.marcarModuloVisto('solicitudes');go('v-reportes-disponibles','right');setTimeout(function(){window.cargarReportesDisponibles&&window.cargarReportesDisponibles();},300)",
-            'solicitudes')
-        + modulo('💬','#e8f5e1','Mis Chats','Mensajes activos',
-            "window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",
-            'chats')
-        + modulo('🔧','#FFF8DC','Mi Servicio','Editar perfil',"go('v-mipanel','right')")
-        + modulo('⭐','#FFF8DC','Membresía','Estado y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)")
-        + '</div>';
-
-      html += descubrimiento(tieneActividad);
-      html += secLabel('Actividad reciente');
-      html += '<div id="home-actividad" style="padding:0 14px;">'
-        + '<div style="background:#FFFDF5;border-radius:14px;padding:14px;text-align:center;border:.5px solid #f0e8c0;">'
-        + '<div style="font-size:22px;margin-bottom:6px;">📋</div>'
-        + '<div style="font-size:12px;font-weight:700;color:#7a5000;margin-bottom:4px;">Sin solicitudes nuevas</div>'
-        + '<div style="font-size:11px;color:#999;">Cuando lleguen pedidos aparecerán aquí</div>'
-        + '</div></div>';
-    }
-
-    // ── TRANSPORTE / REPARTIDOR ───────────────────────────────
-    else if (['transporte','repartidor','ambos'].includes(tipo)) {
-      html += secLabel('Mi operación');
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px;margin-bottom:18px;">'
-        + modulo('🗺️','#E8F0F8','Mi Cobertura','Modulo en pausa',"window._dcProximamente('El módulo Ride está temporalmente en pausa.')")
-        + modulo('💬','#E8F0F8','Mis Chats','Mensajes',
-            "window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",
-            'chats')
-        + modulo('📋','#E8F0F8','Solicitudes','Pedidos disp.',
-            "window.marcarModuloVisto('solicitudes');window.irASolicitudes&&window.irASolicitudes()",
-            'solicitudes')
-        + modulo('📊','#E8F0F8','Estadísticas','Mi semana',"go('v-mipanel','right')")
-        + '</div>';
-
-      html += '<div style="margin:0 14px 18px;background:linear-gradient(120deg,#0A3055,#1A7AB5);border-radius:14px;padding:13px 14px;display:flex;align-items:center;gap:12px;">'
-        + '<div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🚗</div>'
-        + '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#fff;">$0.00 hoy</div><div style="font-size:10px;color:rgba(255,255,255,.65);">Ganancias del día · Dominio Cumbres</div></div>'
-        + '<div style="display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.15);border-radius:20px;padding:3px 9px;"><div style="width:6px;height:6px;border-radius:50%;background:#1FC26A;"></div><span style="font-size:10px;color:#fff;font-weight:700;">En línea</span></div>'
-        + '</div>';
-
-      html += descubrimiento(tieneActividad);
-      html += secLabel('Actividad reciente');
-      html += '<div id="home-actividad" style="padding:0 14px;">'
-        + '<div style="background:#F5F8FC;border-radius:14px;padding:14px;text-align:center;border:.5px solid #c0d4e8;">'
-        + '<div style="font-size:22px;margin-bottom:6px;">🚗</div>'
-        + '<div style="font-size:12px;font-weight:700;color:#0A3055;margin-bottom:4px;">Sin viajes hoy</div>'
-        + '<div style="font-size:11px;color:#999;">Activa tu disponibilidad para recibir solicitudes</div>'
-        + '</div></div>';
-    }
-
-    // ── RESTAURANTE ───────────────────────────────────────────
-    else if (tipo === 'restaurante') {
-      // Estado operativo clicable → abre vr-shell (Centro Operativo) en config
-      var estKey2 = window.getEstadoEfectivoActual ? window.getEstadoEfectivoActual() : (window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo');
-      var estCfg2 = DC_ESTADOS[estKey2] || DC_ESTADOS.activo;
-      html += '<div onclick="go(\'vr-config\',\'right\')" style="margin:0 14px 14px;background:'+estCfg2.bg+';border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;border:1px solid '+estCfg2.col+'22;">'
-        + '<div style="width:10px;height:10px;border-radius:50%;background:'+estCfg2.col+';flex-shrink:0;box-shadow:0 0 6px '+estCfg2.col+'88;"></div>'
-        + '<div style="flex:1;font-size:13px;font-weight:700;color:'+estCfg2.col+';">'+estCfg2.ic+' '+estCfg2.lbl+'</div>'
-        + '<div style="font-size:11px;color:'+estCfg2.col+';opacity:.7;">Toca para cambiar ›</div>'
-        + '</div>';
-
-      // Métricas HOY reales: Pedidos · Ventas · Calificación (se llenan tras render)
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 14px;margin-bottom:18px;">'
-        + '<div id="card-poraceptar" onclick="window._irPedidosRestTab&&window._irPedidosRestTab(\'pedidos\')" class="rhome-card" style="cursor:pointer;background:#fff;border-radius:12px;padding:10px 8px;text-align:center;"><div id="rhome-poraceptar" style="font-size:20px;font-weight:800;color:#D63A2A;">0</div><div style="font-size:9px;color:#999;">🔴 Por aceptar</div></div>'
-        + '<div id="card-pedidoshoy" class="rhome-card" style="background:#fff;border-radius:12px;padding:10px 8px;text-align:center;"><div id="rhome-pedidos" style="font-size:20px;font-weight:800;color:#D63A2A;">0</div><div style="font-size:9px;color:#999;">Pedidos hoy</div></div>'
-        + '<div id="card-enproceso" onclick="window._irPedidosRestTab&&window._irPedidosRestTab(\'en_proceso\')" class="rhome-card" style="cursor:pointer;background:#fff;border-radius:12px;padding:10px 8px;text-align:center;"><div id="rhome-enproceso" style="font-size:20px;font-weight:800;color:#D63A2A;">0</div><div style="font-size:9px;color:#999;">👨‍🍳 En proceso</div></div>'
-        + '</div>';
-
-      // Botón principal CENTRO OPERATIVO
-      html += '<div style="padding:0 14px;margin-bottom:20px;">'
-        + '<button onclick="go(\'vr-home\',\'right\')" '
-        + 'style="width:100%;background:linear-gradient(135deg,#7A1810,#D63A2A);border:none;border-radius:16px;padding:18px 14px;font-size:16px;font-weight:800;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 20px rgba(214,58,42,.35);letter-spacing:.3px;">'
-        + '<span style="font-size:22px;">🚀</span> CENTRO OPERATIVO'
-        + '</button>'
-        + '</div>';
-
-      html += descubrimiento(tieneActividad);
-      html += secLabel('Actividad reciente');
-      html += '<div id="home-actividad" style="padding:0 14px;">'
-        + '<div style="background:#FDF5F5;border-radius:14px;padding:14px;text-align:center;border:.5px solid #f0c8c8;">'
-        + '<div style="font-size:22px;margin-bottom:6px;">📋</div>'
-        + '<div style="font-size:12px;font-weight:700;color:#7A1810;margin-bottom:4px;">Sin pedidos nuevos</div>'
-        + '<div style="font-size:11px;color:#999;">Los pedidos del día aparecerán aquí</div>'
-        + '</div></div>';
-    }
-
-    // ── NEGOCIO ─────────────────────────
-  else if (tipo === 'negocio') {
-    // Usar _vnegEstadoOp directamente — es la variable del módulo negocio, ya cargada
-    // desde Firebase en el login. Evita leer dcRestOpV2 compartido que puede tener
-    // el estado del restaurante u otro usuario anterior.
-    var _vnegMan = (typeof _vnegEstadoOp !== 'undefined' ? _vnegEstadoOp : null)
-                   || (window.getEstadoOperativo ? window.getEstadoOperativo() : 'activo')
-                   || 'activo';
-    var estManN = window._normEstadoOp ? window._normEstadoOp(_vnegMan) : _vnegMan;
-    // El horario del negocio manda: calcular efectivo con VNEG_HORARIOS
-    var estKeyN = estManN;
-    if (window._estadoEfectivoDe && typeof VNEG_HORARIOS !== 'undefined') {
-      try { estKeyN = window._estadoEfectivoDe(estManN, (typeof _vnegEstadoOpTs !== 'undefined' ? _vnegEstadoOpTs : 0), VNEG_HORARIOS); } catch(e){}
-    }
-    var estCfgN = DC_ESTADOS[estKeyN] || DC_ESTADOS.activo;
-    html += '<div onclick="go(\'vn-config\',\'right\')" style="margin:0 14px 14px;background:'+(estCfgN.bg||'#F0EBF8')+';border-radius:14px;padding:13px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;">'
-      + '<div style="width:10px;height:10px;border-radius:50%;background:'+estCfgN.col+';flex-shrink:0;"></div>'
-      + '<div style="flex:1;font-size:13px;font-weight:700;color:'+estCfgN.col+';">'+estCfgN.ic+' '+estCfgN.lbl+'</div>'
-      + '<div style="font-size:11px;color:'+estCfgN.col+';opacity:.7;">Toca para cambiar ›</div>'
-      + '</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 14px;margin-bottom:16px;">'
-      + '<div id="vncard-poraceptar" onclick="window._irPedidosNegTab&&window._irPedidosNegTab(\'pedidos\')" class="vnhome-card" style="cursor:pointer;background:#fff;border-radius:12px;padding:10px 8px;text-align:center;"><div id="vnhome-poraceptar" style="font-size:20px;font-weight:800;color:#7B3FA0;">0</div><div style="font-size:9px;color:#999;">\ud83d\udfe3 Por aceptar</div></div>'
-      + '<div id="vncard-pedidoshoy" class="vnhome-card" style="background:#fff;border-radius:12px;padding:10px 8px;text-align:center;"><div id="vnhome-pedidos" style="font-size:20px;font-weight:800;color:#7B3FA0;">0</div><div style="font-size:9px;color:#999;">Pedidos hoy</div></div>'
-      + '<div id="vncard-enproceso" onclick="window._irPedidosNegTab&&window._irPedidosNegTab(\'en_proceso\')" class="vnhome-card" style="cursor:pointer;background:#fff;border-radius:12px;padding:10px 8px;text-align:center;"><div id="vnhome-enproceso" style="font-size:20px;font-weight:800;color:#7B3FA0;">0</div><div style="font-size:9px;color:#999;">\ud83d\udce6 En proceso</div></div>'
-      + '</div>';
-    html += '<div style="padding:0 14px;margin-bottom:16px;">'
-      + '<button onclick="go(\'vn-home\',\'right\')" style="width:100%;background:linear-gradient(135deg,#4A1A70,#7B3FA0);border:none;border-radius:16px;padding:16px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;">'
-      + '<span style="font-size:22px;">\ud83d\ude80</span> CENTRO OPERATIVO'
-      + '</button>'
-      + '</div>';
-    html += descubrimiento(tieneActividad);
-    html += secLabel('Actividad reciente');
-    html += '<div id="home-actividad" style="padding:0 14px;">'
-      + '<div style="background:#F8F5FC;border-radius:14px;padding:14px;text-align:center;border:.5px solid #EADDF5;">'
-      + '<div style="font-size:22px;margin-bottom:6px;">📋</div>'
-      + '<div style="font-size:12px;font-weight:700;color:#4A1A70;margin-bottom:4px;">Sin actividad nueva</div>'
-      + '<div style="font-size:11px;color:#999;">Las solicitudes del día aparecerán aquí</div>'
-      + '</div></div>';
-  }
-
-    else {
-      html += '<div id="home-actividad" style="padding:0 14px;"></div>';
-    }
-
-    html += '<div style="height:14px;"></div>';
-    scroll.innerHTML = html;
-    // M2-G: poblar descubrimiento si el contenedor fue inyectado
-    window.renderDescubrimiento && window.renderDescubrimiento('home-discover-list');
-  };
-  // ── FIN M2-A ─────────────────────────────────────────────────
   window.cerrarSesion = async function() {
     // 1. Cerrar sesión Firebase
     try {

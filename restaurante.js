@@ -3,6 +3,8 @@
    ════════════════════════════════════════════════════════ */
 
 'use strict';
+function _resc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
 /* ── Cache de pedidos reales para Centro Operativo (Firestore) ── */
 var _vrPedidosCache = [];
 
@@ -620,8 +622,8 @@ window.vnegRenderPedidos = async function(){
     arr.sort(function(a,b){return (b.fecha||0)-(a.fecha||0);});
     if(!arr.length){cont.innerHTML='<div style="text-align:center;color:#aaa;padding:40px 20px;font-size:13px;">Sin pedidos en esta categoría.</div>';return;}
     cont.innerHTML=arr.map(function(p){
-      var items=(p.items||[]).map(function(it){return it.cantidad+'x '+it.nombre;}).join(', ');
-      return '<div style="background:#fff;border-radius:12px;padding:14px;margin:0 14px 10px;box-shadow:0 1px 3px rgba(0,0,0,.06);"><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-weight:800;font-size:13px;">'+(p.vecinoNombre||'Cliente')+'</span><span style="font-weight:800;color:#7B3FA0;">$'+(p.total||0)+'</span></div><div style="font-size:12px;color:#666;">'+items+'</div></div>';
+      var items=(p.items||[]).map(function(it){return _resc(it.cantidad)+'x '+_resc(it.nombre);}).join(', ');
+      return '<div style="background:#fff;border-radius:12px;padding:14px;margin:0 14px 10px;box-shadow:0 1px 3px rgba(0,0,0,.06);"><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-weight:800;font-size:13px;">'+_resc(p.vecinoNombre||'Cliente')+'</span><span style="font-weight:800;color:#7B3FA0;">$'+_resc(p.total||0)+'</span></div><div style="font-size:12px;color:#666;">'+items+'</div></div>';
     }).join('');
   }catch(e){cont.innerHTML='<div style="text-align:center;color:#c00;padding:30px;font-size:12px;">Error.</div>';}
 };
@@ -1570,23 +1572,23 @@ function _renderPedidos() {
   }
   cont.innerHTML = grupo.map(function(p) {
     var hora = new Date(p.fecha).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-    var its  = p.items.map(function(i){ return i.cantidad+'× '+i.nombre; }).join(', ');
+    var its  = p.items.map(function(i){ return _resc(i.cantidad)+'× '+_resc(i.nombre); }).join(', ');
     var esNuevo = p.estado === 'nuevo';
     var cardStyle = esNuevo
       ? 'background:#fff5f5;border:1.5px solid rgba(214,58,42,.3);border-radius:16px;margin:0 14px 10px;padding:14px;cursor:pointer;'
       : '';
-    return '<div class="card' + (esNuevo ? '' : '') + '" style="' + cardStyle + '" onclick="abrirDetalle(\'' + p._id + '\')">'
+    return '<div class="card' + (esNuevo ? '' : '') + '" style="' + cardStyle + '" onclick="abrirDetalle(\''+_resc(p._id)+'\')">'
       + (esNuevo ? '<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#D63A2A;display:inline-block;animation:pulse-red 1.2s infinite;"></span><span style="font-size:10px;font-weight:800;color:#D63A2A;letter-spacing:.4px;">NUEVO</span></div>' : '')
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;">'
-      + '<div style="font-size:13px;font-weight:700;color:var(--tx);">👤 ' + p.vecinoNombre + '</div>'
+      + '<div style="font-size:13px;font-weight:700;color:var(--tx);">👤 ' + _resc(p.vecinoNombre) + '</div>'
       + '<span style="font-size:10px;color:var(--tx4);">' + hora + '</span>'
       + '</div>'
       + '<div style="font-size:11px;color:var(--tx3);margin-bottom:6px;">' + its + '</div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-      + '<span style="font-size:13px;font-weight:700;color:var(--tx2);">$' + p.total + ' · ' + p.metodoPago + '</span>'
-      + '<span class="badge b-' + p.estado + '">' + lbl(p.estado) + '</span>'
+      + '<span style="font-size:13px;font-weight:700;color:var(--tx2);">$' + _resc(p.total) + ' · ' + _resc(p.metodoPago) + '</span>'
+      + '<span class="badge b-' + _resc(p.estado) + '">' + lbl(p.estado) + '</span>'
       + '</div>'
-      + (p.notas ? '<div style="font-size:11px;color:#777;margin-top:6px;font-style:italic;">📝 ' + p.notas + '</div>' : '')
+      + (p.notas ? '<div style="font-size:11px;color:#777;margin-top:6px;font-style:italic;">📝 ' + _resc(p.notas) + '</div>' : '')
       + '</div>';
   }).join('');
 }

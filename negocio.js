@@ -169,7 +169,6 @@
   }
   if(!window._v13NegMenuObserver){
     window._v13NegMenuObserver=true;
-    document.addEventListener('DOMContentLoaded',function(){ setTimeout(_v12Kick,120); });
     setTimeout(_v12Kick,300);
     try{
       var el=document.getElementById('vn-menu');
