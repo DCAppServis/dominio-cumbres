@@ -1,4 +1,4 @@
-  window.VERSION_APP = "V62-QF39-LIMPIEZA-3-MIS-COMPRAS-OFICIAL-20260621";
+  window.VERSION_APP = "V63-ETAPA3-RATING-CMV-MEMBRESIA-20260624";
 
   // ============ CHAT CON FIREBASE ============
   window._chatUnsubscribe = null;
@@ -48,6 +48,7 @@
     const nombre = document.querySelector('#v-serv-det [style*="font-size:18px"]');
     if(nombre) nombre.textContent = p.nombre || 'Proveedor';
     go('v-serv-det','right');
+    setTimeout(function(){ window.dcProvRatingCargar && window.dcProvRatingCargar(uid); }, 200);
   };
 
   window.contactarProveedor = async function() {
@@ -112,7 +113,7 @@
             <span class="si32">&#x23F0; ${r.horario||'Ver horario'}</span>
           </div>
           <div class="rest-body">
-            <div class="si05"><div class="rest-name">${r.nombreNegocio||r.nombre||'&#x2014;'}</div><span class="si44" style="${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'background:#FDECEA;color:#D63A2A':_e==='pausado'?'background:#f0f0f0;color:#888':_e==='ocupado'?'background:#FFF8E1;color:#d97706':'background:var(--green-lt);color:var(--green-dk)';})()}">${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'🔴 Cerrado':_e==='pausado'?'⏸ Pausado':_e==='ocupado'?'🟡 Ocupado':'🟢 Abierto';})()}</span></div>
+            <div class="si05"><div class="rest-name">${r.nombreNegocio||r.nombre||'&#x2014;'}</div><span class="si44" style="${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'background:#FDECEA;color:#D63A2A':_e==='pausado'?'background:#FFF0E6;color:#E87722':_e==='ocupado'?'background:#FFF8E1;color:#d97706':'background:var(--green-lt);color:var(--green-dk)';})()}">${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'🔴 Cerrado':_e==='pausado'?'🟠 Pausado':_e==='ocupado'?'🟡 Ocupado':'🟢 Abierto';})()}</span></div>
             <div style="font-size:11px;color:var(--text-hint);margin-top:3px;">&#x2B50; Nuevo en la app</div>
             <div class="rest-footer"><span class="si01">${r.descripcion||''}</span><span class="si16">Pedir &#x2192;</span></div>
           </div>`;

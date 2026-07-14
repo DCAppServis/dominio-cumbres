@@ -466,7 +466,10 @@
     html += ACCION('💳','Métodos de pago',"go('vr-config','right')");
     html += ACCION('🔔','Notificaciones',"go('v-notificaciones','right');setTimeout(window.renderNotificaciones,300)");
     if (tipo !== 'vecino') {
-      html += ACCION('⭐','Membresía y plan',"go('vr-promos','right')");
+      html += ACCION('⭐','Membresía y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)");
+      if (tipo === 'proveedor') {
+        html += ACCION('👁','Cómo me ve el cliente',"go('v-prov-cmv','right');setTimeout(window.vprovCmvCargar,200)");
+      }
       if (tipo === 'restaurante' || tipo === 'negocio') {
         html += ACCION('📣','Crear promoción',"window.irACrearPromo&&window.irACrearPromo()");
       }
@@ -753,7 +756,7 @@
           <div class="rest-body">
             <div class="si05">
               <div class="rest-name">${r.nombreNegocio||r.nombre||'—'}</div>
-              <span class="si44" style="${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'background:#FDECEA;color:#D63A2A':_e==='pausado'?'background:#f0f0f0;color:#888':_e==='ocupado'?'background:#FFF8E1;color:#d97706':'background:var(--green-lt);color:var(--green-dk)';})()}">${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'🔴 Cerrado':_e==='pausado'?'⏸ Pausado':_e==='ocupado'?'🟡 Ocupado':'🟢 Abierto';})()}</span>
+              <span class="si44" style="${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'background:#FDECEA;color:#D63A2A':_e==='pausado'?'background:#FFF0E6;color:#E87722':_e==='ocupado'?'background:#FFF8E1;color:#d97706':'background:var(--green-lt);color:var(--green-dk)';})()}">${(()=>{var _e=(typeof window._estadoEfectivoDe==='function')?window._estadoEfectivoDe(r.estadoOp,r.estadoOpTs||0,r.horarios&&r.horarios.length?r.horarios:null):(r.estadoOp||'activo');return _e==='cerrado'?'🔴 Cerrado':_e==='pausado'?'🟠 Pausado':_e==='ocupado'?'🟡 Ocupado':'🟢 Abierto';})()}</span>
             </div>
             <div style="font-size:11px;color:var(--text-hint);margin-top:3px;">⭐ Nuevo · ${r.descripcion||r.categoria||''}</div>
             <div class="rest-footer"><span class="si01">Envío disponible</span><span class="si16">Pedir →</span></div>
@@ -913,7 +916,7 @@ window._plazaRenderLista = function(docs) {
     var meta = {
       activo:  { lbl:'🟢 Abierto',  col:'var(--green-dk)', bg:'var(--green-lt)' },
       ocupado: { lbl:'🟡 Ocupado',  col:'#d97706',         bg:'#FFF8E1'         },
-      pausado: { lbl:'⏸ En pausa', col:'#888',            bg:'#f0f0f0'         },
+      pausado: { lbl:'🟠 En pausa', col:'#E87722',          bg:'#FFF0E6'         },
       cerrado: { lbl:'🔴 Cerrado',  col:'#D63A2A',         bg:'#FDECEA'         }
     }[estOp] || { lbl:'🟢 Abierto', col:'var(--green-dk)', bg:'var(--green-lt)' };
     var foto = r.fotoPerfil || r.fotoPublica || r.logo || '';
@@ -974,7 +977,7 @@ window.plazaAbrirComercio = async function(id) {
   if (g('plaza-det-desc')) g('plaza-det-desc').textContent = window.dcCleanText(r.descripcionPublica || r.descripcion || 'Productos disponibles', 140);
   if (g('plaza-det-cat')) g('plaza-det-cat').textContent = _plazaCatLabel(_plazaCatBase(r));
   if (g('plaza-det-estado')) {
-    var meta = estOp==='cerrado' ? {lbl:'🔴 Cerrado',col:'#D63A2A'} : estOp==='pausado' ? {lbl:'⏸ En pausa',col:'#888'} : estOp==='ocupado' ? {lbl:'🟡 Ocupado',col:'#d97706'} : {lbl:'🟢 Abierto',col:'var(--green-dk)'};
+    var meta = estOp==='cerrado' ? {lbl:'🔴 Cerrado',col:'#D63A2A'} : estOp==='pausado' ? {lbl:'🟠 En pausa',col:'#E87722'} : estOp==='ocupado' ? {lbl:'🟡 Ocupado',col:'#d97706'} : {lbl:'🟢 Abierto',col:'var(--green-dk)'};
     g('plaza-det-estado').textContent = meta.lbl;
     g('plaza-det-estado').style.color = meta.col;
   }
@@ -1844,7 +1847,7 @@ window.cargarMisComprasPlaza = async function() {
   var DC_ESTADOS = {
     activo:  { ic:'🟢', lbl:'Activo',  col:'#1FC26A', bg:'#E8F5EE', desc:'Recibiendo pedidos y solicitudes' },
     ocupado: { ic:'🟡', lbl:'Ocupado', col:'#9A6800', bg:'#FFF8E1', desc:'Respuesta más lenta' },
-    pausado: { ic:'🟣', lbl:'Pausado', col:'#7B3FA0', bg:'#F0EBF8', desc:'Sin nuevos pedidos por ahora' },
+    pausado: { ic:'🟠', lbl:'Pausado', col:'#E87722', bg:'#FFF0E6', desc:'Sin nuevos pedidos por ahora', dotEl:'naranja' },
     cerrado: { ic:'🔴', lbl:'Cerrado', col:'#D63A2A', bg:'#FDECEA', desc:'No disponible hoy' },
   };
   // REGLA UNIVERSAL DE ESTADO: catálogo unificado (Mi Panel = Configuración).
@@ -2540,7 +2543,7 @@ window.cargarMisComprasPlaza = async function() {
       }
     });
     // Actualizar notif-dot en nav: mostrar si hay cualquier no leída
-    var total = notifs.filter(function(n){ return !n.leida && (n.modulo||'') !== 'pedidos'; }).length;
+    var total = notifs.filter(function(n){ var m=n.modulo||''; var t=n.tipo||''; return !n.leida && m!=='pedidos' && m!=='chat' && t!=='chat' && t!=='pedido'; }).length;
     window._lastBadgeCheck = Date.now();
     var totPed = notifs.filter(function(n){ return !n.leida && (n.modulo||'') === 'pedidos'; }).length;
     document.querySelectorAll('.nav-ped-dot').forEach(function(el) {
@@ -3033,7 +3036,7 @@ window.cargarMisComprasPlaza = async function() {
             "window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",
             'chats')
         + modulo('🔧','#FFF8DC','Mi Servicio','Editar perfil',"go('v-mipanel','right')")
-        + modulo('⭐','#FFF8DC','Membresía','Estado y plan',"go('v-espera-pago','right')")
+        + modulo('⭐','#FFF8DC','Membresía','Estado y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)")
         + '</div>';
 
       html += descubrimiento(tieneActividad);
