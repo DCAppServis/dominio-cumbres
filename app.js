@@ -1279,38 +1279,6 @@
    - No crear otro render, no reescribir tabs, no tocar Plaza Online, Food, Restaurante ni Negocio.
    - Este bloque es candado/auditoría: verifica que las funciones oficiales existan y registra manifiesto.
 ═══════════════════════════════════════════════════════ */
-(function(){
-  if(window.__DC_LIMPIEZA_3_MIS_COMPRAS_OFICIAL__) return;
-  window.__DC_LIMPIEZA_3_MIS_COMPRAS_OFICIAL__ = true;
-
-  var ok = (typeof window.cargarMisComprasPlaza === 'function')
-        && (typeof window.cambiarTabMisComprasPlaza === 'function')
-        && (typeof window.dcPlazaRenderMisComprasQF42 === 'function');
-
-  window.DC_MIS_COMPRAS_PLAZA_OFICIAL = Object.freeze ? Object.freeze({
-    modulo: 'Mis Compras Plaza',
-    limpieza: 'PUNTO_3',
-    fuenteOficial: 'QF42',
-    estado: ok ? 'VALIDADO' : 'REVISAR',
-    funcionesOficiales: [
-      'cargarMisComprasPlaza',
-      'cambiarTabMisComprasPlaza',
-      'dcPlazaRenderMisComprasQF42'
-    ],
-    localStorageCanonico: {
-      tab: 'dcPlazaQF42Tab',
-      carrito: 'dcPlazaCartV61',
-      seleccionCompra: 'dcPlazaCompraSeleccionada',
-      ordenesProceso: ['dcPlazaOrdenPlazaEnProceso','dcPlazaCompraPlazaActiva','dcPlazaOrdenActivaV62'],
-      historial: ['dcPlazaComprasHistorial','dcPlazaOrdenesPlazaV62']
-    },
-    prohibido: [
-      'No agregar otra función de render para Mis Compras Plaza.',
-      'No montar listeners nuevos de tabs si QF42 ya controla Proceso/Anteriores.',
-      'No tocar Food, Restaurante, Negocio ni Plaza Online cliente en este punto.'
-    ]
-  }) : {modulo:'Mis Compras Plaza', limpieza:'PUNTO_3', fuenteOficial:'QF42', estado: ok ? 'VALIDADO' : 'REVISAR'};
-})();
 
 
 
@@ -1349,8 +1317,7 @@
         get: function(){ return window.__DC_FOOD_PEDIDOS_OFICIALES__[nombre]; },
         set: function(nueva){
           if (typeof nueva === 'function') {
-            console.warn('[DC Limpieza 8A] Intento bloqueado de sobrescribir Food Pedidos:', nombre);
-          }
+            }
         }
       });
     } catch(e) {}
