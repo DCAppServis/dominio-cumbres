@@ -4856,6 +4856,15 @@
         <div id="notif-planes" class="si12 admin-notif" style="display:none;">0</div>
       </div>
 
+      <!-- CONFIG IMPULSA SPEI -->
+      <div class="admin-card" id="card-impulsa-config" onclick="go('v-admin-impulsa-config','right');setTimeout(window.adminImpulsaConfigCargar,200)">
+        <div>
+          <div class="admin-card-ic" style="background:rgba(31,194,106,.15);">🏦</div>
+          <div class="admin-card-title">Config SPEI</div>
+          <div class="admin-card-sub">Banco · CLABE · Beneficiario</div>
+        </div>
+      </div>
+
       <!-- CAMPAÑAS -->
       <div class="admin-card" id="card-campanas" onclick="go('v-admin-campanas','right');setTimeout(window.adminCampanasCargar,200)">
         <div>
@@ -5393,6 +5402,52 @@
 </div>
 
 <!-- ╔══════════════════════════════════════════════╗
+     ║  V-ADMIN-IMPULSA-CONFIG — Config SPEI       ║
+     ╚══════════════════════════════════════════════╝ -->
+<div class="si23 view go-right" id="v-admin-impulsa-config">
+  <div class="admin-sub-hdr">
+    <div class="sbar dk"><span>9:41</span><span>▲</span></div>
+    <div class="back-row">
+      <button class="btn-back" onclick="go('v-admin-panel','left')">‹</button>
+      <div><div class="hdr-title">🏦 Config SPEI / Impulsa</div><div class="hdr-sub">Datos bancarios para transferencias</div></div>
+    </div>
+  </div>
+  <div class="scroll" style="padding:16px 14px 30px;">
+
+    <div style="background:rgba(31,194,106,.07);border:1px solid rgba(31,194,106,.2);border-radius:14px;padding:12px 14px;margin-bottom:18px;font-size:11px;color:rgba(255,255,255,.55);line-height:1.7;">
+      📌 Estos datos aparecen cuando un usuario elige pagar por transferencia. Se guardan en Firestore y entran en vigor de inmediato, sin necesidad de actualizar la app.
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">Banco</div>
+      <input id="ic-banco" type="text" placeholder="Ej: BBVA" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 14px;font-size:14px;color:#fff;font-family:'Inter',sans-serif;outline:none;">
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">CLABE Interbancaria (18 dígitos)</div>
+      <input id="ic-clabe" type="text" maxlength="18" placeholder="000000000000000000" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 14px;font-size:16px;font-weight:700;color:#F5C518;font-family:'Inter',sans-serif;outline:none;letter-spacing:2px;">
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">Beneficiario</div>
+      <input id="ic-beneficiario" type="text" placeholder="Ej: Dominio Cumbres" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 14px;font-size:14px;color:#fff;font-family:'Inter',sans-serif;outline:none;">
+    </div>
+
+    <div id="ic-status" style="display:none;padding:11px 14px;border-radius:12px;font-size:12px;font-weight:700;margin-bottom:14px;text-align:center;"></div>
+
+    <button onclick="window.adminImpulsaConfigGuardar()" id="ic-guardar-btn"
+      style="width:100%;background:linear-gradient(135deg,#0d3d24,#1FC26A);border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:800;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;">
+      💾 Guardar datos bancarios
+    </button>
+
+    <div style="margin-top:24px;padding-top:16px;border-top:.5px solid rgba(255,255,255,.07);">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.35);margin-bottom:10px;letter-spacing:.4px;text-transform:uppercase;">Notificaciones de transferencia pendientes</div>
+      <div id="ic-pendientes" style="font-size:12px;color:rgba(255,255,255,.4);">Cargando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════════════════════╗
      ║  V-ADMIN-CAMPANAS — Gestión de banners      ║
      ╚══════════════════════════════════════════════╝ -->
 <div class="si23 view go-right" id="v-admin-campanas">
@@ -5833,26 +5888,19 @@
         </div>
       </div>
 
-      <div style="background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.2);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;">
-        📌 Una vez hecha la transferencia, avísanos por WhatsApp o toca el botón de abajo. Tu plan se activa en menos de 24 horas.
-      </div>
-
-      <button onclick="window.impulsaNotificarTransferencia()" style="width:100%;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border:none;border-radius:16px;padding:16px;font-size:15px;font-weight:900;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:10px;">
-        📲 Ya transferí — avisar por WhatsApp
+      <button id="impulsa-spei-btn" onclick="window.impulsaNotificarTransferenciaApp()" style="width:100%;background:linear-gradient(135deg,#1a4a2a,#1FC26A);color:#fff;border:none;border-radius:16px;padding:16px;font-size:15px;font-weight:900;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:10px;">
+        ✅ Ya transferí — avisar al administrador
       </button>
-      <button onclick="window.impulsaNotificarTransferenciaApp()" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);border-radius:14px;padding:13px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
-        ✉️ Ya transferí — notificar en la app
-      </button>
-      <div id="impulsa-spei-ok" style="display:none;margin-top:12px;padding:12px;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.3);border-radius:12px;font-size:12px;color:#25D366;text-align:center;">
-        ✅ ¡Notificación enviada! Te confirmaremos en menos de 24 horas.
+      <div id="impulsa-spei-ok" style="display:none;margin-top:4px;padding:14px;background:rgba(31,194,106,.1);border:1px solid rgba(31,194,106,.3);border-radius:14px;font-size:12px;color:#1FC26A;text-align:center;line-height:1.6;">
+        ✅ ¡Aviso enviado!<br><span style="color:rgba(255,255,255,.5);">El administrador verificará tu transferencia y activará tu plan en menos de 24 horas.</span>
       </div>
     </div>
 
-    <!-- Verificar pago -->
+    <!-- Verificar activación -->
     <div style="margin-top:20px;padding-top:16px;border-top:.5px solid rgba(255,255,255,.07);text-align:center;">
-      <div style="font-size:11px;color:rgba(255,255,255,.3);margin-bottom:8px;">¿Tu plan ya fue activado?</div>
-      <button onclick="window.impulsaVerificarPago()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.5);border-radius:12px;padding:10px 22px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Verificar activación</button>
-      <div id="impulsa-verificar-error" style="display:none;margin-top:10px;font-size:11px;color:rgba(255,100,100,.8);"></div>
+      <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:10px;">¿Ya pagaste y quieres confirmar?</div>
+      <button id="impulsa-verificar-btn" onclick="window.impulsaVerificarPago()" style="background:rgba(31,194,106,.08);border:1.5px solid rgba(31,194,106,.35);color:rgba(31,194,106,.9);border-radius:12px;padding:11px 26px;font-size:13px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;letter-spacing:.2px;">✓ Verificar activación</button>
+      <div id="impulsa-verificar-error" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:11px;color:rgba(255,130,130,.9);line-height:1.6;"></div>
     </div>
 
   </div>
@@ -5908,16 +5956,16 @@
 #dc-fab-star {
   font-size: 40px;
   line-height: 1;
-  filter: drop-shadow(0 4px 12px rgba(245,197,24,.7)) drop-shadow(0 0 6px rgba(245,197,24,.4));
+  filter: drop-shadow(0 0 8px rgba(31,194,106,.9)) drop-shadow(0 4px 12px rgba(31,194,106,.5));
   display: block;
 }
 #dc-fab-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
   color: #fff;
   letter-spacing: .5px;
   text-transform: uppercase;
-  text-shadow: 0 1px 6px rgba(0,0,0,.7), 0 0 12px rgba(245,197,24,.5);
+  text-shadow: 0 1px 6px rgba(0,0,0,.9), 0 0 10px rgba(31,194,106,.6);
   line-height: 1;
 }
 </style>

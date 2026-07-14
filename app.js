@@ -6077,8 +6077,8 @@ window._dcFabInit = function() {
       var star = document.getElementById('dc-fab-star');
       var lbl  = document.getElementById('dc-fab-label');
       if (esImpulsa) {
-        if (star) { star.textContent = '📢'; star.style.filter = 'drop-shadow(0 4px 12px rgba(31,194,106,.7))'; }
-        if (lbl)  { lbl.textContent = 'PUBLICIDAD'; lbl.style.textShadow = '0 1px 6px rgba(0,0,0,.7),0 0 12px rgba(31,194,106,.5)'; }
+        if (star) { star.textContent = '📢'; star.style.filter = 'drop-shadow(0 0 8px rgba(31,194,106,.9)) drop-shadow(0 4px 12px rgba(31,194,106,.5))'; }
+        if (lbl)  { lbl.textContent = 'PUBLICIDAD'; lbl.style.textShadow = '0 1px 6px rgba(0,0,0,.9),0 0 10px rgba(31,194,106,.6)'; }
         window._dcFabAccion = function() { window._dcProximamente && window._dcProximamente('El módulo de Publicidad estará disponible pronto.'); };
       }
     } catch(e) { /* queda en ⭐ Impulsa */ }
@@ -6087,6 +6087,119 @@ window._dcFabInit = function() {
 
 // Alias para compatibilidad con llamada desde renderHomeM2
 window._actualizarFabHome = window._dcFabInit;
+
+// ── Admin: Config SPEI / Impulsa ─────────────────────────────────────────
+window.adminImpulsaConfigCargar = async function() {
+  var fBanco = document.getElementById('ic-banco');
+  var fClabe = document.getElementById('ic-clabe');
+  var fBenef = document.getElementById('ic-beneficiario');
+  var fPend  = document.getElementById('ic-pendientes');
+  try {
+    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    // Cargar config actual
+    var snap = await _FS.getDoc(_FS.doc(window._fbDb, 'config', 'impulsa'));
+    if (snap.exists()) {
+      var cfg = snap.data();
+      if (fBanco) fBanco.value = cfg.banco        || '';
+      if (fClabe) fClabe.value = cfg.clabe        || '';
+      if (fBenef) fBenef.value = cfg.beneficiario || '';
+    }
+    // Cargar notificaciones de transferencia pendientes
+    if (fPend) {
+      var q = _FS.query(
+        _FS.collection(window._fbDb, 'notificaciones'),
+        _FS.where('tipo','==','impulsa_transferencia'),
+        _FS.where('leida','==',false),
+        _FS.orderBy('fecha','desc'),
+        _FS.limit(10)
+      );
+      var qSnap = await _FS.getDocs(q);
+      if (qSnap.empty) {
+        fPend.innerHTML = '<div style="color:rgba(255,255,255,.3);">Sin transferencias pendientes ✓</div>';
+      } else {
+        var html = '';
+        qSnap.forEach(function(d) {
+          var dat = d.data();
+          var fecha = dat.fecha ? new Date(dat.fecha.seconds * 1000).toLocaleDateString('es-MX') : '—';
+          html += '<div style="background:rgba(245,197,24,.07);border:1px solid rgba(245,197,24,.2);border-radius:12px;padding:12px 14px;margin-bottom:8px;">'
+            + '<div style="font-size:12px;font-weight:700;color:#F5C518;margin-bottom:3px;">' + (dat.solicitanteEmail || dat.solicitanteUid || '—') + '</div>'
+            + '<div style="font-size:11px;color:rgba(255,255,255,.55);">Plan: ' + (dat.planTipo || '—') + ' · $' + (dat.planMonto || 0).toLocaleString('es-MX') + ' MXN</div>'
+            + '<div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:2px;">Concepto: ' + (dat.concepto || '—') + ' · ' + fecha + '</div>'
+            + '<button onclick="window.adminImpulsaActivarTransf(\'' + d.id + '\',\'' + (dat.solicitanteUid||'') + '\',\'' + (dat.planTipo||'mensual') + '\')" '
+            + 'style="margin-top:8px;background:#F5C518;color:#3d2900;border:none;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;">⭐ Activar plan</button>'
+            + '</div>';
+        });
+        fPend.innerHTML = html;
+      }
+    }
+  } catch(e) {
+    if (fPend) fPend.innerHTML = '<div style="color:#ff6b6b;font-size:11px;">Error: ' + e.message + '</div>';
+  }
+};
+
+window.adminImpulsaConfigGuardar = async function() {
+  var btn    = document.getElementById('ic-guardar-btn');
+  var status = document.getElementById('ic-status');
+  var banco  = (document.getElementById('ic-banco')?.value || '').trim();
+  var clabe  = (document.getElementById('ic-clabe')?.value || '').replace(/\s/g,'');
+  var benef  = (document.getElementById('ic-beneficiario')?.value || '').trim();
+  if (!banco || !clabe || !benef) {
+    if (status) { status.textContent = '⚠️ Completa todos los campos'; status.style.background='rgba(245,197,24,.12)'; status.style.color='#F5C518'; status.style.display='block'; }
+    return;
+  }
+  if (clabe.length !== 18 || !/^\d+$/.test(clabe)) {
+    if (status) { status.textContent = '⚠️ La CLABE debe tener exactamente 18 dígitos'; status.style.background='rgba(245,197,24,.12)'; status.style.color='#F5C518'; status.style.display='block'; }
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando...'; }
+  if (status) status.style.display = 'none';
+  try {
+    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    await _FS.setDoc(_FS.doc(window._fbDb, 'config', 'impulsa'), {
+      banco: banco, clabe: clabe, beneficiario: benef,
+      updatedAt: _FS.serverTimestamp(),
+    }, { merge: true });
+    // Actualizar variable local también
+    _IMPULSA_SPEI.banco = banco;
+    _IMPULSA_SPEI.clabe = clabe;
+    _IMPULSA_SPEI.beneficiario = benef;
+    if (status) { status.textContent = '✅ Datos guardados correctamente'; status.style.background='rgba(31,194,106,.12)'; status.style.color='#1FC26A'; status.style.display='block'; }
+  } catch(e) {
+    if (status) { status.textContent = '❌ Error: ' + e.message; status.style.background='rgba(214,58,42,.12)'; status.style.color='#ff6b6b'; status.style.display='block'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar datos bancarios'; }
+  }
+};
+
+window.adminImpulsaActivarTransf = async function(notifId, uid, planTipo) {
+  if (!uid) { alert('UID no disponible'); return; }
+  try {
+    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var dias = planTipo === 'anual' ? 365 : 30;
+    var inicio = new Date(); inicio.setHours(0,0,0,0);
+    var fin = new Date(inicio); fin.setDate(fin.getDate() + dias);
+    await _FS.updateDoc(_FS.doc(window._fbDb, 'usuarios', uid), {
+      plan: 'impulsa', planTipo: planTipo === 'anual' ? 'anual' : 'mensual',
+      planInicio: _FS.Timestamp.fromDate(inicio),
+      planVence:  _FS.Timestamp.fromDate(fin),
+      planActivadoPor: 'admin_spei',
+      planActivadoAt:  _FS.serverTimestamp(),
+    });
+    // Marcar notificación como leída
+    await _FS.updateDoc(_FS.doc(window._fbDb, 'notificaciones', notifId), { leida: true });
+    // Notificar al usuario
+    await _FS.addDoc(_FS.collection(window._fbDb, 'notificaciones'), {
+      uid: uid, tipo: 'impulsa_activado',
+      titulo: '⭐ ¡Plan Impulsa activado!',
+      mensaje: 'Tu Plan Impulsa ' + (planTipo === 'anual' ? 'Anual' : 'Mensual') + ' ha sido activado. ¡Empieza a aparecer primero!',
+      leida: false, eliminada: false, fecha: _FS.serverTimestamp(),
+    });
+    alert('✅ Plan activado correctamente. Se notificó al usuario.');
+    window.adminImpulsaConfigCargar();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+};
 
 // ── Pantalla 1: Estado del plan ──────────────────────────────────────────
 window.impulsaCargar = async function() {
@@ -6135,11 +6248,13 @@ window.impulsaCargar = async function() {
           '<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:4px;">Plan Básico</div>',
           '<div style="font-size:12px;color:rgba(255,255,255,.45);">Tu perfil está visible en la app</div>',
         '</div>',
-        '<div onclick="go(\'v-impulsa-planes\',\'right\')" style="margin:16px 16px 0;background:linear-gradient(135deg,#4d3900,#c8940a);border-radius:20px;padding:22px;text-align:center;cursor:pointer;">',
-          '<div style="font-size:36px;margin-bottom:8px;">⭐</div>',
-          '<div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:6px;">Activa IMPULSA</div>',
-          '<div style="font-size:12px;color:rgba(255,255,255,.85);margin-bottom:18px;line-height:1.6;">Aparece primero en búsquedas<br>Banners en toda la app · Más clientes</div>',
-          '<div style="background:#fff;color:#7a5000;font-size:13px;font-weight:900;padding:12px 28px;border-radius:14px;display:inline-block;">Ver planes desde $199 →</div>',
+        '<div onclick="go(\'v-impulsa-planes\',\'right\')" style="margin:14px 16px 0;background:linear-gradient(135deg,#4d3900,#c8940a);border-radius:18px;padding:16px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;">',
+          '<div style="font-size:34px;flex-shrink:0;">⭐</div>',
+          '<div style="flex:1;text-align:left;">',
+            '<div style="font-size:17px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:3px;">Activa IMPULSA</div>',
+            '<div style="font-size:11px;color:rgba(255,255,255,.8);line-height:1.5;">Aparece primero · Banners · Más clientes</div>',
+          '</div>',
+          '<div style="background:#fff;color:#7a5000;font-size:12px;font-weight:900;padding:9px 14px;border-radius:12px;white-space:nowrap;flex-shrink:0;">desde $199 →</div>',
         '</div>',
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 16px 0;">',
           _impComparativa('Básico', false),
@@ -6232,45 +6347,70 @@ window.impulsaAbrirCheckout = async function() {
     console.error('impulsaAbrirCheckout', e);
     if (btn) { btn.disabled = false; btn.innerHTML = '<span>💳</span> Pagar con MercadoPago'; }
     if (errDiv) {
-      errDiv.textContent = 'Error: ' + (e.message || 'No se pudo generar el enlace de pago');
+      var msg = e.message || '';
+      var texto = msg.indexOf('internal') !== -1 || msg.indexOf('INTERNAL') !== -1
+        ? 'El servicio de pago no está disponible en este momento. Usa la opción Transferencia o intenta más tarde.'
+        : ('No se pudo generar el enlace de pago. ' + (msg || 'Intenta de nuevo.'));
+      errDiv.textContent = texto;
       errDiv.style.display = 'block';
     }
   }
 };
 
-// Botón "Ya pagué" — verifica si el plan se activó vía webhook
+// Botón "Verificar activación"
 window.impulsaVerificarPago = async function() {
+  var btn    = document.getElementById('impulsa-verificar-btn');
+  var errDiv = document.getElementById('impulsa-verificar-error');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Verificando...'; }
+  if (errDiv) errDiv.style.display = 'none';
   try {
     var user = window._fbAuth && window._fbAuth.currentUser;
-    if (!user) return;
-    var snap = await _fbGet2('usuarios', user.uid);
+    if (!user) throw new Error('Sin sesión. Vuelve a iniciar sesión.');
+    // Forzar recarga fresca de Firestore (no caché)
+    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var docRef = _FS.doc(window._fbDb, 'usuarios', user.uid);
+    var snap = await _FS.getDoc(docRef);
     var d = snap.exists() ? snap.data() : {};
-    var activo = d.plan === 'impulsa' && d.planVence
-      && ((d.planVence.toMillis ? d.planVence.toMillis() : d.planVence.seconds * 1000) > Date.now());
+    var ahora = Date.now();
+    var venceMs = d.planVence
+      ? (d.planVence.toMillis ? d.planVence.toMillis() : (d.planVence.seconds || 0) * 1000)
+      : 0;
+    var activo = d.plan === 'impulsa' && venceMs > ahora;
     if (activo) {
-      var fin = d.planVence.toMillis ? new Date(d.planVence.toMillis()) : new Date(d.planVence.seconds * 1000);
+      var fin = new Date(venceMs);
       var okVence = document.getElementById('impulsa-ok-vence');
       if (okVence) okVence.textContent = 'Plan activo hasta el ' + fin.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
       go('v-impulsa-ok', 'right');
     } else {
-      var errDiv = document.getElementById('impulsa-verificar-error');
       if (errDiv) {
-        errDiv.textContent = 'El plan aún no está activo. Si ya pagaste, espera unos minutos e intenta de nuevo.';
+        errDiv.innerHTML = '⏳ Plan aún no activado.<br>Si ya pagaste, el administrador lo revisará y activará en menos de 24 horas.';
         errDiv.style.display = 'block';
       }
+      if (btn) { btn.disabled = false; btn.textContent = '✓ Verificar activación'; }
     }
   } catch(e) {
     console.error('impulsaVerificarPago', e);
+    if (errDiv) { errDiv.textContent = 'Error al verificar: ' + (e.message || 'intenta de nuevo'); errDiv.style.display = 'block'; }
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Verificar activación'; }
   }
 };
 
-// Datos de transferencia (cambiar a los datos reales)
+// Datos SPEI — se cargan desde Firestore config/impulsa (el admin los edita desde el panel)
 var _IMPULSA_SPEI = {
-  banco:        'BBVA',
-  clabe:        '012 180 034 567 890 123',  // ← CAMBIA por tu CLABE real
-  beneficiario: 'Dominio Cumbres',
-  whatsapp:     '5218110000000',            // ← CAMBIA por tu número de WhatsApp
+  banco: '—', clabe: '—', beneficiario: 'Dominio Cumbres',
 };
+(async function _cargarConfigSpei() {
+  try {
+    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var snap = await _FS.getDoc(_FS.doc(window._fbDb, 'config', 'impulsa'));
+    if (snap.exists()) {
+      var cfg = snap.data();
+      _IMPULSA_SPEI.banco        = cfg.banco        || _IMPULSA_SPEI.banco;
+      _IMPULSA_SPEI.clabe        = cfg.clabe        || _IMPULSA_SPEI.clabe;
+      _IMPULSA_SPEI.beneficiario = cfg.beneficiario || _IMPULSA_SPEI.beneficiario;
+    }
+  } catch(_) {}
+})();
 
 // ── Tabs de método de pago ─────────────────────────────────────────────────
 window.impulsaTabPago = function(tab) {
@@ -6324,46 +6464,39 @@ window.impulsaCopiarClabe = function() {
   }
 };
 
-window.impulsaNotificarTransferencia = function() {
-  var plan = _MP_PLANES[_impulsaPlanSel] || {};
-  var user = window._fbAuth && window._fbAuth.currentUser;
-  var uid6 = user ? user.uid.slice(0,6).toUpperCase() : '------';
-  var concepto = 'IMPULSA ' + (_impulsaPlanSel || '').toUpperCase() + ' ' + uid6;
-  var msg = encodeURIComponent(
-    '¡Hola! Acabo de hacer una transferencia para activar mi Plan Impulsa en Dominio Cumbres.\n\n'
-    + '• Plan: ' + (plan.label || _impulsaPlanSel) + '\n'
-    + '• Monto: $' + (plan.monto || '').toLocaleString('es-MX') + ' MXN\n'
-    + '• Concepto usado: ' + concepto + '\n\n'
-    + '¿Podrían confirmar la activación? Gracias.'
-  );
-  window.open('https://wa.me/' + _IMPULSA_SPEI.whatsapp + '?text=' + msg, '_blank');
-};
-
 window.impulsaNotificarTransferenciaApp = async function() {
+  var btn = document.getElementById('impulsa-spei-btn');
+  var ok  = document.getElementById('impulsa-spei-ok');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Enviando aviso...'; }
   try {
     var user = window._fbAuth && window._fbAuth.currentUser;
-    if (!user) { alert('Sin sesión'); return; }
+    if (!user) throw new Error('Sin sesión');
     var plan = _MP_PLANES[_impulsaPlanSel] || {};
+    var uid6 = user.uid.slice(0,6).toUpperCase();
+    var concepto = 'IMPULSA ' + (_impulsaPlanSel || '').toUpperCase() + ' ' + uid6;
     var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
     var col = _FS.collection(window._fbDb, 'notificaciones');
     await _FS.addDoc(col, {
-      uid:       'ADMIN',
-      tipo:      'impulsa_transferencia',
-      titulo:    '💰 Transferencia SPEI pendiente',
-      mensaje:   'El usuario ' + user.email + ' reporta haber transferido para ' + (plan.label || _impulsaPlanSel) + '. UID: ' + user.uid,
-      leida:     false,
-      eliminada: false,
-      prioridad: 'high',
-      fecha:     _FS.serverTimestamp(),
+      uid:              'ADMIN',
+      tipo:             'impulsa_transferencia',
+      titulo:           '💰 Transferencia SPEI pendiente',
+      mensaje:          'El usuario ' + (user.email || user.uid) + ' reporta haber transferido para ' + (plan.label || _impulsaPlanSel) + '. Concepto: ' + concepto + '. UID: ' + user.uid,
+      leida:            false,
+      eliminada:        false,
+      prioridad:        'high',
+      fecha:            _FS.serverTimestamp(),
       solicitanteUid:   user.uid,
       solicitanteEmail: user.email || '',
-      planTipo:  _impulsaPlanSel,
-      planMonto: plan.monto || 0,
+      planTipo:         _impulsaPlanSel,
+      planMonto:        plan.monto || 0,
+      concepto:         concepto,
     });
-    var ok = document.getElementById('impulsa-spei-ok');
     if (ok) ok.style.display = 'block';
+    if (btn) { btn.textContent = '✅ Aviso enviado'; }
   } catch(e) {
     console.error('impulsaNotificarTransferenciaApp', e);
-    alert('Error al enviar notificación: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Ya transferí — avisar al administrador'; }
+    var errDiv = document.getElementById('impulsa-verificar-error');
+    if (errDiv) { errDiv.textContent = 'Error al enviar: ' + (e.message || 'intenta de nuevo'); errDiv.style.display = 'block'; }
   }
 };
