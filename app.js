@@ -6241,29 +6241,55 @@ window.impulsaCargar = async function() {
           _impBeneficios(),
         '</div>',
         '<div style="padding:16px;">',
-          '<button onclick="go(\'v-impulsa-planes\',\'right\')" style="width:100%;background:rgba(245,197,24,.1);border:1px solid rgba(245,197,24,.35);border-radius:14px;padding:14px;color:#F5C518;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Renovar plan</button>',
+          '<button onclick="window.impulsaCargar()" style="width:100%;background:rgba(245,197,24,.1);border:1px solid rgba(245,197,24,.35);border-radius:14px;padding:14px;color:#F5C518;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Renovar plan</button>',
         '</div>',
       ].join('');
     } else {
+      // Actualizar badge del header
+      var badge = document.getElementById('impulsa-plan-badge');
+      if (badge) badge.textContent = '🏪 Plan Básico · activo';
+
       cont.innerHTML = [
-        '<div style="margin:20px 16px 0;background:rgba(255,255,255,.04);border-radius:20px;padding:24px;text-align:center;border:.5px solid rgba(255,255,255,.08);">',
-          '<div style="font-size:44px;margin-bottom:10px;">🏪</div>',
-          '<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:4px;">Plan Básico</div>',
-          '<div style="font-size:12px;color:rgba(255,255,255,.45);">Tu perfil está visible en la app</div>',
-        '</div>',
-        '<div onclick="go(\'v-impulsa-planes\',\'right\')" style="margin:14px 16px 0;background:linear-gradient(135deg,#4d3900,#c8940a);border-radius:18px;padding:16px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;">',
-          '<div style="font-size:34px;flex-shrink:0;">⭐</div>',
-          '<div style="flex:1;text-align:left;">',
-            '<div style="font-size:17px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:3px;">Activa IMPULSA</div>',
-            '<div style="font-size:11px;color:rgba(255,255,255,.8);line-height:1.5;">Aparece primero · Banners · Más clientes</div>',
+        // Título de sección
+        '<div style="padding:22px 16px 4px;font-size:13px;font-weight:800;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.6px;">Elige tu plan</div>',
+
+        // Tarjeta MENSUAL
+        '<div onclick="window.impulsaSeleccionarPlan(\'mensual\')" style="margin:8px 16px 0;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.12);border-radius:18px;padding:18px 20px;cursor:pointer;position:relative;">',
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;">',
+            '<div>',
+              '<div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.5px;margin-bottom:4px;">MENSUAL</div>',
+              '<div style="font-size:28px;font-weight:900;color:#fff;line-height:1;">$199 <span style="font-size:13px;font-weight:500;color:rgba(255,255,255,.4);">/mes</span></div>',
+            '</div>',
+            '<div style="background:rgba(245,197,24,.12);border:1px solid rgba(245,197,24,.3);border-radius:10px;padding:6px 12px;font-size:11px;font-weight:800;color:#F5C518;">Seleccionar →</div>',
           '</div>',
-          '<div style="background:#fff;color:#7a5000;font-size:12px;font-weight:900;padding:9px 14px;border-radius:12px;white-space:nowrap;flex-shrink:0;">desde $199 →</div>',
         '</div>',
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 16px 0;">',
+
+        // Tarjeta ANUAL (recomendada)
+        '<div onclick="window.impulsaSeleccionarPlan(\'anual\')" style="margin:10px 16px 0;background:linear-gradient(135deg,#2a1f00,#4d3900);border:1.5px solid rgba(245,197,24,.4);border-radius:18px;padding:18px 20px;cursor:pointer;position:relative;">',
+          '<div style="position:absolute;top:-10px;left:20px;background:#F5C518;color:#3d2900;font-size:9px;font-weight:900;padding:3px 12px;border-radius:10px;letter-spacing:.5px;">MEJOR PRECIO</div>',
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;">',
+            '<div>',
+              '<div style="font-size:11px;font-weight:800;color:rgba(245,197,24,.7);letter-spacing:.5px;margin-bottom:4px;">ANUAL</div>',
+              '<div style="font-size:28px;font-weight:900;color:#F5C518;line-height:1;">$1,999 <span style="font-size:13px;font-weight:500;color:rgba(245,197,24,.5);">/año</span></div>',
+              '<div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:3px;">≈ $166/mes · ahorras $390</div>',
+            '</div>',
+            '<div style="background:#F5C518;border-radius:10px;padding:6px 12px;font-size:11px;font-weight:800;color:#3d2900;">Seleccionar →</div>',
+          '</div>',
+        '</div>',
+
+        // Beneficios
+        '<div style="margin:14px 16px 0;background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.15);border-radius:16px;padding:16px;">',
+          '<div style="font-size:10px;font-weight:800;color:#F5C518;letter-spacing:.6px;margin-bottom:12px;">QUÉ INCLUYE IMPULSA</div>',
+          _impBeneficios(),
+        '</div>',
+
+        // Comparativa
+        '<div style="padding:12px 16px 4px;font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;">Comparativa</div>',
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px;">',
           _impComparativa('Básico', false),
           _impComparativa('Impulsa ⭐', true),
         '</div>',
-        '<div style="height:16px;"></div>',
+        '<div style="height:24px;"></div>',
       ].join('');
     }
   } catch(e) {
