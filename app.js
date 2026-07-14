@@ -1062,10 +1062,10 @@ function _postHooks(id){
     }
     if(typeof window.__dcNavPatchAll==='function'){setTimeout(window.__dcNavPatchAll,35);setTimeout(window.__dcNavPatchAll,180);}
     _patchFavBack();
-    // FAB: ocultar en vistas de Impulsa y login, mostrar en el resto
+    // FAB: ocultar en vistas de Impulsa, login, admin y registro
     try {
       var fab = document.getElementById('dc-fab-global');
-      if (fab && fab.classList.contains('visible')) {
+      if (fab) {
         var _fabOcultar = ['v-impulsa','v-impulsa-planes','v-impulsa-pago','v-impulsa-ok',
                            'v-splash','v-login','v-register','v-role','v-loading',
                            'v-admin-login','v-admin-panel',
@@ -1074,7 +1074,7 @@ function _postHooks(id){
         if (_fabOcultar.indexOf(id) !== -1) {
           fab.style.opacity = '0';
           fab.style.pointerEvents = 'none';
-        } else {
+        } else if (fab.classList.contains('visible')) {
           fab.style.opacity = '1';
           fab.style.pointerEvents = 'auto';
         }
@@ -1082,6 +1082,56 @@ function _postHooks(id){
     } catch(_) {}
   }catch(_){}
 }
+
+// ── FAB global: estrella flotante IMPULSA ────────────────────────────────
+window._dcFabInit = function() {
+  var fab = document.getElementById('dc-fab-global');
+  if (!fab) return;
+  var ROLES_NEGOCIO = ['proveedor','restaurante','negocio'];
+  var tipo = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
+  // Si no hay tipo en localStorage, intentar leerlo del usuario actual
+  if (!tipo) {
+    var _u = window._fbAuth && window._fbAuth.currentUser;
+    if (!_u) return;
+    (async function() {
+      try {
+        var snap = await _fbGet2('usuarios', _u.uid);
+        var d = snap.exists() ? snap.data() : {};
+        tipo = (d.tipo || '').toLowerCase();
+        if (ROLES_NEGOCIO.indexOf(tipo) !== -1) {
+          localStorage.setItem('dcuserTipo', tipo);
+          window._dcFabInit();
+        }
+      } catch(e) {}
+    })();
+    return;
+  }
+  if (ROLES_NEGOCIO.indexOf(tipo) === -1) { fab.classList.remove('visible'); return; }
+  fab.classList.add('visible');
+  fab.style.opacity = '1';
+  fab.style.pointerEvents = 'auto';
+  var star = document.getElementById('dc-fab-star');
+  var lbl  = document.getElementById('dc-fab-label');
+  window._dcFabAccion = function() { window._irAImpulsa && window._irAImpulsa(); };
+  (async function() {
+    try {
+      var user = window._fbAuth && window._fbAuth.currentUser;
+      if (!user) return;
+      var snap = await _fbGet2('usuarios', user.uid);
+      var d = snap.exists() ? snap.data() : {};
+      var ahora = Date.now();
+      var venceMs = d.planVence
+        ? (d.planVence.toMillis ? d.planVence.toMillis() : (d.planVence.seconds||0)*1000) : 0;
+      var esImpulsa = d.plan === 'impulsa' && venceMs > ahora;
+      if (esImpulsa) {
+        if (star) { star.textContent = '📢'; star.style.filter = 'drop-shadow(0 0 8px rgba(31,194,106,.9))'; }
+        if (lbl)  lbl.textContent = 'PUBLICIDAD';
+        window._dcFabAccion = function() { window._dcProximamente && window._dcProximamente('Publicidad','Estadísticas de tus campañas próximamente'); };
+      }
+    } catch(e) {}
+  })();
+};
+window._actualizarFabHome = window._dcFabInit;
 
 function dcGoOficial(id,dir){
   id=_preHooks(id); dir=dir||'right';
@@ -3412,6 +3462,7 @@ window.renderHomeM2 = function() {
         + modulo('🔧','#FFF8DC','Mi Servicio','Editar perfil',"go('v-mipanel','right')")
         + '</div>';
 
+
       // Banner CMV — igual estilo que otros banners del home
       html += '<div onclick="go(\'v-prov-cmv\',\'right\');setTimeout(window.vprovCmvCargar,200)" style="margin:0 14px 14px;background:linear-gradient(120deg,#0d3d24,#1a6640);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:0 4px 18px rgba(31,194,106,.25);">'
         + '<div style="width:48px;height:48px;border-radius:13px;background:rgba(31,194,106,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:26px;">👁</div>'
@@ -3570,8 +3621,6 @@ window.renderHomeM2 = function() {
     if (_adsWrap) { _adsWrap.style.display = ''; var _adIdx = (tipo==='restaurante'||tipo==='negocio') ? 3 : 2; var _ref = scroll.children[_adIdx]; _ref ? scroll.insertBefore(_adsWrap, _ref) : scroll.appendChild(_adsWrap); }
     // M2-G: poblar descubrimiento si el contenedor fue inyectado
     window.renderDescubrimiento && window.renderDescubrimiento('home-discover-list');
-    // FAB Impulsa / Publicidad
-    window._actualizarFabHome && window._actualizarFabHome();
     // Actualizar nav inferior según rol del operador
     var nav = document.getElementById('v-home-nav') || document.querySelector('#v-home .nav');
     if (nav) {
@@ -6046,164 +6095,6 @@ window._irAImpulsa = function() {
   setTimeout(window.impulsaCargar, 200);
 };
 
-// ── FAB Global Impulsa / Publicidad ──────────────────────────────────────
-// Aparece sobre TODA la app (z-index 9500, dentro de .screen)
-// Solo para proveedor, restaurante, negocio.
-// ⭐ → sin plan activo → va a Impulsa
-// 📢 → plan activo → va a Publicidad
-window._dcFabInit = function() {
-  var tipo = (localStorage.getItem('dcuserTipo') || 'vecino').toLowerCase();
-  var fab = document.getElementById('dc-fab-global');
-  if (!fab) return;
-
-  var ROLES_NEGOCIO = ['proveedor','restaurante','negocio'];
-  if (ROLES_NEGOCIO.indexOf(tipo) === -1) {
-    fab.classList.remove('visible');
-    return;
-  }
-
-  // Mostrar con ⭐ mientras verifica plan
-  fab.classList.add('visible');
-  window._dcFabAccion = function() { window._irAImpulsa && window._irAImpulsa(); };
-
-  (async function() {
-    try {
-      var user = window._fbAuth && window._fbAuth.currentUser;
-      if (!user) return;
-      var snap = await _fbGet2('usuarios', user.uid);
-      var d = snap.exists() ? snap.data() : {};
-      var ahora = Date.now();
-      var venceMs = d.planVence
-        ? (d.planVence.toMillis ? d.planVence.toMillis() : (d.planVence.seconds || 0) * 1000)
-        : 0;
-      var esImpulsa = d.plan === 'impulsa' && venceMs > ahora;
-      var star = document.getElementById('dc-fab-star');
-      var lbl  = document.getElementById('dc-fab-label');
-      if (esImpulsa) {
-        if (star) { star.textContent = '📢'; star.style.filter = 'drop-shadow(0 0 8px rgba(31,194,106,.9)) drop-shadow(0 4px 12px rgba(31,194,106,.5))'; }
-        if (lbl)  { lbl.textContent = 'PUBLICIDAD'; lbl.style.textShadow = '0 1px 6px rgba(0,0,0,.9),0 0 10px rgba(31,194,106,.6)'; }
-        window._dcFabAccion = function() { window._dcProximamente && window._dcProximamente('El módulo de Publicidad estará disponible pronto.'); };
-      }
-    } catch(e) { /* queda en ⭐ Impulsa */ }
-  })();
-};
-
-// Alias para compatibilidad con llamada desde renderHomeM2
-window._actualizarFabHome = window._dcFabInit;
-
-// ── Admin: Config SPEI / Impulsa ─────────────────────────────────────────
-window.adminImpulsaConfigCargar = async function() {
-  var fBanco = document.getElementById('ic-banco');
-  var fClabe = document.getElementById('ic-clabe');
-  var fBenef = document.getElementById('ic-beneficiario');
-  var fPend  = document.getElementById('ic-pendientes');
-  try {
-    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    // Cargar config actual
-    var snap = await _FS.getDoc(_FS.doc(window._fbDb, 'config', 'impulsa'));
-    if (snap.exists()) {
-      var cfg = snap.data();
-      if (fBanco) fBanco.value = cfg.banco        || '';
-      if (fClabe) fClabe.value = cfg.clabe        || '';
-      if (fBenef) fBenef.value = cfg.beneficiario || '';
-    }
-    // Cargar notificaciones de transferencia pendientes
-    if (fPend) {
-      var q = _FS.query(
-        _FS.collection(window._fbDb, 'notificaciones'),
-        _FS.where('tipo','==','impulsa_transferencia'),
-        _FS.where('leida','==',false),
-        _FS.orderBy('fecha','desc'),
-        _FS.limit(10)
-      );
-      var qSnap = await _FS.getDocs(q);
-      if (qSnap.empty) {
-        fPend.innerHTML = '<div style="color:rgba(255,255,255,.3);">Sin transferencias pendientes ✓</div>';
-      } else {
-        var html = '';
-        qSnap.forEach(function(d) {
-          var dat = d.data();
-          var fecha = dat.fecha ? new Date(dat.fecha.seconds * 1000).toLocaleDateString('es-MX') : '—';
-          html += '<div style="background:rgba(245,197,24,.07);border:1px solid rgba(245,197,24,.2);border-radius:12px;padding:12px 14px;margin-bottom:8px;">'
-            + '<div style="font-size:12px;font-weight:700;color:#F5C518;margin-bottom:3px;">' + (dat.solicitanteEmail || dat.solicitanteUid || '—') + '</div>'
-            + '<div style="font-size:11px;color:rgba(255,255,255,.55);">Plan: ' + (dat.planTipo || '—') + ' · $' + (dat.planMonto || 0).toLocaleString('es-MX') + ' MXN</div>'
-            + '<div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:2px;">Concepto: ' + (dat.concepto || '—') + ' · ' + fecha + '</div>'
-            + '<button onclick="window.adminImpulsaActivarTransf(\'' + d.id + '\',\'' + (dat.solicitanteUid||'') + '\',\'' + (dat.planTipo||'mensual') + '\')" '
-            + 'style="margin-top:8px;background:#F5C518;color:#3d2900;border:none;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;">⭐ Activar plan</button>'
-            + '</div>';
-        });
-        fPend.innerHTML = html;
-      }
-    }
-  } catch(e) {
-    if (fPend) fPend.innerHTML = '<div style="color:#ff6b6b;font-size:11px;">Error: ' + e.message + '</div>';
-  }
-};
-
-window.adminImpulsaConfigGuardar = async function() {
-  var btn    = document.getElementById('ic-guardar-btn');
-  var status = document.getElementById('ic-status');
-  var banco  = (document.getElementById('ic-banco')?.value || '').trim();
-  var clabe  = (document.getElementById('ic-clabe')?.value || '').replace(/\s/g,'');
-  var benef  = (document.getElementById('ic-beneficiario')?.value || '').trim();
-  if (!banco || !clabe || !benef) {
-    if (status) { status.textContent = '⚠️ Completa todos los campos'; status.style.background='rgba(245,197,24,.12)'; status.style.color='#F5C518'; status.style.display='block'; }
-    return;
-  }
-  if (clabe.length !== 18 || !/^\d+$/.test(clabe)) {
-    if (status) { status.textContent = '⚠️ La CLABE debe tener exactamente 18 dígitos'; status.style.background='rgba(245,197,24,.12)'; status.style.color='#F5C518'; status.style.display='block'; }
-    return;
-  }
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando...'; }
-  if (status) status.style.display = 'none';
-  try {
-    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    await _FS.setDoc(_FS.doc(window._fbDb, 'config', 'impulsa'), {
-      banco: banco, clabe: clabe, beneficiario: benef,
-      updatedAt: _FS.serverTimestamp(),
-    }, { merge: true });
-    // Actualizar variable local también
-    _IMPULSA_SPEI.banco = banco;
-    _IMPULSA_SPEI.clabe = clabe;
-    _IMPULSA_SPEI.beneficiario = benef;
-    if (status) { status.textContent = '✅ Datos guardados correctamente'; status.style.background='rgba(31,194,106,.12)'; status.style.color='#1FC26A'; status.style.display='block'; }
-  } catch(e) {
-    if (status) { status.textContent = '❌ Error: ' + e.message; status.style.background='rgba(214,58,42,.12)'; status.style.color='#ff6b6b'; status.style.display='block'; }
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar datos bancarios'; }
-  }
-};
-
-window.adminImpulsaActivarTransf = async function(notifId, uid, planTipo) {
-  if (!uid) { alert('UID no disponible'); return; }
-  try {
-    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    var dias = planTipo === 'anual' ? 365 : 30;
-    var inicio = new Date(); inicio.setHours(0,0,0,0);
-    var fin = new Date(inicio); fin.setDate(fin.getDate() + dias);
-    await _FS.updateDoc(_FS.doc(window._fbDb, 'usuarios', uid), {
-      plan: 'impulsa', planTipo: planTipo === 'anual' ? 'anual' : 'mensual',
-      planInicio: _FS.Timestamp.fromDate(inicio),
-      planVence:  _FS.Timestamp.fromDate(fin),
-      planActivadoPor: 'admin_spei',
-      planActivadoAt:  _FS.serverTimestamp(),
-    });
-    // Marcar notificación como leída
-    await _FS.updateDoc(_FS.doc(window._fbDb, 'notificaciones', notifId), { leida: true });
-    // Notificar al usuario
-    await _FS.addDoc(_FS.collection(window._fbDb, 'notificaciones'), {
-      uid: uid, tipo: 'impulsa_activado',
-      titulo: '⭐ ¡Plan Impulsa activado!',
-      mensaje: 'Tu Plan Impulsa ' + (planTipo === 'anual' ? 'Anual' : 'Mensual') + ' ha sido activado. ¡Empieza a aparecer primero!',
-      leida: false, eliminada: false, fecha: _FS.serverTimestamp(),
-    });
-    alert('✅ Plan activado correctamente. Se notificó al usuario.');
-    window.adminImpulsaConfigCargar();
-  } catch(e) {
-    alert('Error: ' + e.message);
-  }
-};
-
 // ── Pantalla 1: Estado del plan ──────────────────────────────────────────
 window.impulsaCargar = async function() {
   var cont = document.getElementById('impulsa-cont');
@@ -6245,49 +6136,61 @@ window.impulsaCargar = async function() {
         '</div>',
       ].join('');
     } else {
-      // Actualizar badge del header
       var badge = document.getElementById('impulsa-plan-badge');
       if (badge) badge.textContent = '🏪 Plan Básico · activo';
 
       cont.innerHTML = [
-        // Título de sección
-        '<div style="padding:22px 16px 4px;font-size:13px;font-weight:800;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.6px;">Elige tu plan</div>',
-
-        // Tarjeta MENSUAL
-        '<div onclick="window.impulsaSeleccionarPlan(\'mensual\')" style="margin:8px 16px 0;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.12);border-radius:18px;padding:18px 20px;cursor:pointer;position:relative;">',
-          '<div style="display:flex;justify-content:space-between;align-items:flex-start;">',
-            '<div>',
-              '<div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.5px;margin-bottom:4px;">MENSUAL</div>',
-              '<div style="font-size:28px;font-weight:900;color:#fff;line-height:1;">$199 <span style="font-size:13px;font-weight:500;color:rgba(255,255,255,.4);">/mes</span></div>',
-            '</div>',
-            '<div style="background:rgba(245,197,24,.12);border:1px solid rgba(245,197,24,.3);border-radius:10px;padding:6px 12px;font-size:11px;font-weight:800;color:#F5C518;">Seleccionar →</div>',
+        // Mi plan actual
+        '<div style="margin:16px 14px 0;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;">',
+          '<div style="font-size:28px;">🏪</div>',
+          '<div>',
+            '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">Mi Plan Actual</div>',
+            '<div style="font-size:14px;font-weight:800;color:#fff;">Plan Básico <span style="font-size:11px;font-weight:600;color:#1FC26A;">· activo</span></div>',
+            '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:1px;">Tu perfil está visible en la app</div>',
           '</div>',
         '</div>',
 
-        // Tarjeta ANUAL (recomendada)
-        '<div onclick="window.impulsaSeleccionarPlan(\'anual\')" style="margin:10px 16px 0;background:linear-gradient(135deg,#2a1f00,#4d3900);border:1.5px solid rgba(245,197,24,.4);border-radius:18px;padding:18px 20px;cursor:pointer;position:relative;">',
-          '<div style="position:absolute;top:-10px;left:20px;background:#F5C518;color:#3d2900;font-size:9px;font-weight:900;padding:3px 12px;border-radius:10px;letter-spacing:.5px;">MEJOR PRECIO</div>',
-          '<div style="display:flex;justify-content:space-between;align-items:flex-start;">',
-            '<div>',
-              '<div style="font-size:11px;font-weight:800;color:rgba(245,197,24,.7);letter-spacing:.5px;margin-bottom:4px;">ANUAL</div>',
-              '<div style="font-size:28px;font-weight:900;color:#F5C518;line-height:1;">$1,999 <span style="font-size:13px;font-weight:500;color:rgba(245,197,24,.5);">/año</span></div>',
-              '<div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:3px;">≈ $166/mes · ahorras $390</div>',
+        // Elige tu plan
+        '<div style="padding:18px 14px 8px;font-size:11px;font-weight:800;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.6px;">Elige tu plan</div>',
+
+        // Plan Anual — destacado
+        '<div onclick="window.impulsaSeleccionarPlan(\'anual\')" style="position:relative;background:linear-gradient(135deg,#2a1f00,#4d3900);border:2px solid #F5C518;border-radius:20px;padding:20px 18px 18px;margin:16px 14px 0;cursor:pointer;">',
+          '<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#F5C518;color:#3d2900;font-size:10px;font-weight:900;padding:4px 16px;border-radius:20px;white-space:nowrap;letter-spacing:.5px;">⚡ MEJOR VALOR · AHORRA $389</div>',
+          '<div style="display:flex;align-items:center;gap:14px;margin-top:8px;">',
+            '<div style="font-size:36px;">⭐</div>',
+            '<div style="flex:1;">',
+              '<div style="font-size:16px;font-weight:900;color:#F5C518;">Impulsa Anual</div>',
+              '<div style="font-size:28px;font-weight:900;color:#fff;line-height:1.1;">$1,999 <span style="font-size:12px;font-weight:500;color:rgba(255,255,255,.5);">MXN / año</span></div>',
+              '<div style="font-size:11px;color:rgba(255,255,255,.55);">$166/mes · equivale a 2 meses gratis</div>',
             '</div>',
-            '<div style="background:#F5C518;border-radius:10px;padding:6px 12px;font-size:11px;font-weight:800;color:#3d2900;">Seleccionar →</div>',
+            '<div style="width:26px;height:26px;border-radius:50%;border:2px solid #F5C518;display:flex;align-items:center;justify-content:center;font-size:14px;color:#F5C518;">›</div>',
           '</div>',
+        '</div>',
+
+        // Plan Mensual
+        '<div onclick="window.impulsaSeleccionarPlan(\'mensual\')" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px;margin:14px 14px 0;cursor:pointer;display:flex;align-items:center;gap:14px;">',
+          '<div style="font-size:36px;">⭐</div>',
+          '<div style="flex:1;">',
+            '<div style="font-size:15px;font-weight:800;color:#fff;">Impulsa Mensual</div>',
+            '<div style="font-size:26px;font-weight:900;color:#fff;line-height:1.1;">$199 <span style="font-size:12px;font-weight:500;color:rgba(255,255,255,.5);">MXN / mes</span></div>',
+            '<div style="font-size:11px;color:rgba(255,255,255,.45);">Renueva cada mes · Cancela cuando quieras</div>',
+          '</div>',
+          '<div style="width:26px;height:26px;border-radius:50%;border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,.5);">›</div>',
         '</div>',
 
         // Beneficios
-        '<div style="margin:14px 16px 0;background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.15);border-radius:16px;padding:16px;">',
-          '<div style="font-size:10px;font-weight:800;color:#F5C518;letter-spacing:.6px;margin-bottom:12px;">QUÉ INCLUYE IMPULSA</div>',
-          _impBeneficios(),
+        '<div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.35);letter-spacing:.8px;text-transform:uppercase;margin:22px 14px 12px;">INCLUYE TODOS ESTOS BENEFICIOS</div>',
+        '<div style="background:rgba(255,255,255,.04);border-radius:14px;padding:14px;margin:0 14px;">',
+          '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.06);"><span style="font-size:16px;">🔝</span><span style="font-size:12px;color:rgba(255,255,255,.8);">Primero en resultados de búsqueda</span></div>',
+          '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.06);"><span style="font-size:16px;">📢</span><span style="font-size:12px;color:rgba(255,255,255,.8);">Banners en Home, Food, Servicios, Plaza, Informa</span></div>',
+          '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.06);"><span style="font-size:16px;">⭐</span><span style="font-size:12px;color:rgba(255,255,255,.8);">Badge "Impulsa" visible en tu perfil</span></div>',
+          '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.06);"><span style="font-size:16px;">🎯</span><span style="font-size:12px;color:rgba(255,255,255,.8);">Sección "Destacados" en todas las vistas</span></div>',
+          '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.06);"><span style="font-size:16px;">📊</span><span style="font-size:12px;color:rgba(255,255,255,.8);">Estadísticas avanzadas: vistas, contactos, conversiones</span></div>',
+          '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;"><span style="font-size:16px;">💬</span><span style="font-size:12px;color:rgba(255,255,255,.8);">Soporte prioritario del equipo DC</span></div>',
         '</div>',
 
-        // Comparativa
-        '<div style="padding:12px 16px 4px;font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;">Comparativa</div>',
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px;">',
-          _impComparativa('Básico', false),
-          _impComparativa('Impulsa ⭐', true),
+        '<div style="margin:14px 14px 0;padding:10px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:10px;color:rgba(255,255,255,.35);text-align:center;line-height:1.6;">',
+          'Pago procesado de forma segura por MercadoPago.<br>Puedes cancelar en cualquier momento desde tu panel.',
         '</div>',
         '<div style="height:24px;"></div>',
       ].join('');
@@ -6342,190 +6245,85 @@ window.impulsaSeleccionarPlan = function(tipo) {
       + '</div></div>';
   }
   go('v-impulsa-pago', 'right');
+  setTimeout(function() { window.impulsaIniciarBrick && window.impulsaIniciarBrick(); }, 350);
 };
 
-// ── Pantalla 3: Checkout Pro ──────────────────────────────────────────────
-window.impulsaAbrirCheckout = async function() {
-  var btn = document.getElementById('impulsa-btn-pagar');
-  var errDiv = document.getElementById('impulsa-checkout-error');
-  if (errDiv) errDiv.style.display = 'none';
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando enlace...'; }
+// ── Pantalla 3: MP Payment Brick ─────────────────────────────────────────
+window.impulsaIniciarBrick = async function() {
+  var cont = document.getElementById('impulsa-brick-cont');
+  if (!cont) return;
+  cont.innerHTML = '<div style="text-align:center;padding:40px;color:#888;font-size:13px;">⏳ Iniciando pago seguro...</div>';
+
+  if (typeof MercadoPago === 'undefined') {
+    cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">SDK de pago no disponible. Recarga la página e intenta de nuevo.</div>';
+    return;
+  }
+
+  // Desmontar brick anterior si existe
+  if (_impulsaBrick) {
+    try { await _impulsaBrick.unmount(); } catch(_e) {}
+    _impulsaBrick = null;
+  }
+
+  var plan = _MP_PLANES[_impulsaPlanSel];
+  if (!plan) return;
+
+  // Crear contenedor blanco para el brick
+  cont.innerHTML = '<div id="impulsa-brick-inner"></div>';
 
   try {
-    var user = window._fbAuth && window._fbAuth.currentUser;
-    if (!user) throw new Error('Sin sesión. Vuelve a iniciar sesión.');
+    var mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-MX' });
+    var userEmail = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.email) || '';
 
-    var _fns = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-functions.js');
-    var fn = _fns.httpsCallable(window._fbFunctions, 'mpCrearPreferencia');
-    var result = await fn({
-      planTipo: _impulsaPlanSel,
-      appUrl:   window.location.origin + window.location.pathname
-    });
+    _impulsaBrick = await mp.bricks().create('payment', 'impulsa-brick-inner', {
+      initialization: {
+        amount: plan.monto,
+        payer: { email: userEmail }
+      },
+      customization: {
+        paymentMethods: {
+          creditCard: 'all',
+          debitCard: 'all',
+          ticket: 'all'
+        }
+      },
+      callbacks: {
+        onReady: function() {},
+        onSubmit: function(_ref) {
+          var formData = _ref.formData;
+          return new Promise(async function(resolve, reject) {
+            try {
+              var user = window._fbAuth && window._fbAuth.currentUser;
+              if (!user) { reject(new Error('Sin sesión. Vuelve a iniciar sesión.')); return; }
 
-    if (result.data && result.data.url) {
-      window.open(result.data.url, '_blank');
-      // Mostrar aviso de regreso
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<span>💳</span> Abrir MercadoPago de nuevo';
+              var _fns = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-functions.js');
+              var fn = _fns.httpsCallable(window._fbFunctions, 'mpActivarImpulsa');
+              var result = await fn({ formData: formData, planTipo: _impulsaPlanSel, email: userEmail });
+
+              if (result.data && result.data.ok) {
+                // Mostrar éxito
+                var okVence = document.getElementById('impulsa-ok-vence');
+                if (okVence && result.data.planVence) {
+                  var fStr = new Date(result.data.planVence).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+                  okVence.textContent = 'Plan activo hasta el ' + fStr;
+                }
+                resolve();
+                setTimeout(function() { go('v-impulsa-ok', 'right'); }, 100);
+              } else {
+                reject(new Error((result.data && result.data.msg) || 'Error en el pago'));
+              }
+            } catch(e) {
+              reject(e);
+            }
+          });
+        },
+        onError: function(error) {
+          console.error('[MP Brick error]', error);
+        }
       }
-    } else {
-      throw new Error('No se obtuvo URL de pago');
-    }
-  } catch(e) {
-    console.error('impulsaAbrirCheckout', e);
-    if (btn) { btn.disabled = false; btn.innerHTML = '<span>💳</span> Pagar con MercadoPago'; }
-    if (errDiv) {
-      var msg = e.message || '';
-      var texto = msg.indexOf('internal') !== -1 || msg.indexOf('INTERNAL') !== -1
-        ? 'El servicio de pago no está disponible en este momento. Usa la opción Transferencia o intenta más tarde.'
-        : ('No se pudo generar el enlace de pago. ' + (msg || 'Intenta de nuevo.'));
-      errDiv.textContent = texto;
-      errDiv.style.display = 'block';
-    }
-  }
-};
-
-// Botón "Verificar activación"
-window.impulsaVerificarPago = async function() {
-  var btn    = document.getElementById('impulsa-verificar-btn');
-  var errDiv = document.getElementById('impulsa-verificar-error');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Verificando...'; }
-  if (errDiv) errDiv.style.display = 'none';
-  try {
-    var user = window._fbAuth && window._fbAuth.currentUser;
-    if (!user) throw new Error('Sin sesión. Vuelve a iniciar sesión.');
-    // Forzar recarga fresca de Firestore (no caché)
-    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    var docRef = _FS.doc(window._fbDb, 'usuarios', user.uid);
-    var snap = await _FS.getDoc(docRef);
-    var d = snap.exists() ? snap.data() : {};
-    var ahora = Date.now();
-    var venceMs = d.planVence
-      ? (d.planVence.toMillis ? d.planVence.toMillis() : (d.planVence.seconds || 0) * 1000)
-      : 0;
-    var activo = d.plan === 'impulsa' && venceMs > ahora;
-    if (activo) {
-      var fin = new Date(venceMs);
-      var okVence = document.getElementById('impulsa-ok-vence');
-      if (okVence) okVence.textContent = 'Plan activo hasta el ' + fin.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
-      go('v-impulsa-ok', 'right');
-    } else {
-      if (errDiv) {
-        errDiv.innerHTML = '⏳ Plan aún no activado.<br>Si ya pagaste, el administrador lo revisará y activará en menos de 24 horas.';
-        errDiv.style.display = 'block';
-      }
-      if (btn) { btn.disabled = false; btn.textContent = '✓ Verificar activación'; }
-    }
-  } catch(e) {
-    console.error('impulsaVerificarPago', e);
-    if (errDiv) { errDiv.textContent = 'Error al verificar: ' + (e.message || 'intenta de nuevo'); errDiv.style.display = 'block'; }
-    if (btn) { btn.disabled = false; btn.textContent = '✓ Verificar activación'; }
-  }
-};
-
-// Datos SPEI — se cargan desde Firestore config/impulsa (el admin los edita desde el panel)
-var _IMPULSA_SPEI = {
-  banco: '—', clabe: '—', beneficiario: 'Dominio Cumbres',
-};
-(async function _cargarConfigSpei() {
-  try {
-    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    var snap = await _FS.getDoc(_FS.doc(window._fbDb, 'config', 'impulsa'));
-    if (snap.exists()) {
-      var cfg = snap.data();
-      _IMPULSA_SPEI.banco        = cfg.banco        || _IMPULSA_SPEI.banco;
-      _IMPULSA_SPEI.clabe        = cfg.clabe        || _IMPULSA_SPEI.clabe;
-      _IMPULSA_SPEI.beneficiario = cfg.beneficiario || _IMPULSA_SPEI.beneficiario;
-    }
-  } catch(_) {}
-})();
-
-// ── Tabs de método de pago ─────────────────────────────────────────────────
-window.impulsaTabPago = function(tab) {
-  var panelMp   = document.getElementById('impulsa-panel-mp');
-  var panelSpei = document.getElementById('impulsa-panel-spei');
-  var tabMp     = document.getElementById('impulsa-tab-mp');
-  var tabSpei   = document.getElementById('impulsa-tab-spei');
-  if (!panelMp || !panelSpei) return;
-
-  if (tab === 'mp') {
-    panelMp.style.display   = '';
-    panelSpei.style.display = 'none';
-    tabMp.style.border      = '2px solid #009ee3';
-    tabMp.style.background  = 'rgba(0,158,227,.15)';
-    tabMp.style.color       = '#009ee3';
-    tabSpei.style.border    = '1px solid rgba(255,255,255,.15)';
-    tabSpei.style.background= 'rgba(255,255,255,.04)';
-    tabSpei.style.color     = 'rgba(255,255,255,.5)';
-  } else {
-    panelMp.style.display   = 'none';
-    panelSpei.style.display = '';
-    tabSpei.style.border    = '2px solid #F5C518';
-    tabSpei.style.background= 'rgba(245,197,24,.12)';
-    tabSpei.style.color     = '#F5C518';
-    tabMp.style.border      = '1px solid rgba(255,255,255,.15)';
-    tabMp.style.background  = 'rgba(255,255,255,.04)';
-    tabMp.style.color       = 'rgba(255,255,255,.5)';
-    // Rellenar datos
-    var plan = _MP_PLANES[_impulsaPlanSel] || {};
-    var concepto = 'IMPULSA ' + (_impulsaPlanSel || '').toUpperCase();
-    var user = window._fbAuth && window._fbAuth.currentUser;
-    if (user) concepto += ' ' + user.uid.slice(0,6).toUpperCase();
-    var elBanco  = document.getElementById('impulsa-spei-banco');
-    var elClabe  = document.getElementById('impulsa-spei-clabe');
-    var elBenef  = document.getElementById('impulsa-spei-beneficiario');
-    var elConc   = document.getElementById('impulsa-spei-concepto');
-    if (elBanco)  elBanco.textContent  = _IMPULSA_SPEI.banco;
-    if (elClabe)  elClabe.textContent  = _IMPULSA_SPEI.clabe;
-    if (elBenef)  elBenef.textContent  = _IMPULSA_SPEI.beneficiario;
-    if (elConc)   elConc.textContent   = concepto;
-  }
-};
-
-window.impulsaCopiarClabe = function() {
-  var clabe = (_IMPULSA_SPEI.clabe || '').replace(/\s/g,'');
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(clabe).then(function() {
-      var btn = document.querySelector('[onclick="window.impulsaCopiarClabe()"]');
-      if (btn) { btn.textContent = '✓ Copiado'; setTimeout(function(){ btn.textContent = 'Copiar'; }, 2000); }
     });
-  }
-};
-
-window.impulsaNotificarTransferenciaApp = async function() {
-  var btn = document.getElementById('impulsa-spei-btn');
-  var ok  = document.getElementById('impulsa-spei-ok');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Enviando aviso...'; }
-  try {
-    var user = window._fbAuth && window._fbAuth.currentUser;
-    if (!user) throw new Error('Sin sesión');
-    var plan = _MP_PLANES[_impulsaPlanSel] || {};
-    var uid6 = user.uid.slice(0,6).toUpperCase();
-    var concepto = 'IMPULSA ' + (_impulsaPlanSel || '').toUpperCase() + ' ' + uid6;
-    var _FS = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    var col = _FS.collection(window._fbDb, 'notificaciones');
-    await _FS.addDoc(col, {
-      uid:              'ADMIN',
-      tipo:             'impulsa_transferencia',
-      titulo:           '💰 Transferencia SPEI pendiente',
-      mensaje:          'El usuario ' + (user.email || user.uid) + ' reporta haber transferido para ' + (plan.label || _impulsaPlanSel) + '. Concepto: ' + concepto + '. UID: ' + user.uid,
-      leida:            false,
-      eliminada:        false,
-      prioridad:        'high',
-      fecha:            _FS.serverTimestamp(),
-      solicitanteUid:   user.uid,
-      solicitanteEmail: user.email || '',
-      planTipo:         _impulsaPlanSel,
-      planMonto:        plan.monto || 0,
-      concepto:         concepto,
-    });
-    if (ok) ok.style.display = 'block';
-    if (btn) { btn.textContent = '✅ Aviso enviado'; }
   } catch(e) {
-    console.error('impulsaNotificarTransferenciaApp', e);
-    if (btn) { btn.disabled = false; btn.textContent = '✅ Ya transferí — avisar al administrador'; }
-    var errDiv = document.getElementById('impulsa-verificar-error');
-    if (errDiv) { errDiv.textContent = 'Error al enviar: ' + (e.message || 'intenta de nuevo'); errDiv.style.display = 'block'; }
+    console.error('impulsaIniciarBrick', e);
+    if (cont) cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">Error al iniciar pago:<br>' + e.message + '</div>';
   }
 };
