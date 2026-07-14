@@ -838,9 +838,9 @@ window.iniciarFormularioSolicitud = async function() {
       bannerEl = document.createElement('div');
       bannerEl.id = 'sol-proveedor-banner';
       bannerEl.style.cssText = 'background:#E8F5EE;border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;border:1px solid #C8E6C9;';
-      bannerEl.innerHTML = '<span style="font-size:20px;">🔧</span><div><div style="font-size:12px;font-weight:700;color:#0A4220;">Contacto directo</div><div style="font-size:11px;color:#1a7a45;">' + provNombre.replace(/</g,'&lt;') + '</div></div>';
       if (infoBox) infoBox.parentNode.insertBefore(bannerEl, infoBox);
     }
+    bannerEl.innerHTML = '<span style="font-size:20px;">🔧</span><div><div style="font-size:12px;font-weight:700;color:#0A4220;">Contacto directo</div><div style="font-size:11px;color:#1a7a45;">' + provNombre.replace(/</g,'&lt;') + '</div></div>';
   } else {
     if (subtitleEl) subtitleEl.textContent = 'Proveedores verificados te contactarán';
     if (btnEl)      btnEl.textContent = 'Publicar solicitud →';
