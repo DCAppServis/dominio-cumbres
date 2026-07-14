@@ -5258,10 +5258,6 @@
       <span style="font-size:20px;color:rgba(255,255,255,.2);">›</span>
     </div>
 
-    <div style="margin-top:8px;padding:14px;background:rgba(26,122,181,.08);border:.5px solid rgba(26,122,181,.2);border-radius:14px;">
-      <div style="font-size:11px;font-weight:700;color:#1A7AB5;margin-bottom:6px;">ℹ️ Publicaciones por vecinos</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Los vecinos envían contenido que aparece como <b style="color:rgba(255,255,255,.6);">"borrador"</b> o <b style="color:rgba(255,255,255,.6);">"revisión"</b>. Desde aquí puedes publicarlo, rechazarlo o editarlo antes de que sea visible en el portal.</div>
-    </div>
 
   </div>
 </div>
@@ -5282,7 +5278,7 @@
   </div>
 
   <div style="padding:10px 14px 0;flex-shrink:0;">
-    <select id="cnt-filtro-select" class="cnt-filtro-sel" onchange="cntFiltrarLista(this.value)">
+    <select id="cnt-filtro-select" class="cnt-filtro-sel" data-no-dirty="1" onchange="cntFiltrarLista(this.value)">
       <option value="todas">Todas</option>
     </select>
   </div>
@@ -5290,7 +5286,6 @@
   <div id="cnt-bulk-bar" style="display:none;padding:8px 14px;background:rgba(26,122,181,.12);border-bottom:.5px solid rgba(26,122,181,.2);flex-shrink:0;align-items:center;gap:8px;flex-wrap:wrap;">
     <span id="cnt-bulk-count" style="font-size:12px;font-weight:700;color:#7ac8ff;flex:1;">0 seleccionados</span>
     <button onclick="cntBulkPublicar()" style="background:#1FC26A22;border:.5px solid #1FC26A44;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:#1FC26A;cursor:pointer;font-family:'Inter',sans-serif;">✓ Publicar</button>
-    <button onclick="cntBulkBorrador()" style="background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;font-family:'Inter',sans-serif;">◷ Borrador</button>
     <button onclick="cntBulkRechazar()" style="background:#D63A2A22;border:.5px solid #D63A2A44;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:#D63A2A;cursor:pointer;font-family:'Inter',sans-serif;">✕ Rechazar</button>
     <button onclick="cntBulkEliminar()" style="background:rgba(214,58,42,.08);border:.5px solid rgba(214,58,42,.2);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:#D63A2A;cursor:pointer;font-family:'Inter',sans-serif;">🗑</button>
   </div>
@@ -5323,13 +5318,14 @@
   </div>
 
   <div style="padding:10px 14px 0;flex-shrink:0;">
-    <select id="cnt-ev-filtro-select" class="cnt-filtro-sel" onchange="cntCargarEventos(this.value)">
-      <option value="todas">Todos</option>
-      <option value="pendiente">Pendientes</option>
-      <option value="publicado">Publicados</option>
-      <option value="rechazado">Rechazados</option>
-      <option value="finalizado">Finalizados</option>
+    <select id="cnt-ev-filtro-select" class="cnt-filtro-sel" data-no-dirty="1" onchange="cntCargarEventos(this.value)">
+      <option value="en_revision">🔵 En revisión</option>
+      <option value="publicado">🟢 Publicados</option>
+      <option value="pendiente">🟡 Pendientes</option>
+      <option value="rechazado">🔴 Rechazados</option>
+      <option value="finalizado">⚫ Finalizados</option>
       <option value="eliminado">🗑 Papelera</option>
+      <option value="todas">⚪ Todos</option>
     </select>
   </div>
 
@@ -5421,7 +5417,7 @@
 .cnt-item-info{flex:1;min-width:0;}
 .cnt-item-titulo{font-size:13px;font-weight:700;color:#fff;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .cnt-item-meta{font-size:11px;color:rgba(255,255,255,.35);margin-top:2px;}
-.cnt-3dot{background:none;border:none;color:rgba(255,255,255,.35);font-size:22px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;font-family:inherit;}
+.cnt-3dot{background:none;border:none;color:rgba(255,255,255,.7);font-size:22px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;font-family:inherit;}
 /* ── Filter dropdown ── */
 .cnt-filtro-sel{width:100%;background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);border-radius:12px;padding:9px 36px 9px 14px;font-size:12px;font-weight:600;color:#fff;outline:none;font-family:'Inter',sans-serif;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='rgba(255,255,255,.4)' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
 .cnt-filtro-sel option{background:#0f1c14;color:#fff;}
@@ -5437,6 +5433,8 @@
 .cnt-menu-row:active{opacity:.6;}
 .cnt-menu-row.ok{color:#1FC26A;}
 .cnt-menu-row.del{color:#D63A2A;}
+.cnt-menu-row.prog{color:#a78bfa;}
+.cnt-menu-row.corr{color:#e09000;}
 /* ── Edit form ── */
 .cnt-field-row{display:flex;gap:10px;padding:11px 0;border-bottom:.5px solid rgba(255,255,255,.06);align-items:flex-start;}
 .cnt-field-lbl{font-size:11px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;min-width:80px;padding-top:2px;flex-shrink:0;}

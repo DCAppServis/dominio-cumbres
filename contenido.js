@@ -16,7 +16,7 @@ var _cntItems    = [];
 var _cntEditing  = null;
 var _cntEmerg    = [];
 var _cntEmergEdit= null;
-var _cntEvFiltro = 'todas';
+var _cntEvFiltro = 'en_revision';
 var _cntEvItems  = [];
 var _cntEvEditing= null;
 var _cntBulkMode  = false;
@@ -148,7 +148,7 @@ window.cntCargarConteos = async function(){
     var defs = [
       { col: COL_NOTICIAS,  estado: 'en_revision', id: 'cnt-badge-noticia'  },
       { col: COL_PROYECTOS, estado: 'en_revision', id: 'cnt-badge-proyecto' },
-      { col: COL_REPORTES,  estado: 'pendiente',   id: 'cnt-badge-reporte'  },
+      { col: COL_REPORTES,  estado: 'en_revision', id: 'cnt-badge-reporte'  },
     ];
     defs.forEach(async function(d){
       try {
@@ -167,7 +167,7 @@ window.cntCargarConteos = async function(){
 // HUB
 // ══════════════════════════════════════════════════════════════════════════════
 window.cntIrInforma     = function(){ _nav('v-cnt-informa'); };
-window.cntIrEventos     = function(){ _nav('v-cnt-eventos'); window.cntCargarEventos&&window.cntCargarEventos(); };
+window.cntIrEventos     = function(){ _cntEvFiltro='en_revision'; _nav('v-cnt-eventos'); window.cntCargarEventos&&window.cntCargarEventos(); };
 window.cntIrEmergencias = function(){ _nav('v-cnt-emergencias'); window.cntCargarEmergencias&&window.cntCargarEmergencias(); };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -181,7 +181,7 @@ var _secMeta = {
 
 window.cntIrNoticias  = function(){ _cntSec='noticia';  _cntFiltro='en_revision'; _cntBulkMode=false; _cntSelected=[]; _nav('v-cnt-lista'); window.cntCargarLista&&window.cntCargarLista(); };
 window.cntIrProyectos = function(){ _cntSec='proyecto'; _cntFiltro='en_revision'; _cntBulkMode=false; _cntSelected=[]; _nav('v-cnt-lista'); window.cntCargarLista&&window.cntCargarLista(); };
-window.cntIrReportes  = function(){ _cntSec='reporte';  _cntFiltro='pendiente';   _cntBulkMode=false; _cntSelected=[]; _nav('v-cnt-lista'); window.cntCargarLista&&window.cntCargarLista(); };
+window.cntIrReportes  = function(){ _cntSec='reporte';  _cntFiltro='en_revision'; _cntBulkMode=false; _cntSelected=[]; _nav('v-cnt-lista'); window.cntCargarLista&&window.cntCargarLista(); };
 
 // ══════════════════════════════════════════════════════════════════════════════
 // LISTA GENÉRICA
@@ -458,7 +458,6 @@ function _renderEdit(it){
         +(!_cntEditMode&&cntPuedeEditar()?'<button onclick="cntModoEditar()" style="background:rgba(255,255,255,.07);border:.5px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.75);cursor:pointer;font-family:inherit;">✏️ Editar</button>':'')
         +(_cntSec!=='reporte'&&cntPuedePublicar()?'<button onclick="cntMostrarProgramar()" style="background:rgba(124,58,237,.15);border:.5px solid rgba(124,58,237,.3);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#a78bfa;cursor:pointer;font-family:inherit;">📅 Programar</button>':'')
         +(cntPuedeEditar()?'<button onclick="cntSolicitarCorreccion()" style="background:rgba(245,197,24,.1);border:.5px solid rgba(245,197,24,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#e09000;cursor:pointer;font-family:inherit;">📝 Solicitar corrección</button>':'')
-        +(cntPuedeEditar()?'<button onclick="cntDuplicar(\''+it._id+'\')" style="background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;">⧉ Duplicar</button>':'')
         +(cntPuedeEliminar()?'<button onclick="cntSoftDelete(\''+it._id+'\')" style="background:rgba(214,58,42,.1);border:.5px solid rgba(214,58,42,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#D63A2A;cursor:pointer;font-family:inherit;">🗑 Papelera</button>':'')
       +'</div>'
     : '';
@@ -481,9 +480,9 @@ window.cntModoEditar = function(){
 
 window.cntVolverLista = function(){
   _cntEditMode = false;
-  // Quitar contenteditable antes de navegar para evitar el dialog de "cambios sin guardar"
   var body = get('cnt-edit-body');
   if(body) body.querySelectorAll('[contenteditable]').forEach(function(el){ el.removeAttribute('contenteditable'); });
+  window._dcDirtyV = null;
   if(window._goCore) window._goCore('v-cnt-lista','left');
   else if(window.go) window.go('v-cnt-lista','left');
 };
@@ -492,6 +491,7 @@ window.cntVolverEventos = function(){
   _cntEvEditMode = false;
   var body = get('cnt-ev-edit-body');
   if(body) body.querySelectorAll('[contenteditable]').forEach(function(el){ el.removeAttribute('contenteditable'); });
+  window._dcDirtyV = null;
   if(window._goCore) window._goCore('v-cnt-eventos','left');
   else if(window.go) window.go('v-cnt-eventos','left');
 };
@@ -727,8 +727,9 @@ window.cntMenuItem = function(id){
     +_estadoBadge(it.estado)+'</div>'
     +'<div class="cnt-menu-row" onclick="cntAbrirItem(\''+id+'\');cntCerrarMenu()">✏️ Ver / Editar</div>'
     +(cntPuedePublicar()&&it.estado!=='publicado'?'<div class="cnt-menu-row ok" onclick="cntCambiarEstadoLista(\''+id+'\',\'publicado\')">✓ Publicar</div>':'')
-    +(cntPuedeEditar()&&_cntSec!=='reporte'&&it.estado!=='borrador'?'<div class="cnt-menu-row" onclick="cntCambiarEstadoLista(\''+id+'\',\'borrador\')">◷ Mover a borrador</div>':'')
     +(cntPuedeEditar()&&it.estado!=='rechazado'?'<div class="cnt-menu-row del" onclick="cntCambiarEstadoLista(\''+id+'\',\'rechazado\')">✕ Rechazar</div>':'')
+    +(_cntSec!=='reporte'&&cntPuedePublicar()?'<div class="cnt-menu-row prog" onclick="cntAbrirItem(\''+id+'\');cntCerrarMenu();setTimeout(function(){cntMostrarProgramar();},350)">📅 Programar</div>':'')
+    +(cntPuedeEditar()?'<div class="cnt-menu-row corr" onclick="cntAbrirItem(\''+id+'\');cntCerrarMenu();setTimeout(function(){cntSolicitarCorreccion();},350)">📝 Solicitar corrección</div>':'')
     +(cntPuedeEliminar()?'<div class="cnt-menu-row del" onclick="cntSoftDeleteLista(\''+id+'\')">🗑 Mover a papelera</div>':'');
   overlay.style.display = 'flex';
   setTimeout(function(){ sheet.style.transform='translateY(0)'; }, 10);
@@ -785,10 +786,10 @@ window.cntCargarEventos = async function(filtro){
   }
   _cntEvItems = res || [];
 
-  // En filtro "todas" excluir eliminados
+  // Filtro cliente (respaldo cuando Firestore no tiene índice)
   var items = _cntEvFiltro === 'todas'
     ? _cntEvItems.filter(function(it){ return it.estado !== 'eliminado'; })
-    : _cntEvItems;
+    : _cntEvItems.filter(function(it){ return it.estado === _cntEvFiltro; });
 
   if(!items.length){
     listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:32px;margin-bottom:12px;">📭</div><div style="color:rgba(255,255,255,.35);font-size:13px;">Sin eventos</div></div>';
@@ -875,7 +876,6 @@ function _renderEvEdit(it){
     ? '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">'
         +(cntPuedePublicar()?'<button onclick="cntMostrarProgramarEv()" style="background:rgba(124,58,237,.15);border:.5px solid rgba(124,58,237,.3);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#a78bfa;cursor:pointer;font-family:inherit;">📅 Programar</button>':'')
         +(cntPuedeEditar()?'<button onclick="cntSolicitarCorreccionEv()" style="background:rgba(245,197,24,.1);border:.5px solid rgba(245,197,24,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#e09000;cursor:pointer;font-family:inherit;">📝 Solicitar corrección</button>':'')
-        +(cntPuedeEditar()?'<button onclick="cntDuplicarEvento(\''+it._id+'\')" style="background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;">⧉ Duplicar</button>':'')
         +(cntPuedeEliminar()?'<button onclick="cntSoftDeleteEvento(\''+it._id+'\')" style="background:rgba(214,58,42,.1);border:.5px solid rgba(214,58,42,.2);border-radius:10px;padding:7px 12px;font-size:11px;font-weight:600;color:#D63A2A;cursor:pointer;font-family:inherit;">🗑 Papelera</button>':'')
       +'</div>'
     : '';
@@ -1056,9 +1056,11 @@ window.cntMenuEvento = function(id){
     +'<div style="width:36px;height:4px;background:rgba(255,255,255,.12);border-radius:4px;margin:0 auto 12px;"></div>'
     +'<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">'+_esc((it.nombre||it.titulo||'').slice(0,40))+'</div>'
     +_estadoBadge(it.estado)+'</div>'
-    +'<div class="cnt-menu-row" onclick="cntAbrirEvento(\''+id+'\');cntCerrarMenu()">👁 Ver detalle</div>'
+    +'<div class="cnt-menu-row" onclick="cntAbrirEvento(\''+id+'\');cntCerrarMenu()">✏️ Ver / Editar</div>'
     +(cntPuedePublicar()&&it.estado!=='publicado'?'<div class="cnt-menu-row ok" onclick="cntCambiarEstadoEvLista(\''+id+'\',\'publicado\')">✓ Publicar</div>':'')
     +(cntPuedeEditar()&&it.estado!=='rechazado'?'<div class="cnt-menu-row del" onclick="cntCambiarEstadoEvLista(\''+id+'\',\'rechazado\')">✕ Rechazar</div>':'')
+    +(cntPuedePublicar()?'<div class="cnt-menu-row prog" onclick="cntAbrirEvento(\''+id+'\');cntCerrarMenu();setTimeout(function(){cntMostrarProgramarEv();},350)">📅 Programar</div>':'')
+    +(cntPuedeEditar()?'<div class="cnt-menu-row corr" onclick="cntAbrirEvento(\''+id+'\');cntCerrarMenu();setTimeout(function(){cntSolicitarCorreccionEv();},350)">📝 Solicitar corrección</div>':'')
     +(cntPuedeEliminar()?'<div class="cnt-menu-row del" onclick="cntSoftDeleteEventoLista(\''+id+'\')">🗑 Mover a papelera</div>':'');
   overlay.style.display = 'flex';
   setTimeout(function(){ sheet.style.transform='translateY(0)'; }, 10);
