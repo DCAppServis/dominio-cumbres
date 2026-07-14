@@ -1062,8 +1062,59 @@ function _postHooks(id){
     }
     if(typeof window.__dcNavPatchAll==='function'){setTimeout(window.__dcNavPatchAll,35);setTimeout(window.__dcNavPatchAll,180);}
     _patchFavBack();
+    // FAB: ocultar en vistas de Impulsa, login, admin y registro
+    try {
+      var fab = document.getElementById('dc-fab-global');
+      if (fab) {
+        var _fabOcultar = ['v-impulsa','v-impulsa-planes','v-impulsa-pago','v-impulsa-ok',
+                           'v-splash','v-login','v-register','v-role','v-loading',
+                           'v-admin-login','v-admin-panel',
+                           'v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz',
+                           'v-reg-proveedor','v-reg-restaurante','v-reg-negocio','v-reg-transporte'];
+        if (_fabOcultar.indexOf(id) !== -1) {
+          fab.style.opacity = '0';
+          fab.style.pointerEvents = 'none';
+        } else if (fab.classList.contains('visible')) {
+          fab.style.opacity = '1';
+          fab.style.pointerEvents = 'auto';
+        }
+      }
+    } catch(_) {}
   }catch(_){}
 }
+
+// ── FAB global: estrella flotante IMPULSA ────────────────────────────────
+window._dcFabInit = function() {
+  var tipo = (localStorage.getItem('dcuserTipo') || 'vecino').toLowerCase();
+  var fab = document.getElementById('dc-fab-global');
+  if (!fab) return;
+  var ROLES_NEGOCIO = ['proveedor','restaurante','negocio'];
+  if (ROLES_NEGOCIO.indexOf(tipo) === -1) { fab.classList.remove('visible'); return; }
+  fab.classList.add('visible');
+  fab.style.opacity = '1';
+  fab.style.pointerEvents = 'auto';
+  var star = document.getElementById('dc-fab-star');
+  var lbl  = document.getElementById('dc-fab-label');
+  window._dcFabAccion = function() { window._irAImpulsa && window._irAImpulsa(); };
+  (async function() {
+    try {
+      var user = window._fbAuth && window._fbAuth.currentUser;
+      if (!user) return;
+      var snap = await _fbGet2('usuarios', user.uid);
+      var d = snap.exists() ? snap.data() : {};
+      var ahora = Date.now();
+      var venceMs = d.planVence
+        ? (d.planVence.toMillis ? d.planVence.toMillis() : (d.planVence.seconds||0)*1000) : 0;
+      var esImpulsa = d.plan === 'impulsa' && venceMs > ahora;
+      if (esImpulsa) {
+        if (star) { star.textContent = '📢'; star.style.filter = 'drop-shadow(0 0 8px rgba(31,194,106,.9))'; }
+        if (lbl)  lbl.textContent = 'PUBLICIDAD';
+        window._dcFabAccion = function() { window._dcProximamente && window._dcProximamente('Publicidad','Estadísticas de tus campañas próximamente'); };
+      }
+    } catch(e) {}
+  })();
+};
+window._actualizarFabHome = window._dcFabInit;
 
 function dcGoOficial(id,dir){
   id=_preHooks(id); dir=dir||'right';
