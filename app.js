@@ -3,6 +3,9 @@
    Sin parches, sin stacked IIFEs, sin guard flags.
    Una función por responsabilidad.
 ════════════════════════════════════════════════════════════ */
+// Suprimir diálogo "cambios sin guardar" del browser en este SPA
+window.onbeforeunload=null;
+window.addEventListener('beforeunload',function(e){delete e.returnValue;},true);
 (function(){
 
 // ══════════════════════════════════════════════
@@ -501,6 +504,9 @@ document.addEventListener('click',function(e){
       return false;
     }
     try{localStorage.setItem('dcPlazaTransferenciaRef',ref);}catch(_){}
+    // Limpiar textarea ANTES del overlay para que el browser no detecte "dirty form"
+    if(refEl) refEl.value='';
+    try{['dc-plaza-dir-compra','dc-plaza-nota-compra'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});}catch(_){}
     // Ahora sí confirmar compra
     var o={id:'plaza_'+Date.now(),folio:'#PZ'+String(Date.now()).slice(-6),tipo:'plaza_orden',estado:'en_proceso',titulo:'Plaza Online',fecha:Date.now(),items:selectedItems(),total:total(selectedItems()),entrega:(localStorage.getItem('dcPlazaTipoEntrega')||'domicilio'),pago:'transferencia',referenciaTransferencia:ref};
     saveOrder(o); clearCart();
