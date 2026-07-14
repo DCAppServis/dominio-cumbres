@@ -382,7 +382,7 @@ function _goCore(id,dir){
     if(id==='v-ride')setTimeout(()=>window.cargarRepartidores&&window.cargarRepartidores(),200);
     if(id==='v-admin-solicitudes')setTimeout(()=>window.cargarSolicitudes&&window.cargarSolicitudes(),300);
     if(id==='v-admin-analytics')setTimeout(()=>window.cargarAnalytics&&window.cargarAnalytics(),300);
-    if(id==='v-home')setTimeout(()=>{window.renderHomePersonalizado&&window.renderHomePersonalizado();},50);
+    if(id==='v-home')setTimeout(()=>{window.renderHomeM2&&window.renderHomeM2();},50);
     if(id==='v-home'){var _t=(localStorage.getItem('dcuserTipo')||'').toLowerCase();if(_t==='restaurante'){window._restCargarHorariosYRepintar&&window._restCargarHorariosYRepintar();setTimeout(()=>{window._calcMetricasRest&&window._calcMetricasRest('hoy');},120);
 // B3: arrancar timer restaurante desde v-home si aún no está corriendo
 if(!window._rHoraTimer){window._rHoraTimer=setInterval(window._updateHora||function(){},30000);}}if(_t==='negocio'){window._vnegCargarHorariosYRepintar&&window._vnegCargarHorariosYRepintar();setTimeout(()=>{window._calcMetricasNeg&&window._calcMetricasNeg();},120);
@@ -1117,67 +1117,6 @@ document.querySelectorAll('.code-inp').forEach((inp,i,arr)=>{
 });
 
 
-/* go() → ver función maestra arriba */
-
-// CARRITO
-const items={bistec:{n:'Taco de Bistec',p:85,q:0},pastor:{n:'Taco de Pastor',p:75,q:0},arrachera:{n:'Taco de Arrachera',p:90,q:0},agua:{n:'Agua Fresca',p:35,q:0},refresco:{n:'Refresco',p:25,q:0}};
-function changeQty(k,d,p){
-  items[k].q=Math.max(0,items[k].q+d);
-  document.getElementById('q-'+k).textContent=items[k].q;
-  updateCartBar();
-}
-function updateCartBar(){
-  const total=Object.values(items).reduce((a,i)=>a+i.q*i.p,0);
-  const count=Object.values(items).reduce((a,i)=>a+i.q,0);
-  const bar=document.getElementById('cart-bar');
-  if(count>0){
-    bar.style.display='flex';
-    document.getElementById('cart-count').textContent=count;
-    document.getElementById('cart-total').textContent='$'+total;
-  } else {
-    bar.style.display='none';
-  }
-}
-function renderCarrito(){
-  const container=document.getElementById('carrito-items');
-  const active=Object.entries(items).filter(([k,v])=>v.q>0);
-  if(!active.length){
-    // demo por defecto
-    items.bistec.q=2;items.pastor.q=1;items.agua.q=1;
-    document.getElementById('q-bistec').textContent=2;
-    document.getElementById('q-pastor').textContent=1;
-    document.getElementById('q-agua').textContent=1;
-    updateCartBar();
-    return renderCarrito();
-  }
-  const sub=active.reduce((a,[k,v])=>a+v.q*v.p,0);
-  container.innerHTML=active.map(([k,v])=>`
-    <div class="carrito-item">
-      <div style="font-size:24px;width:40px;text-align:center;">🌮</div>
-      <div class="si03"><div class="si33">${v.n}</div><div class="si01">${v.q} x $${v.p}</div></div>
-      <div class="si29">$${v.q*v.p}</div>
-      <button class="del-btn" onclick="removeItem('${k}')">✕</button>
-    </div>`).join('');
-  document.getElementById('sub-txt').textContent='$'+sub;
-  document.getElementById('total-txt').textContent='$'+(sub+25);
-}
-function removeItem(k){items[k].q=0;document.getElementById('q-'+k).textContent=0;updateCartBar();renderCarrito();}
-
-function setFilter(btn){document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
-function setCat(btn){
-  document.querySelectorAll('.cat-ic').forEach(c=>c.classList.remove('on'));
-  document.querySelectorAll('.cat-nm').forEach(c=>c.classList.remove('on'));
-  btn.querySelector('.cat-ic').classList.add('on');
-  btn.querySelector('.cat-nm').classList.add('on');
-}
-function setPago(el){
-  document.querySelectorAll('.pago-opt').forEach(p=>{p.classList.remove('on');p.querySelector('.radio-c').classList.remove('on');});
-  el.classList.add('on');el.querySelector('.radio-c').classList.add('on');
-}
-function toggleFav(id){const b=document.getElementById(id);b.textContent=b.textContent==='🤍'?'❤️':'🤍';}
-
-
-/* go() → ver función maestra arriba */
 function setSvc(el){document.querySelectorAll('.svc-tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');}
 function selRider(el,price,name,time){
   document.querySelectorAll('.rider-chip').forEach(r=>r.classList.remove('on'));

@@ -1,20 +1,7 @@
 /* ═══════════════════════════════════════════════════════
-   V13 — FLUIDEZ MIS PRODUCTOS NEGOCIO
-   - Elimina reintentos visibles que provocaban parpadeo.
-   - Mantiene caché en pantalla mientras refresca Firebase.
-   - Carga una sola vez al entrar a vn-menu.
-   - No toca compra real ni Mis compras.
+   MÓDULO NEGOCIO DC
 ═══════════════════════════════════════════════════════ */
 (function(){
-  function _v12Esc(v){
-    if(window.dcEscHTML) return window.dcEscHTML(v);
-    return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  }
-  function _v12Clean(v,max){
-    if(window.dcCleanText) return window.dcCleanText(v,max||120);
-    var t=String(v==null?'':v).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-    return t.length>(max||120)?t.slice(0,max||120).trim():t;
-  }
   async function _v12Fb(){
     return await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
   }
@@ -126,7 +113,7 @@
       var actual=window._vnegMenuCat||'todos';
       if(actual!=='todos' && cats.indexOf(actual)===-1) actual='todos';
       window._vnegMenuCat=actual;
-      function btn(cat,label){ var on=actual===cat; return '<button type="button" class="chip '+(on?'on':'')+'" onclick="window.vnegSetMenuCat('+JSON.stringify(cat).replace(/"/g,'&quot;')+')" style="white-space:nowrap;">'+_v12Esc(label)+'</button>'; }
+      function btn(cat,label){ var on=actual===cat; return '<button type="button" class="chip '+(on?'on':'')+'" onclick="window.vnegSetMenuCat('+JSON.stringify(cat).replace(/"/g,'&quot;')+')" style="white-space:nowrap;">'+window.dcEscHTML(label)+'</button>'; }
       if(catsBar){ catsBar.innerHTML=btn('todos','Todos') + cats.map(function(c){return btn(c,c);}).join('') + '<button type="button" class="chip" onclick="window.vnegCrearCategoria&&window.vnegCrearCategoria()" style="white-space:nowrap;border-style:dashed;">＋ Nueva</button>'; }
       if(sub) sub.textContent=productos.length + ' producto' + (productos.length===1?'':'s');
       var searchEl=document.getElementById('vn-menu-search-inp');
@@ -147,17 +134,17 @@
       var grupos=[]; visibles.forEach(function(p){ var c=p.categoria||'General'; if(grupos.indexOf(c)===-1) grupos.push(c); });
       cont.innerHTML=grupos.map(function(c){
         var items=visibles.filter(function(p){return (p.categoria||'General')===c;});
-        return '<div style="padding:8px 14px 4px;font-size:11px;font-weight:900;color:#777;letter-spacing:1.5px;text-transform:uppercase;">🛍️ '+_v12Esc(c)+'</div>'
+        return '<div style="padding:8px 14px 4px;font-size:11px;font-weight:900;color:#777;letter-spacing:1.5px;text-transform:uppercase;">🛍️ '+window.dcEscHTML(c)+'</div>'
           + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 14px 12px;">'
           + items.map(function(p){
             var foto=p.foto||''; var agotado=p.disponible===false;
-            var desc=_v12Clean(p.descripcion||'',58);
+            var desc=window.dcCleanText(p.descripcion||'',58);
             return '<div onclick="vnegAbrirFormProd('+JSON.stringify(p._id).replace(/"/g,'&quot;')+')" style="background:'+(agotado?'#f6f6f6':'#fff')+';border-radius:14px;overflow:hidden;border:.5px solid '+(agotado?'#ddd':'#e6dcef')+';box-shadow:'+(agotado?'none':'0 2px 6px rgba(0,0,0,.05)')+';cursor:pointer;position:relative;'+(agotado?'opacity:.72;filter:grayscale(.30);':'')+'">'
               + (agotado?'<div style="position:absolute;top:8px;right:8px;z-index:2;background:#eee;color:#777;border-radius:10px;padding:3px 7px;font-size:9px;font-weight:900;">Agotado</div>':'')
               + '<div style="height:92px;background:#f3f3f3;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;">'+(foto&&String(foto).indexOf('data:image')===0?'<img src="'+foto+'" style="width:100%;height:100%;object-fit:cover;">':'📦')+'</div>'
               + '<div style="padding:9px;">'
-              + '<div style="font-size:12px;font-weight:800;color:'+(agotado?'#777':'#111')+';line-height:1.25;min-height:30px;">'+_v12Esc(p.nombre||'Producto')+'</div>'
-              + (desc?'<div style="font-size:10px;color:#888;line-height:1.25;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+_v12Esc(desc)+'</div>':'')
+              + '<div style="font-size:12px;font-weight:800;color:'+(agotado?'#777':'#111')+';line-height:1.25;min-height:30px;">'+window.dcEscHTML(p.nombre||'Producto')+'</div>'
+              + (desc?'<div style="font-size:10px;color:#888;line-height:1.25;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+window.dcEscHTML(desc)+'</div>':'')
               + '<div style="font-size:13px;font-weight:900;color:'+(agotado?'#999':'var(--purple)')+';margin-top:4px;">$'+(Number(p.precio||0)).toFixed(0)+'</div>'
               + '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;">'+(agotado?'<span style="background:#eee;color:#777;border-radius:7px;padding:3px 6px;font-size:9px;font-weight:800;">⛔ No disponible</span>':'<span style="background:#F0EBF8;color:var(--purple);border-radius:7px;padding:3px 6px;font-size:9px;font-weight:800;">✅ Disponible</span>')+'</div>'
               + '</div></div>';
@@ -165,7 +152,7 @@
       }).join('') + '<div style="height:70px;"></div>';
     }catch(e){
       console.error('[v12 vnegCargarMenu]',e);
-      cont.innerHTML='<div style="text-align:center;color:#c00;padding:30px;font-size:12px;">Error al cargar productos: '+_v12Esc(e.message)+'</div>';
+      cont.innerHTML='<div style="text-align:center;color:#c00;padding:30px;font-size:12px;">Error al cargar productos: '+window.dcEscHTML(e.message)+'</div>';
     }
   };
 

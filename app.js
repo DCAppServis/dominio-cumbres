@@ -195,9 +195,6 @@ function mcSeguimiento(id){
   return false;
 }
 
-window.dcPlazaComprarDesdeMisCompras=mcGoComprando;
-window.dcPlazaContinuarCompra=mcGoComprando;
-
 // ——————————————————————————————————————————————
 // MIS COMPRAS — click handler
 // ——————————————————————————————————————————————
@@ -625,7 +622,6 @@ window.addEventListener('pointerdown',finalizarCompra,true);
 window.addEventListener('touchstart',function(e){if(isConfirmTarget(e)) stop(e);},true);
 window.addEventListener('click',function(e){if(isConfirmTarget(e)) return finalizarCompra(e);},true);
 window.dcPlazaConfirmarCompra=finalizarCompra;
-window.dcPlazaConfirmarCompraFinal=finalizarCompra;
 
 
 // ══════════════════════════════════════════════

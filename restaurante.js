@@ -482,7 +482,7 @@ window._vnegCargarHorariosYRepintar = async function() {
     // Repintar tarjeta del v-home si está activo
     var _vh = document.getElementById('v-home');
     if (_vh && _vh.classList.contains('active')) {
-      if (window.renderHomePersonalizado) window.renderHomePersonalizado();
+      if (window.renderHomeM2) window.renderHomeM2();
     }
   } catch(e) { }
 };
@@ -522,7 +522,7 @@ window._restCargarHorariosYRepintar = async function() {
     // Repintar el v-home completo con el estado correcto recién cargado de Firebase
     var _vh = document.getElementById('v-home');
     if (_vh && _vh.classList.contains('active')) {
-      if (window.renderHomePersonalizado) window.renderHomePersonalizado();
+      if (window.renderHomeM2) window.renderHomeM2();
     }
     if (window.dcPintarEstado) window.dcPintarEstado();
   } catch(e) { }
@@ -1207,7 +1207,7 @@ window.vnegGuardarConfig = async function() {
         if (_sel) _sel.value = _estSel;
         vnegSyncCfgUI(_estSel);
         // Repintar home
-        window.renderHomePersonalizado && window.renderHomePersonalizado();
+        window.renderHomeM2 && window.renderHomeM2();
         _vnegSyncHomeBadge();
         if (window.dcPintarEstado) window.dcPintarEstado();
         if (typeof window.setEstadoOperativo === 'function') window.setEstadoOperativo(_vnegEstadoOp);
@@ -2757,7 +2757,7 @@ function guardarConfig() {
       // Badge vr-home: usa estado efectivo (horario + manual)
       var _ef = _estadoEfectivo();
       // Actualizar tarjeta de estado en v-home (la grande clicable)
-      if (window.renderHomePersonalizado) window.renderHomePersonalizado();
+      if (window.renderHomeM2) window.renderHomeM2();
       var _cfg = DC_ESTADOS[_ef] || DC_ESTADOS.activo;
       var _dot = document.getElementById('home-estado-dot');
       var _lbl = document.getElementById('home-estado-lbl');
@@ -2969,7 +2969,7 @@ function _vnegCmvFinalFeliz() {
   }
 }
 
-var _cmvFotoData     = null; // DEPRECATED — se mantiene para cmvRenderPreview (lee esta var)
+var _cmvFotoData     = null;
 var _cmvFotoExistente = null; // foto cargada desde Firestore del usuario actual
 var _cmvFotoNueva     = null; // foto recién seleccionada por el usuario en esta sesión
 

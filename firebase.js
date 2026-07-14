@@ -217,16 +217,6 @@
     window._agendaProveedorActual = ag;
   };
 
-  // Observer: carga proveedores automáticamente cuando v-servicios se hace visible
-  const _obsServicios = new MutationObserver(() => {
-    const v = document.getElementById('v-servicios');
-    if(v && v.classList.contains('active')) {
-      window.cargarProveedores();
-    }
-  });
-  const _vsEl = document.getElementById('v-servicios');
-  if(_vsEl) _obsServicios.observe(_vsEl, { attributeFilter: ['class'] });
-
   // ===== CATÁLOGO OFICIAL DE OFICIOS =====
   const _DC_OFICIOS_CATALOGO = [
     {key:'plomero',     label:'Plomero',     ic:'💧'},
@@ -311,7 +301,7 @@
   };
 
   // ===== CARGAR SOLICITUDES =====
-  window.cargarSolicitudesReal = async function() {
+  window.cargarSolicitudes = async function() {
     const lista = document.getElementById('admin-lista');
     if(!lista) return;
     lista.innerHTML = '<div class="si61">Cargando... ⏳</div>';
@@ -331,9 +321,6 @@
       lista.innerHTML = '<div class="si60">Error: '+e.message+'</div>';
     }
   };
-
-  // Override the window functions with real Firebase versions
-  window.cargarSolicitudes = window.cargarSolicitudesReal;
 
   // ===== CARGAR MI PERFIL REAL =====
   // ── M2-B: cargarMiPerfil — panel unificado por rol ──────────
@@ -851,15 +838,6 @@ window.dcShortText = window.dcShortText || function(v, max) {
    Perfil público: usuarios/{uid} con nombreNegocio/nombrePublico, descripcion/descripcionPublica,
    categoria/categoriaPublica, fotoPerfil/fotoPublica, direccionNegocio, estadoOp.
 */
-window.dcPersistenciaMapa = window.dcPersistenciaMapa || function(){
-  return {
-    productos:'menu/{uid}/productos',
-    productoCampos:['nombre','categoria','categoriaPublica','descripcion','descripcionPublica','precio','disponible','foto','fotoProducto','orden','creado','actualizado'],
-    perfilPublico:'usuarios/{uid}',
-    perfilCampos:['nombreNegocio','nombrePublico','descripcion','descripcionPublica','categoria','categoriaPublica','fotoPerfil','fotoPublica','direccionNegocio','estadoOp','estadoOpTs']
-  };
-};
-
 // Helpers Plaza UI — definidos en app.js; guards aquí como fallback.
 window._plazaCatNorm        = window._plazaCatNorm        || function(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/&/g,' y ').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');};
 window._plazaCatKey         = window._plazaCatKey         || function(v){var n=window._plazaCatNorm(v);if(!n)return 'otro';if(n.indexOf('belleza')!=-1||n.indexOf('estetica')!=-1||n.indexOf('barber')!=-1||n.indexOf('salon')!=-1)return 'belleza';if(n.indexOf('tecnolog')!=-1||n.indexOf('comput')!=-1||n.indexOf('celular')!=-1)return 'tecnologia';if(n.indexOf('mascota')!=-1||n.indexOf('veterin')!=-1)return 'mascotas';if(n.indexOf('hogar')!=-1||n.indexOf('mueble')!=-1||n.indexOf('decor')!=-1)return 'hogar';if(n.indexOf('ferreter')!=-1)return 'ferreteria';if(n.indexOf('papeler')!=-1)return 'papeleria';if(n.indexOf('regalo')!=-1)return 'regalos';if(n.indexOf('moda')!=-1||n.indexOf('ropa')!=-1||n.indexOf('boutique')!=-1)return 'moda';if(n.indexOf('salud')!=-1||n.indexOf('farmacia')!=-1)return 'salud';if(n.indexOf('abarrote')!=-1||n.indexOf('tienda')!=-1)return 'tienda';if(n.indexOf('servicio')!=-1)return 'servicios';return n;};
@@ -868,9 +846,6 @@ window._plazaCatBase        = window._plazaCatBase        || function(r){return 
 window._plazaCoincideFiltro = window._plazaCoincideFiltro || function(r,filtro){var f=window._plazaCatKey(filtro||'todos');if(!f||f==='todos')return true;var n=window._plazaCatKey(window._plazaCatBase(r));if(n===f)return true;var p=['moda','belleza','salud','mascotas','tecnologia','hogar','ferreteria','papeleria','regalos','servicios','tienda'];return f==='otro'&&p.indexOf(n)===-1;};
 window.dcEsComercioPlaza    = window.dcEsComercioPlaza    || function(r){r=r||{};var c=window._plazaCatKey(window._plazaCatBase(r));var fc=['mexicana','hamburguesas','pizzas','pizza','sushi','cafeteria','cafe','postres','tacos','mariscos','pollo','desayunos','bebidas','otro_rest'];var t=window._plazaCatNorm((r.tipoNegocio||''));var isF=fc.indexOf(c)!==-1||t==='food'||t==='restaurante';return !isF;};
 window._plazaFiltrarSel     = window._plazaFiltrarSel     || function(cat){window._plazaFiltro=cat||'todos';window._plazaRenderLista&&window._plazaRenderLista(window._plazaDocsCache);var scr=document.getElementById('plaza-scroll');if(scr)scr.scrollTop=0;if(window._dcDirtyV==='v-plaza')window._dcDirtyV=null;};
-window._plazaRenderLista    = window._plazaRenderLista    || function(docs){var el=document.getElementById('plaza-lista');if(el)el.innerHTML='';};
-
-
 window.cargarPlaza = async function() {
   const lista = document.getElementById('plaza-lista');
   const demo  = document.getElementById('plaza-demo');
@@ -936,53 +911,9 @@ window._plazaSetProdFiltro = window._plazaSetProdFiltro || function(ev, cat) {
   if (window._dcDirtyV === 'v-plaza-det') window._dcDirtyV = null;
   return false;
 };
-window._plazaRenderProductos = window._plazaRenderProductos || function() {
-  var el = document.getElementById('plaza-prod-lista');
-  if (!el) return;
-  var prods = window._plazaProdDocsCache || [];
-  var cats = [];
-  prods.forEach(function(p){
-    var c = window._plazaCatKey(p.categoria || p.categoriaPublica || 'general');
-    if (cats.indexOf(c) === -1) cats.push(c);
-  });
-  var f = window._plazaProdFiltro || 'todos';
-  var tabBtn = function(cat, label) {
-    var sel = f === cat;
-    return '<button type="button" data-no-dirty="1" onclick="return window._plazaSetProdFiltro(event,\'' + cat + '\')" style="white-space:nowrap;border:none;border-radius:18px;padding:8px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;background:' + (sel ? 'var(--blue)' : '#E8F0F8') + ';color:' + (sel ? '#fff' : 'var(--blue)') + ';">' + label + '</button>';
-  };
-  var tabs = '<div style="display:flex;gap:8px;overflow-x:auto;padding:0 14px 10px;">'
-    + tabBtn('todos', 'Todos')
-    + cats.map(function(c){ return tabBtn(c, window._plazaCatLabel(c)); }).join('')
-    + '</div>';
-  var visibles = prods.filter(function(p){ return f === 'todos' || window._plazaCatKey(p.categoria || p.categoriaPublica || 'general') === f; });
-  var html = tabs + visibles.map(function(p){
-    var foto = p.foto || p.fotoProducto || p.fotoPublica || '';
-    var agotado = p.disponible === false;
-    return '<div class="plaza-card" onclick="window.plazaAbrirProductoDetalle(\''+p._id+'\')" style="padding:12px;display:flex;gap:12px;align-items:center;cursor:pointer;'+(agotado?'opacity:.72;filter:grayscale(.18);':'')+'">'
-      + '<div style="width:64px;height:64px;border-radius:14px;background:#E8F0F8;display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden;flex-shrink:0;">'
-      + (foto && String(foto).indexOf('data:image')===0 ? '<img src="'+foto+'" style="width:100%;height:100%;object-fit:cover;">' : '📦') + '</div>'
-      + '<div style="flex:1;min-width:0;">'
-      + '<div style="font-size:14px;font-weight:800;color:#111;">'+window.dcEscHTML(window.dcShortText(p.nombre||'Producto',80))+'</div>'
-      + '<div style="font-size:12px;color:#777;line-height:1.4;margin-top:2px;">'+window.dcEscHTML(window.dcShortText(p.descripcion||p.descripcionPublica||p.categoria||'Producto disponible',110))+'</div>'
-      + '<div style="font-size:14px;font-weight:900;color:var(--blue);margin-top:6px;">$'+(Number(p.precio||0)).toFixed(0)+'</div>'
-      + '<div style="margin-top:5px;">'+(agotado?'<span style="background:#f0f0f0;color:#777;border-radius:8px;padding:3px 7px;font-size:9px;font-weight:800;">⛔ No disponible</span>':'<span style="background:#E8F0F8;color:var(--blue);border-radius:8px;padding:3px 8px;font-size:10px;font-weight:800;">✅ Disponible</span>')+'</div>'
-      + '</div>'
-      + '<div style="color:#bbb;font-size:20px;">›</div>'
-      + '</div>';
-  }).join('');
-  if (!visibles.length) html += '<div style="padding:28px 20px;text-align:center;font-size:12px;color:#777;">Sin productos en esta pestaña.</div>';
-  el.innerHTML = html + '<div style="height:70px;"></div>';
-};
-
 
 window._plazaCarrito = window._plazaCarrito || [];
 window._plazaDetalleQty = 1;
-
-window.plazaCerrarProductoDetalle = window.plazaCerrarProductoDetalle || function(){
-  var ov = document.getElementById('plaza-prod-det-ov');
-  if (ov) ov.style.display = 'none';
-  try { document.body.style.overflow=''; document.body.style.touchAction=''; } catch(e) {}
-};
 
 window.plazaCambiarQtyDetalle = window.plazaCambiarQtyDetalle || function(delta){
   var q = Number(window._plazaDetalleQty || 1) + Number(delta || 0);
@@ -991,71 +922,6 @@ window.plazaCambiarQtyDetalle = window.plazaCambiarQtyDetalle || function(delta)
   window._plazaDetalleQty = q;
   var el = document.getElementById('plaza-det-qty-num');
   if (el) el.textContent = String(q);
-  return false;
-};
-
-window.plazaShowCarritoToast = window.plazaShowCarritoToast || function(msg){
-  // Usa EXACTAMENTE el estilo de confirmación de Configuración (cfg-confirm),
-  // pero con el texto de Plaza. No usa toast ni overlay grande.
-  var text = (msg || 'Producto agregado al carrito exitosamente.').replace(/^✅\s*/,'');
-
-  var host = document.getElementById('v-plaza-det') || document.querySelector('.view.active') || document.body;
-  var id = 'plaza-cfg-confirm';
-  var el = document.getElementById(id);
-  if (!el) {
-    el = document.createElement('div');
-    el.id = id;
-    el.className = 'cfg-confirm';
-    el.innerHTML = '<div class="cfg-confirm-ic">✅</div>'
-      + '<div class="cfg-confirm-txt"><div class="t">Producto agregado</div><div class="s">'+ window.dcEscHTML(text) +'</div></div>';
-    host.appendChild(el);
-  } else {
-    el.innerHTML = '<div class="cfg-confirm-ic">✅</div>'
-      + '<div class="cfg-confirm-txt"><div class="t">Producto agregado</div><div class="s">'+ window.dcEscHTML(text) +'</div></div>';
-  }
-
-  // Copia visual del cfg-confirm de Configuración, sin depender de #vr-shell.
-  el.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:linear-gradient(120deg,#0d4220,#1a7a46);padding:14px 18px;display:flex;align-items:center;gap:10px;transform:translateY(100%);transition:transform .32s cubic-bezier(.32,0,.18,1);z-index:999999;pointer-events:none;box-sizing:border-box;';
-  var ic = el.querySelector('.cfg-confirm-ic');
-  var t  = el.querySelector('.cfg-confirm-txt .t');
-  var sub= el.querySelector('.cfg-confirm-txt .s');
-  if (ic) ic.style.cssText = 'font-size:20px;flex-shrink:0;';
-  if (t)  t.style.cssText  = 'font-size:13px;font-weight:700;color:#fff;';
-  if (sub)sub.style.cssText= 'font-size:11px;color:rgba(255,255,255,.7);margin-top:1px;';
-
-  clearTimeout(window._plazaCfgConfirmTimer);
-  requestAnimationFrame(function(){ el.style.transform = 'translateY(0)'; });
-  window._plazaCfgConfirmTimer = setTimeout(function(){
-    el.style.transform = 'translateY(100%)';
-  }, 2200);
-};
-
-window.plazaAgregarAlCarritoDetalle = window.plazaAgregarAlCarritoDetalle || function(pid){
-  if (window._plazaAgregandoDetalle) return false;
-  window._plazaAgregandoDetalle = true;
-  var p = (window._plazaProdDocsCache || []).find(function(x){ return String(x._id) === String(pid); });
-  if (!p || p.disponible === false) { window._plazaAgregandoDetalle = false; return false; }
-  var qty = Math.max(1, Number(window._plazaDetalleQty || 1));
-  var comercioId = window._plazaComercioActualId || window._plazaDetalleComercioId || p.uidNegocio || p.negocioId || '';
-  var key = String(comercioId || '') + '::' + String(pid);
-  var item = window._plazaCarrito.find(function(x){ return x.key === key; });
-  if (item) item.cantidad += qty;
-  else window._plazaCarrito.push({
-    key:key,
-    productoId:pid,
-    negocioId:comercioId,
-    nombre:p.nombre || 'Producto',
-    precio:Number(p.precio || 0),
-    cantidad:qty,
-    foto:p.foto || p.fotoProducto || p.fotoPublica || '',
-    categoria:p.categoria || p.categoriaPublica || 'Producto'
-  });
-  try { localStorage.setItem('dcPlazaCarrito', JSON.stringify(window._plazaCarrito)); } catch(e) {}
-  window.plazaCerrarProductoDetalle();
-  setTimeout(function(){
-    try{window.plazaShowCarritoToast('✅ Producto agregado al carrito exitosamente');}catch(e){}
-    window._plazaAgregandoDetalle = false;
-  }, 80);
   return false;
 };
 
@@ -2247,9 +2113,6 @@ window.cargarMisComprasPlaza = function() {
     localStorage.setItem(SEARCH_KEY, JSON.stringify(list.slice(0,5)));
   };
 
-  // renderBusqueda: no-op. v-busqueda usa window._renderBusqueda.
-  window.renderBusqueda = function(q) {};
-
   // Descubrimiento: sin datos reales cargados aún → estado vacío elegante.
   window.renderDescubrimiento = function(contenedorId) {
     var el = document.getElementById(contenedorId);
@@ -2525,9 +2388,6 @@ window.cargarMisComprasPlaza = function() {
     }
   };
 
-  window._initAgenda = function() {
-    window._renderAgenda && window._renderAgenda();
-  };
   // ── FIN M2-J helpers ─────────────────────────────────────────
 
   // ── M2-J: RESERVAS (vecino → proveedor) ──────────────────────
@@ -2711,7 +2571,7 @@ window.cargarMisComprasPlaza = function() {
   // Lee tipo/estado/nombre de localStorage (escritos por loginFirebase).
   // Reescribe SOLO el interior del scroll de v-home.
   // No crea vistas nuevas. No toca go(). No toca login.
-  window.renderHomePersonalizado = window.renderHomeM2 = function() {
+  window.renderHomeM2 = function() {
     var tipo   = (localStorage.getItem('dcuserTipo')   || 'vecino').toLowerCase();
     var estado = (localStorage.getItem('dcuserEstado') || '').toLowerCase();
     var nombre = localStorage.getItem('dcuser') || 'Usuario';
