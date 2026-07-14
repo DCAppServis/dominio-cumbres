@@ -811,47 +811,30 @@ window._cancelarReporte = async function(reporteId) {
 // y bloquea la vista si es proveedor. Se llama desde data-onenter en el HTML.
 
 window.iniciarFormularioSolicitud = async function() {
-  const listo = await _esperarFirebase();
-  if (!listo || !window._fbAuth.currentUser) return;
+  const esDirecto  = !!window._solicitudDirectaProvId;
+  const provNombre = window._solicitudDirectaProvNombre || '';
+  const provCat    = window._solicitudDirectaCategoria  || '';
 
-  const uid    = window._fbAuth.currentUser.uid;
-  const perfil = await _leerPerfil(uid);
-
-  // Redirigir a proveedor
-  if (perfil && _esProveedor(perfil.tipo)) {
-    if (typeof go === 'function') go('v-reportes-disponibles', 'right');
-    setTimeout(() => window.cargarReportesDisponibles && window.cargarReportesDisponibles(), 300);
-    return;
-  }
-
-  const esDirecto   = !!window._solicitudDirectaProvId;
-  const provNombre  = window._solicitudDirectaProvNombre || '';
-  const provCat     = window._solicitudDirectaCategoria  || '';
-
-  // Ajustar header del formulario según modo
+  // Ajustar UI inmediatamente — sin esperar Firebase
   const subtitleEl = document.querySelector('#v-solicitud-nueva .si21');
   const btnEl      = document.getElementById('sol-btn-enviar');
   const infoBox    = document.querySelector('#v-solicitud-nueva .info-box');
-  const limiteBox  = document.querySelector('#v-solicitud-nueva .info-box + div + div + div + div + div');
   const backBtn    = document.querySelector('#v-solicitud-nueva .btn-back');
 
   if (esDirecto) {
     if (subtitleEl) subtitleEl.textContent = 'Cuéntale directamente qué necesitas';
-    if (btnEl)      { btnEl.textContent = 'Enviar solicitud directa →'; }
+    if (btnEl)      btnEl.textContent = 'Enviar solicitud directa →';
     if (infoBox)    infoBox.innerHTML = '📩 Este mensaje irá directamente a <strong>' + provNombre.replace(/</g,'&lt;') + '</strong>. Solo él lo verá.';
     if (backBtn)    backBtn.onclick = function(){ go('v-serv-det','left'); };
-    // Pre-llenar categoría
     const catSel = document.getElementById('sol-categoria');
     if (catSel && provCat) catSel.value = provCat;
-    // Mostrar banner de proveedor seleccionado
     var bannerEl = document.getElementById('sol-proveedor-banner');
     if (!bannerEl) {
       bannerEl = document.createElement('div');
       bannerEl.id = 'sol-proveedor-banner';
       bannerEl.style.cssText = 'background:#E8F5EE;border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;border:1px solid #C8E6C9;';
       bannerEl.innerHTML = '<span style="font-size:20px;">🔧</span><div><div style="font-size:12px;font-weight:700;color:#0A4220;">Contacto directo</div><div style="font-size:11px;color:#1a7a45;">' + provNombre.replace(/</g,'&lt;') + '</div></div>';
-      const infoBoxRef = document.querySelector('#v-solicitud-nueva .info-box');
-      if (infoBoxRef) infoBoxRef.parentNode.insertBefore(bannerEl, infoBoxRef);
+      if (infoBox) infoBox.parentNode.insertBefore(bannerEl, infoBox);
     }
   } else {
     if (subtitleEl) subtitleEl.textContent = 'Proveedores verificados te contactarán';
@@ -864,21 +847,32 @@ window.iniciarFormularioSolicitud = async function() {
     if (catSel) catSel.value = '';
   }
 
-  // Limpiar campos
+  // Limpiar campos de texto
   const descEl = document.getElementById('sol-descripcion');
   const refEl  = document.getElementById('sol-referencia');
   if (descEl) descEl.value = '';
   if (refEl)  refEl.value  = '';
 
-  // Mostrar perfil.zona
+  // Zona del perfil requiere Firebase — carga en background
+  const listo = await _esperarFirebase();
+  if (!listo || !window._fbAuth || !window._fbAuth.currentUser) return;
+
+  const uid    = window._fbAuth.currentUser.uid;
+  const perfil = await _leerPerfil(uid);
+
+  // Redirigir si es proveedor
+  if (perfil && _esProveedor(perfil.tipo)) {
+    if (typeof go === 'function') go('v-reportes-disponibles', 'right');
+    setTimeout(() => window.cargarReportesDisponibles && window.cargarReportesDisponibles(), 300);
+    return;
+  }
+
   const zonaEl = document.getElementById('sol-zona-perfil');
   if (zonaEl) {
     const z = (perfil && perfil.zona) ? String(perfil.zona).trim() : '';
-    if (z) {
-      zonaEl.innerHTML = `<span style="font-size:11px;color:#555;display:block;margin-bottom:2px;">Zona</span><span style="font-size:14px;font-weight:700;color:#1a1a1a;">📍 ${z}</span>`;
-    } else {
-      zonaEl.innerHTML = '<span style="font-size:12px;color:#888;">📍 Zona no definida en tu perfil</span>';
-    }
+    zonaEl.innerHTML = z
+      ? `<span style="font-size:11px;color:#555;display:block;margin-bottom:2px;">Zona</span><span style="font-size:14px;font-weight:700;color:#1a1a1a;">📍 ${z}</span>`
+      : '<span style="font-size:12px;color:#888;">📍 Zona no definida en tu perfil</span>';
   }
 };
 
