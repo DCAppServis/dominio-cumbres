@@ -1085,10 +1085,27 @@ function _postHooks(id){
 
 // ── FAB global: estrella flotante IMPULSA ────────────────────────────────
 window._dcFabInit = function() {
-  var tipo = (localStorage.getItem('dcuserTipo') || 'vecino').toLowerCase();
   var fab = document.getElementById('dc-fab-global');
   if (!fab) return;
-  var ROLES_NEGOCIO = ['proveedor','restaurante','negocio'];
+  var ROLES_NEGOCIO = ['proveedor','restaurante','negocio','transporte','repartidor','ambos'];
+  var tipo = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
+  // Si no hay tipo en localStorage, intentar leerlo del usuario actual
+  if (!tipo) {
+    var _u = window._fbAuth && window._fbAuth.currentUser;
+    if (!_u) return;
+    (async function() {
+      try {
+        var snap = await _fbGet2('usuarios', _u.uid);
+        var d = snap.exists() ? snap.data() : {};
+        tipo = (d.tipo || '').toLowerCase();
+        if (ROLES_NEGOCIO.indexOf(tipo) !== -1) {
+          localStorage.setItem('dcuserTipo', tipo);
+          window._dcFabInit();
+        }
+      } catch(e) {}
+    })();
+    return;
+  }
   if (ROLES_NEGOCIO.indexOf(tipo) === -1) { fab.classList.remove('visible'); return; }
   fab.classList.add('visible');
   fab.style.opacity = '1';
