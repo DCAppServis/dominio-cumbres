@@ -88,31 +88,15 @@ window.cntPuedePublicar  = function(){ return !!(window._adminRol); };
 window.cntPuedeEliminar  = function(){ return !!(window._adminRol); };
 
 // ── Garantizar sesión Firebase Auth para Firestore ───────────────────────────
-// El login admin es hardcoded (chat.js) y no crea sesión Firebase Auth.
-// Si el admin está logueado pero no hay Firebase Auth, se hace signInAnonymously
-// para satisfacer la regla: allow read, write: if request.auth != null
 async function _cntEnsureFirebaseAuth(){
   var auth = window._fbAuth;
   if(!auth) return;
-  // Si ya hay sesión Firebase, no hacer nada
   if(auth.currentUser) return;
-  // Esperar por si Firebase está restaurando la sesión
-  var user = await new Promise(function(res){
-    var t = setTimeout(function(){ res(null); }, 3000);
+  // Esperar por si Firebase está restaurando la sesión persistida
+  await new Promise(function(res){
+    var t = setTimeout(function(){ res(null); }, 2000);
     var unsub = auth.onAuthStateChanged(function(u){ clearTimeout(t); unsub(); res(u); });
   });
-  if(user) return; // sesión restaurada
-  // Si el admin está logueado via panel pero sin Firebase Auth → signInAnonymously
-  if(window._adminRol){
-    console.log('[CNT AUTH]', { currentUser: null, adminRol: window._adminRol, accion: 'signInAnonymously' });
-    try {
-      var A = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js");
-      await A.signInAnonymously(auth);
-      console.log('[CNT AUTH] sesión anónima creada:', auth.currentUser && auth.currentUser.uid);
-    } catch(ae){ console.warn('[CNT AUTH] signInAnonymously falló:', ae.message); }
-  } else {
-    console.log('[CNT AUTH]', { currentUser: null, adminRol: window._adminRol || null, localTipo: localStorage.getItem('dcuserTipo') });
-  }
 }
 
 // ── Bitácora (puntos 1 y 10) ──────────────────────────────────────────────────
