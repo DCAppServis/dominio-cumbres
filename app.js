@@ -1062,21 +1062,19 @@ function _postHooks(id){
     }
     if(typeof window.__dcNavPatchAll==='function'){setTimeout(window.__dcNavPatchAll,35);setTimeout(window.__dcNavPatchAll,180);}
     _patchFavBack();
-    // FAB: ocultar en vistas de Impulsa, login, admin y registro
+    // FAB: solo visible en pantallas principales de navegación
     try {
       var fab = document.getElementById('dc-fab-global');
-      if (fab) {
-        var _fabOcultar = ['v-impulsa','v-impulsa-planes','v-impulsa-pago','v-impulsa-ok',
-                           'v-splash','v-login','v-register','v-role','v-loading',
-                           'v-admin-login','v-admin-panel',
-                           'v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz',
-                           'v-reg-proveedor','v-reg-restaurante','v-reg-negocio','v-reg-transporte'];
-        if (_fabOcultar.indexOf(id) !== -1) {
-          fab.style.opacity = '0';
-          fab.style.pointerEvents = 'none';
-        } else if (fab.classList.contains('visible')) {
+      if (fab && fab.classList.contains('visible')) {
+        var _fabMostrar = ['v-home','v-servicios','v-informa','v-plaza',
+                           'v-mi-perfil','v-mipanel','v-favoritos',
+                           'v-notificaciones','v-busqueda'];
+        if (_fabMostrar.indexOf(id) !== -1) {
           fab.style.opacity = '1';
           fab.style.pointerEvents = 'auto';
+        } else {
+          fab.style.opacity = '0';
+          fab.style.pointerEvents = 'none';
         }
       }
     } catch(_) {}
