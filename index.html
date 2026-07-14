@@ -4769,7 +4769,7 @@
       </div>
 
       <!-- CENTRO DE CONTENIDO -->
-      <div class="admin-card" onclick="go('v-cnt-contenido','right')">
+      <div class="admin-card" id="card-contenido" onclick="go('v-cnt-contenido','right')">
         <div>
           <div class="admin-card-ic" style="background:rgba(26,122,181,.2);">🌐</div>
           <div class="admin-card-title">Contenido</div>
@@ -4778,7 +4778,7 @@
       </div>
 
       <!-- MONETIZACIÓN -->
-      <div class="admin-card" onclick="goAdminSec('monetizacion')">
+      <div class="admin-card" id="card-monetizacion" onclick="goAdminSec('monetizacion')">
         <div>
           <div class="admin-card-ic" style="background:rgba(31,194,106,.2);">💰</div>
           <div class="admin-card-title">Monetización</div>
@@ -4788,7 +4788,7 @@
       </div>
 
       <!-- ANALYTICS -->
-      <div class="admin-card" onclick="goAdminSec('analytics')">
+      <div class="admin-card" id="card-analytics" onclick="goAdminSec('analytics')">
         <div>
           <div class="admin-card-ic" style="background:rgba(26,122,181,.2);">📊</div>
           <div class="admin-card-title">Analítics</div>
@@ -4797,7 +4797,7 @@
       </div>
 
       <!-- PUBLICACIONES -->
-      <div class="admin-card" onclick="goAdminSec('publicaciones')">
+      <div class="admin-card" id="card-publicaciones" onclick="goAdminSec('publicaciones')">
         <div>
           <div class="admin-card-ic" style="background:rgba(88,101,242,.2);">📰</div>
           <div class="admin-card-title">Publicaciones</div>
@@ -4807,7 +4807,7 @@
       </div>
 
       <!-- ALERTAS -->
-      <div class="admin-card" onclick="goAdminSec('alertas')">
+      <div class="admin-card" id="card-alertas" onclick="goAdminSec('alertas')">
         <div>
           <div class="admin-card-ic" style="background:rgba(214,58,42,.2);">🚨</div>
           <div class="admin-card-title">Alertas</div>
@@ -4821,7 +4821,7 @@
 
     <!-- CONFIGURACIÓN (ancho completo) -->
     <div style="padding:0 14px 14px;">
-      <div class="admin-card" onclick="goAdminSec('config')" style="flex-direction:row;align-items:center;gap:14px;min-height:auto;padding:14px 16px;">
+      <div class="admin-card" id="card-config" onclick="goAdminSec('config')" style="flex-direction:row;align-items:center;gap:14px;min-height:auto;padding:14px 16px;">
         <div class="admin-card-ic" style="background:rgba(245,197,24,.15);margin-bottom:0;flex-shrink:0;">⚙️</div>
         <div>
           <div class="admin-card-title">Configuración</div>
@@ -5008,7 +5008,7 @@
           <label class="form-l" style="color:var(--white-50);">Rol</label>
           <select class="inp" id="admu-new-rol" style="background:#0C1A10;border-color:var(--card-border);color:#fff;">
             <option value="junior">Junior — ver y aprobar usuarios</option>
-            <option value="premium">Premium — acceso avanzado</option>
+            <option value="senior">Senior — acceso avanzado</option>
           </select>
         </div>
         <div id="admu-new-err" style="display:none;background:#D63A2A20;border-radius:10px;padding:9px;font-size:12px;color:#D63A2A;text-align:center;margin-bottom:10px;"></div>
@@ -5368,7 +5368,7 @@
   </div>
 </div>
 
-<script src="chat.js?v=20260710k"></script>
+<script src="chat.js?v=20260710l"></script>
 
 
 <!-- ══ MI AGENDA (vecino) ══════════════════════════════════════
