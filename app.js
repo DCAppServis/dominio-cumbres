@@ -2,7 +2,7 @@
    DOMINIO CUMBRES — APP.JS  v1.0.0
    Una función por responsabilidad.
 ════════════════════════════════════════════════════════════ */
-window.DC_VERSION='1.0.0';
+window.DC_VERSION='1.0.1';
 // Suprimir diálogo "cambios sin guardar" del browser en este SPA
 window.onbeforeunload=null;
 window.addEventListener('beforeunload',function(e){delete e.returnValue;},true);
@@ -3378,7 +3378,6 @@ window.renderHomeM2 = function() {
             "window.marcarModuloVisto('chats');go('v-mis-chats','right');setTimeout(cargarMisChats,200)",
             'chats')
         + modulo('🔧','#FFF8DC','Mi Servicio','Editar perfil',"go('v-mipanel','right')")
-        + modulo('⭐','#FFF8DC','Membresía','Estado y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)")
         + '</div>';
 
       // Banner CMV — igual estilo que otros banners del home
@@ -3390,15 +3389,11 @@ window.renderHomeM2 = function() {
 
       // Accesos rápidos proveedor
       html += secLabel('Accesos rápidos');
-      html += '<div style="display:flex;gap:10px;padding:0 14px;margin-bottom:18px;overflow-x:auto;">'
-        + '<div onclick="window.marcarModuloVisto(\'informa\');go(\'v-informa\',\'right\')" style="flex-shrink:0;background:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:.5px solid #e8e8e8;cursor:pointer;">'
-        + '<span style="font-size:18px;">📰</span><span style="font-size:12px;font-weight:700;color:#111;">Informa</span></div>'
-        + '<div onclick="go(\'v-eventos\',\'right\')" style="flex-shrink:0;background:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:.5px solid #e8e8e8;cursor:pointer;">'
-        + '<span style="font-size:18px;">🎪</span><span style="font-size:12px;font-weight:700;color:#111;">Eventos</span></div>'
-        + '<div onclick="go(\'v-seguridad\',\'right\')" style="flex-shrink:0;background:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:.5px solid #e8e8e8;cursor:pointer;">'
-        + '<span style="font-size:18px;">🚨</span><span style="font-size:12px;font-weight:700;color:#111;">Seguridad</span></div>'
-        + '<div onclick="go(\'v-agenda\',\'right\');setTimeout(function(){window._renderAgenda&&window._renderAgenda();},100)" style="flex-shrink:0;background:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:.5px solid #e8e8e8;cursor:pointer;">'
-        + '<span style="font-size:18px;">📅</span><span style="font-size:12px;font-weight:700;color:#111;">Agenda</span></div>'
+      html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 14px;margin-bottom:18px;">'
+        + chip('📰','Informa', "window.marcarModuloVisto('informa');go('v-informa','right')", 'informa')
+        + chip('🎪','Eventos', "go('v-eventos','right')")
+        + chip('🚨','Seguridad', "go('v-seguridad','right')")
+        + chip('📅','Agenda', "go('v-agenda','right');setTimeout(function(){window._renderAgenda&&window._renderAgenda();},100)")
         + '</div>';
 
       html += descubrimiento(tieneActividad);
@@ -3460,11 +3455,18 @@ window.renderHomeM2 = function() {
         + '</div>';
 
       // Botón principal CENTRO OPERATIVO
-      html += '<div style="padding:0 14px;margin-bottom:20px;">'
+      html += '<div style="padding:0 14px;margin-bottom:16px;">'
         + '<button onclick="go(\'vr-home\',\'right\')" '
         + 'style="width:100%;background:linear-gradient(135deg,#6B4200,#c8940a);border:none;border-radius:16px;padding:18px 14px;font-size:16px;font-weight:800;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 20px rgba(200,148,10,.35);letter-spacing:.3px;">'
         + '<span style="font-size:22px;">🚀</span> CENTRO OPERATIVO'
         + '</button>'
+        + '</div>';
+
+      html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 14px;margin-bottom:18px;">'
+        + chip('📰','Informa', "window.marcarModuloVisto('informa');go('v-informa','right')", 'informa')
+        + chip('🎪','Eventos', "go('v-eventos','right')")
+        + chip('🚨','Seguridad', "go('v-seguridad','right')")
+        + chip('📊','Ventas', "go('vr-home','right');setTimeout(function(){navTo&&navTo('vr-ventas');},80)")
         + '</div>';
 
       html += descubrimiento(tieneActividad);
@@ -3507,6 +3509,14 @@ window.renderHomeM2 = function() {
       + '<span style="font-size:22px;">\ud83d\ude80</span> CENTRO OPERATIVO'
       + '</button>'
       + '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 14px;margin-bottom:18px;">'
+      + chip('\ud83d\udcf0','Informa', "window.marcarModuloVisto('informa');go('v-informa','right')", 'informa')
+      + chip('\ud83c\udfaa','Eventos', "go('v-eventos','right')")
+      + chip('\ud83d\udea8','Seguridad', "go('v-seguridad','right')")
+      + chip('\ud83d\udcca','Ventas', "go('vn-home','right');setTimeout(function(){negTo&&negTo('vn-ventas');},80)")
+      + '</div>';
+
     html += descubrimiento(tieneActividad);
     html += secLabel('Actividad reciente');
     html += '<div id="home-actividad" style="padding:0 14px;">'
@@ -3538,8 +3548,8 @@ window.renderHomeM2 = function() {
           + '<div class="ni-ic">✏️</div><div class="ni-lb">Menú</div></div>'
           + '<div class="ni" onclick="go(\'vr-home\',\'right\');setTimeout(function(){navTo&&navTo(\'vr-notif\');},80)">'
           + '<div class="ni-ic">🔔</div><div class="ni-lb">Alertas</div></div>'
-          + '<div class="ni" onclick="go(\'vr-home\',\'right\')">'
-          + '<div class="ni-ic">⚙️</div><div class="ni-lb">Config</div></div>';
+          + '<div class="ni" onclick="go(\'v-mipanel\',\'right\')">'
+          + '<div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>';
       } else if (tipo === 'negocio') {
         nav.innerHTML =
           '<div class="ni" onclick="go(\'v-home\',\'left\')"><div class="ni-ic">🏠</div><div class="ni-lb on">Inicio</div></div>'
@@ -3547,10 +3557,8 @@ window.renderHomeM2 = function() {
           + '<div class="ni-ic">📦</div><div class="ni-lb">Pedidos</div></div>'
           + '<div class="ni" onclick="go(\'vn-home\',\'right\');setTimeout(function(){negTo&&negTo(\'vn-menu\');},80)">'
           + '<div class="ni-ic">✏️</div><div class="ni-lb">Productos</div></div>'
-          + '<div class="ni" onclick="go(\'vn-home\',\'right\');setTimeout(function(){negTo&&negTo(\'vn-promos\');},80)">'
-          + '<div class="ni-ic">📣</div><div class="ni-lb">Promos</div></div>'
-          + '<div class="ni" onclick="go(\'vn-home\',\'right\')">'
-          + '<div class="ni-ic">⚙️</div><div class="ni-lb">Config</div></div>';
+          + '<div class="ni" onclick="go(\'v-mipanel\',\'right\')">'
+          + '<div class="ni-ic">👤</div><div class="ni-lb">Mi Panel</div></div>';
       } else if (tipo === 'proveedor') {
         nav.innerHTML =
           '<div class="ni" onclick="go(\'v-home\',\'left\')"><div class="ni-ic">🏠</div><div class="ni-lb on">Inicio</div></div>'
@@ -3948,13 +3956,11 @@ window.renderHomeM2 = function() {
     } else {
       html += ACCION('💳','Métodos de pago',"go('vr-config','right')");
       html += ACCION('⭐','Membresía y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)");
+      html += ACCION('📣','Crear promoción',"window.irACrearPromo&&window.irACrearPromo()");
       if (tipo === 'proveedor') {
         html += ACCION('📅','Mis horarios',"go('v-agenda','right');setTimeout(function(){window._renderAgenda&&window._renderAgenda();},100)");
         html += ACCION('📋','Reservas recibidas',"go('v-agenda-reservas','right');setTimeout(function(){window._renderAgendaReservas&&window._renderAgendaReservas();},100)");
         html += ACCION('👁','Cómo me ve el cliente',"go('v-prov-cmv','right');setTimeout(window.vprovCmvCargar,200)");
-      }
-      if (tipo === 'restaurante' || tipo === 'negocio') {
-        html += ACCION('📣','Crear promoción',"window.irACrearPromo&&window.irACrearPromo()");
       }
     }
     html += ACCION('🔔','Notificaciones',"go('v-notificaciones','right');setTimeout(window.renderNotificaciones,300)");

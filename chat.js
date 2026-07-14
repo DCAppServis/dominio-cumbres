@@ -1383,6 +1383,7 @@ function showAdminTab(i,btn){
   window.goAdminSec = function(sec) {
     const map = {
       solicitudes: 'v-admin-solicitudes',
+      usuarios: 'v-admin-usuarios',
       admins: 'v-admin-admins',
       monetizacion: 'v-admin-monetizacion',
       analytics: 'v-admin-analytics',
@@ -1396,6 +1397,7 @@ function showAdminTab(i,btn){
         hideLoading();
         go(map[sec], 'right');
         if(sec === 'solicitudes') { setTimeout(()=>cargarSolicitudes(), 300); }
+        if(sec === 'usuarios') { admuShow('admu-home'); window.admuCargarContadores&&window.admuCargarContadores(); }
         if(sec === 'admins') { renderAdminsList(); }
         if(sec === 'analytics') { cargarAnalytics(); }
       }, 800);
@@ -1568,6 +1570,274 @@ function showAdminTab(i,btn){
       toast.style.display = 'block';
       setTimeout(() => toast.style.display = 'none', 3000);
     });
+  };
+
+  // ─── ADMINISTRACIÓN DE USUARIOS ──────────────────────────
+  window._admuTipo = null;       // tipo activo: 'vecino','restaurante','negocio','servicio','ride','admin'
+  window._admuDatos = [];        // datos cargados
+  window._admuModalUid = null;   // uid en modal
+  window._admuNavStack = [];     // para botón "volver"
+
+  const ADMU_ESTADOS = ['activo','pendiente','suspendido','en_revision','vacaciones','eliminado'];
+  const ADMU_ESTADO_COLOR = { activo:'#1FC26A', pendiente:'#F5C518', suspendido:'#D63A2A', en_revision:'#64B5F6', vacaciones:'#aaa', eliminado:'#666' };
+  const ADMU_ESTADO_LABEL = { activo:'ACTIVO', pendiente:'PENDIENTE', suspendido:'SUSPENDIDO', en_revision:'EN REVISIÓN', vacaciones:'VACACIONES', eliminado:'ELIMINADO' };
+
+  function admuShow(id) {
+    ['admu-home','admu-sub-prov','admu-lista-sec','admu-form-admin'].forEach(function(s){ var el=document.getElementById(s); if(el) el.style.display='none'; });
+    var target = document.getElementById(id);
+    if(target) target.style.display = 'block';
+  }
+
+  window.admuSelTipo = function(tipo) {
+    window._admuNavStack = [];
+    if(tipo === 'proveedor') {
+      window._admuNavStack.push('admu-home');
+      admuShow('admu-sub-prov');
+    } else if(tipo === 'admin') {
+      window._admuTipo = 'admin';
+      window._admuNavStack.push('admu-home');
+      admuCargarAdmins();
+    } else {
+      window._admuTipo = tipo;
+      window._admuNavStack.push('admu-home');
+      admuCargar(tipo);
+    }
+  };
+
+  window.admuCargar = async function(tipo) {
+    window._admuTipo = tipo;
+    if(!window._admuNavStack.length) window._admuNavStack.push('admu-sub-prov');
+    admuShow('admu-lista-sec');
+    var titulos = { vecino:'Vecinos', restaurante:'Restaurantes', negocio:'Negocios', servicio:'Servicios', ride:'Ride' };
+    var t = document.getElementById('admu-lista-titulo');
+    if(t) t.textContent = titulos[tipo] || tipo;
+    var addBtn = document.getElementById('admu-add-admin-btn');
+    if(addBtn) addBtn.style.display = 'none';
+    var lista = document.getElementById('admu-lista');
+    if(lista) lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Cargando... ⏳</div>';
+    var search = document.getElementById('admu-search');
+    if(search) search.value = '';
+    try {
+      var { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      var tipoFirestore = tipo === 'servicio' ? 'proveedor' : tipo;
+      var subtipo = tipo === 'servicio' ? 'servicios' : tipo === 'ride' ? 'ride' : null;
+      var q;
+      if(subtipo) {
+        q = query(collection(window._fbDb,'usuarios'), where('tipo','==',tipoFirestore), where('subtipo','==',subtipo));
+      } else if(tipo === 'restaurante' || tipo === 'negocio') {
+        q = query(collection(window._fbDb,'usuarios'), where('tipo','==',tipo));
+      } else {
+        q = query(collection(window._fbDb,'usuarios'), where('tipo','==',tipoFirestore));
+      }
+      var snap = await getDocs(q);
+      window._admuDatos = [];
+      snap.forEach(function(d){ window._admuDatos.push(Object.assign({uid:d.id}, d.data())); });
+      admuRenderLista(window._admuDatos);
+    } catch(e) {
+      if(lista) lista.innerHTML = '<div style="color:#D63A2A;font-size:12px;padding:10px;">Error: '+e.message+'</div>';
+    }
+  };
+
+  function admuCargarAdmins() {
+    admuShow('admu-lista-sec');
+    var t = document.getElementById('admu-lista-titulo');
+    if(t) t.textContent = 'Administradores';
+    var addBtn = document.getElementById('admu-add-admin-btn');
+    if(addBtn) addBtn.style.display = 'block';
+    var search = document.getElementById('admu-search');
+    if(search) search.value = '';
+    // Build datos from ADMIN_USERS
+    window._admuDatos = Object.entries(ADMIN_USERS).map(function(e){ return { uid: e[0], nombre: '@'+e[0], rol: e[1].rol, tipo:'admin' }; });
+    admuRenderListaAdmins(window._admuDatos);
+  }
+
+  function admuRenderLista(datos) {
+    var lista = document.getElementById('admu-lista');
+    if(!lista) return;
+    if(!datos.length) { lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Sin usuarios encontrados</div>'; return; }
+    lista.innerHTML = datos.map(function(u, i){
+      var estado = u.estado || 'pendiente';
+      var color = ADMU_ESTADO_COLOR[estado] || '#aaa';
+      var opts = ADMU_ESTADOS.map(function(s){ return '<option value="'+s+'"'+(s===estado?' selected':'')+'>'+ADMU_ESTADO_LABEL[s]+'</option>'; }).join('');
+      var borde = i < datos.length-1 ? 'border-bottom:1px solid rgba(255,255,255,.06);' : '';
+      return '<div style="background:var(--card-dark);'+borde+'padding:13px 14px;display:flex;align-items:center;gap:10px;">'
+        +'<div onclick="admuAbrirModal(\''+u.uid+'\')" style="flex:1;cursor:pointer;">'
+        +'<div style="font-size:13px;font-weight:600;color:#fff;">'+(u.nombre||u.negocio||u.email||u.uid)+'</div>'
+        +(u.email ? '<div style="font-size:11px;color:var(--white-40);margin-top:2px;">'+u.email+'</div>' : '')
+        +'</div>'
+        +'<select onchange="admuCambiarEstado(\''+u.uid+'\',this.value)" style="background:#0C1A10;border:1px solid '+color+'60;border-radius:8px;color:'+color+';font-size:11px;font-weight:700;padding:4px 6px;font-family:\'Inter\',sans-serif;outline:none;cursor:pointer;">'+opts+'</select>'
+        +'<button onclick="admuEliminarUsuario(\''+u.uid+'\',\''+encodeURIComponent(u.nombre||u.email||u.uid)+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:6px 9px;font-size:14px;color:#D63A2A;cursor:pointer;">🗑</button>'
+        +'</div>';
+    }).join('');
+    // Wrap en card
+    lista.innerHTML = '<div style="border-radius:14px;overflow:hidden;border:.5px solid var(--card-border);">'+lista.innerHTML+'</div>';
+  }
+
+  function admuRenderListaAdmins(datos) {
+    var lista = document.getElementById('admu-lista');
+    if(!lista) return;
+    if(!datos.length) { lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--white-50);font-size:13px;">Sin administradores</div>'; return; }
+    lista.innerHTML = '<div style="border-radius:14px;overflow:hidden;border:.5px solid var(--card-border);">'
+      + datos.map(function(u, i){
+        var rolColor = u.rol==='maestro' ? '#F5C518' : u.rol==='premium' ? '#1FC26A' : '#64B5F6';
+        var borde = i < datos.length-1 ? 'border-bottom:1px solid rgba(255,255,255,.06);' : '';
+        return '<div style="background:var(--card-dark);'+borde+'padding:13px 14px;display:flex;align-items:center;gap:10px;">'
+          +'<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#fff;">'+u.nombre+'</div>'
+          +'<div style="font-size:11px;color:'+rolColor+';font-weight:700;margin-top:2px;">'+u.rol.toUpperCase()+'</div></div>'
+          +(u.rol !== 'maestro' ? '<button onclick="admuEliminarAdmin(\''+u.uid+'\')" style="background:#D63A2A18;border:1px solid #D63A2A50;border-radius:8px;padding:6px 9px;font-size:14px;color:#D63A2A;cursor:pointer;">🗑</button>' : '<span style="font-size:10px;color:#555;">Maestra</span>')
+          +'</div>';
+      }).join('')
+      + '</div>';
+  }
+
+  window.admuFiltrarLista = function() {
+    var q = (document.getElementById('admu-search').value || '').toLowerCase();
+    var filtrado = window._admuDatos.filter(function(u){
+      var nombre = (u.nombre||u.negocio||u.email||u.uid||'').toLowerCase();
+      return !q || nombre.includes(q);
+    });
+    if(window._admuTipo === 'admin') admuRenderListaAdmins(filtrado);
+    else admuRenderLista(filtrado);
+  };
+
+  window.admuCambiarEstado = async function(uid, nuevoEstado) {
+    try {
+      var { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      await updateDoc(doc(window._fbDb,'usuarios',uid), { estado: nuevoEstado });
+      var u = window._admuDatos.find(function(x){ return x.uid===uid; });
+      if(u) u.estado = nuevoEstado;
+    } catch(e) { alert('Error al actualizar: '+e.message); }
+  };
+
+  window.admuEliminarUsuario = function(uid, nombreEnc) {
+    var nombre = decodeURIComponent(nombreEnc);
+    window._dcConfirmar('¿Eliminar usuario "'+nombre+'" definitivamente?', async function() {
+      try {
+        var { doc, deleteDoc } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+        await deleteDoc(doc(window._fbDb,'usuarios',uid));
+        window._admuDatos = window._admuDatos.filter(function(u){ return u.uid !== uid; });
+        admuFiltrarLista();
+      } catch(e) { alert('Error al eliminar: '+e.message); }
+    });
+  };
+
+  window.admuEliminarAdmin = function(usr) {
+    window._dcConfirmar('¿Eliminar al admin @'+usr+'?', function() {
+      delete ADMIN_USERS[usr];
+      window._admuDatos = Object.entries(ADMIN_USERS).map(function(e){ return { uid:e[0], nombre:'@'+e[0], rol:e[1].rol, tipo:'admin' }; });
+      admuRenderListaAdmins(window._admuDatos);
+      var toast = document.getElementById('admin-toast');
+      if(toast){ toast.textContent='🗑 Admin @'+usr+' eliminado'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+    });
+  };
+
+  window.admuAbrirModal = function(uid) {
+    var u = window._admuDatos.find(function(x){ return x.uid===uid; });
+    if(!u) return;
+    window._admuModalUid = uid;
+    var body = document.getElementById('admu-modal-body');
+    var items = [
+      ['Nombre', u.nombre||u.negocio||'—'],
+      ['Correo', u.email||'—'],
+      ['Teléfono', u.telefono||'—'],
+      ['UID', uid],
+      ['Tipo', u.tipo||'—'],
+      ['Estado', ADMU_ESTADO_LABEL[u.estado]||u.estado||'—'],
+      ['Registro', u.fechaRegistro ? new Date(u.fechaRegistro.seconds*1000).toLocaleDateString() : '—'],
+      ['Últ. modificación', u.fechaActualizacion ? new Date(u.fechaActualizacion.seconds*1000).toLocaleDateString() : '—']
+    ];
+    body.innerHTML = items.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);">'
+        +'<span style="font-size:12px;color:var(--white-50);">'+r[0]+'</span>'
+        +'<span style="font-size:12px;color:#fff;font-weight:600;text-align:right;max-width:60%;word-break:break-all;">'+r[1]+'</span>'
+        +'</div>';
+    }).join('');
+    var modal = document.getElementById('admu-modal');
+    if(modal){ modal.style.display='flex'; }
+  };
+
+  window.admuCerrarModal = function() {
+    var modal = document.getElementById('admu-modal');
+    if(modal) modal.style.display='none';
+    window._admuModalUid = null;
+  };
+
+  window.admuEliminarDesdeModal = function() {
+    var uid = window._admuModalUid;
+    if(!uid) return;
+    var u = window._admuDatos.find(function(x){ return x.uid===uid; });
+    admuCerrarModal();
+    admuEliminarUsuario(uid, encodeURIComponent(u ? (u.nombre||u.email||uid) : uid));
+  };
+
+  window.admuBack = function() {
+    var prev = window._admuNavStack.pop();
+    admuShow(prev || 'admu-home');
+  };
+
+  window.admuAgregarAdmin = function() {
+    window._admuNavStack.push('admu-lista-sec');
+    admuShow('admu-form-admin');
+    var inputs = ['admu-new-usr','admu-new-pass'];
+    inputs.forEach(function(id){ var el=document.getElementById(id); if(el)el.value=''; });
+    var err=document.getElementById('admu-new-err'); if(err)err.style.display='none';
+  };
+
+  window.admuBack2Form = function() {
+    window._admuNavStack.pop();
+    admuCargarAdmins();
+  };
+
+  window.admuConfirmarAgregarAdmin = function() {
+    var usr  = (document.getElementById('admu-new-usr').value||'').trim();
+    var pass = document.getElementById('admu-new-pass').value;
+    var rol  = document.getElementById('admu-new-rol').value;
+    var err  = document.getElementById('admu-new-err');
+    if(!usr||!pass){ err.style.display='block'; err.textContent='⚠️ Llena usuario y contraseña'; return; }
+    if(pass.length<6){ err.style.display='block'; err.textContent='🔐 Mínimo 6 caracteres'; return; }
+    if(ADMIN_USERS[usr]){ err.style.display='block'; err.textContent='❌ Ese usuario ya existe'; return; }
+    err.style.display='none';
+    ADMIN_USERS[usr] = { pass: pass, rol: rol };
+    admuBack2Form();
+    var toast=document.getElementById('admin-toast');
+    if(toast){ toast.textContent='✅ Admin @'+usr+' ('+rol+') agregado'; toast.style.display='block'; setTimeout(function(){ toast.style.display='none'; },3000); }
+  };
+
+  // Cargar contadores en home de admu
+  window.admuCargarContadores = async function() {
+    try {
+      var { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      var snap = await getDocs(collection(window._fbDb,'usuarios'));
+      var cVecino=0, cProv=0, activos=0, pendientes=0, suspendidos=0, total=0;
+      snap.forEach(function(d){
+        var u=d.data();
+        total++;
+        if(u.tipo==='vecino') cVecino++;
+        else cProv++;
+        var e=u.estado||'';
+        if(e==='activo') activos++;
+        else if(e==='pendiente'||e==='pendiente_revision') pendientes++;
+        else if(e==='suspendido') suspendidos++;
+      });
+      var cAdmin = Object.keys(ADMIN_USERS).length;
+      var set = function(id,v){ var el=document.getElementById(id); if(el)el.textContent=v; };
+      set('admu-cnt-vecino',cVecino);
+      set('admu-cnt-proveedor',cProv);
+      set('admu-cnt-admin',cAdmin);
+      set('admu-cnt-total',total+' usuarios');
+      var estados = document.getElementById('admu-estados');
+      if(estados) estados.innerHTML = [
+        ['🟢 Activos', activos, '75.8%', '#1FC26A'],
+        ['🟡 Pendientes', pendientes, '10.2%', '#F5C518'],
+        ['🔴 Suspendidos', suspendidos, '14.0%', '#D63A2A']
+      ].map(function(r){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;">'
+          +'<span style="font-size:12px;color:'+r[3]+';">'+r[0]+'</span>'
+          +'<div style="display:flex;gap:8px;align-items:center;">'
+          +'<span style="font-size:13px;font-weight:700;color:#fff;">'+r[1]+'</span>'
+          +'</div></div>';
+      }).join('');
+    } catch(e) { /* silencioso */ }
   };
 
   // ─── FILTROS SOLICITUDES ─────────────────────────────────
