@@ -1382,9 +1382,9 @@ function showAdminTab(i,btn){
   // ── Permisos por rol ────────────────────────────────────────
   var _ADMIN_PERMISOS = {
     maestro: ['ver_solicitudes','gestionar_usuarios','gestionar_contenido','ver_monetizacion','ver_analytics','ver_publicaciones','ver_alertas','ver_configuracion','crear_admin','suspender_admin'],
-    senior:  ['ver_solicitudes','gestionar_usuarios','gestionar_contenido','ver_publicaciones','ver_alertas'],
-    premium: ['ver_solicitudes','gestionar_usuarios','gestionar_contenido','ver_publicaciones','ver_alertas'], // alias legacy
-    junior:  ['ver_solicitudes','gestionar_usuarios']
+    senior:  ['ver_solicitudes','gestionar_usuarios','gestionar_contenido','ver_monetizacion','ver_analytics','ver_publicaciones','ver_alertas'],
+    premium: ['ver_solicitudes','gestionar_usuarios','gestionar_contenido','ver_monetizacion','ver_analytics','ver_publicaciones','ver_alertas'], // alias legacy
+    junior:  ['ver_solicitudes','gestionar_usuarios','gestionar_contenido']
   };
   window.adminPuede = function(permiso) {
     var rol = window._adminRol || 'junior';
