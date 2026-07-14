@@ -1076,7 +1076,7 @@ window._plazaRenderProductos = function() {
 window._plazaCarrito = window._plazaCarrito || [];
 window._plazaDetalleQty = 1;
 
-window.plazaCerrarProductoDetalle = function(){
+window.plazaCerrarProductoDetalle = window.plazaCerrarProductoDetalle || function(){
   var ov = document.getElementById('plaza-prod-det-ov');
   if (ov) ov.style.display = 'none';
   try { document.body.style.overflow=''; document.body.style.touchAction=''; } catch(e) {}
@@ -1092,7 +1092,7 @@ window.plazaCambiarQtyDetalle = function(delta){
   return false;
 };
 
-window.plazaShowCarritoToast = function(msg){
+window.plazaShowCarritoToast = window.plazaShowCarritoToast || function(msg){
   // Usa EXACTAMENTE el estilo de confirmación de Configuración (cfg-confirm),
   // pero con el texto de Plaza. No usa toast ni overlay grande.
   var text = (msg || 'Producto agregado al carrito exitosamente.').replace(/^✅\s*/,'');
@@ -1128,7 +1128,7 @@ window.plazaShowCarritoToast = function(msg){
   }, 2200);
 };
 
-window.plazaAgregarAlCarritoDetalle = function(pid){
+window.plazaAgregarAlCarritoDetalle = window.plazaAgregarAlCarritoDetalle || function(pid){
   if (window._plazaAgregandoDetalle) return false;
   window._plazaAgregandoDetalle = true;
   var p = (window._plazaProdDocsCache || []).find(function(x){ return String(x._id) === String(pid); });
@@ -1158,6 +1158,9 @@ window.plazaAgregarAlCarritoDetalle = function(pid){
 };
 
 window.plazaAbrirProductoDetalle = function(pid){
+  // scroll lock inline (app.js no puede wrappear aquí porque firebase.js carga después)
+  if(document.body.dataset.dcModalLocked!=='1'){var _sy=window.scrollY||0;document.body.dataset.dcModalLocked='1';document.body.dataset.dcModalScrollY=String(_sy);document.body.style.overflow='hidden';document.body.style.touchAction='none';}
+  // ----
   var p = (window._plazaProdDocsCache || []).find(function(x){ return String(x._id) === String(pid); });
   if (!p) return;
   window._plazaDetalleQty = 1;
