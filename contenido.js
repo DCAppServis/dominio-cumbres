@@ -1,4 +1,4 @@
-// CENTRO DE CONTENIDO — Admin Module v=20260709g
+// CENTRO DE CONTENIDO — Admin Module v=20260709h
 (function(){ 'use strict';
 
 var _FBFS = "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
@@ -433,7 +433,6 @@ function _renderEdit(it){
     btnsHtml = '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">'
       +(cntPuedePublicar()&&it.estado!=='publicado'?'<button onclick="cntCambiarEstado(\''+it._id+'\',\'publicado\')" class="cnt-btn-ok">✓ Publicar</button>':'')
       +(cntPuedeEditar()&&it.estado!=='rechazado'?'<button onclick="cntCambiarEstado(\''+it._id+'\',\'rechazado\')" class="cnt-btn-del">✕ Rechazar</button>':'')
-      +(cntPuedeEditar()&&_cntSec!=='reporte'&&it.estado!=='borrador'?'<button onclick="cntCambiarEstado(\''+it._id+'\',\'borrador\')" class="cnt-btn-neu">◷ Borrador</button>':'')
       +'</div>';
   }
 
@@ -478,6 +477,23 @@ function _renderEdit(it){
 window.cntModoEditar = function(){
   _cntEditMode = true;
   if(_cntEditing) _renderEdit(_cntEditing);
+};
+
+window.cntVolverLista = function(){
+  _cntEditMode = false;
+  // Quitar contenteditable antes de navegar para evitar el dialog de "cambios sin guardar"
+  var body = get('cnt-edit-body');
+  if(body) body.querySelectorAll('[contenteditable]').forEach(function(el){ el.removeAttribute('contenteditable'); });
+  if(window._goCore) window._goCore('v-cnt-lista','left');
+  else if(window.go) window.go('v-cnt-lista','left');
+};
+
+window.cntVolverEventos = function(){
+  _cntEvEditMode = false;
+  var body = get('cnt-ev-edit-body');
+  if(body) body.querySelectorAll('[contenteditable]').forEach(function(el){ el.removeAttribute('contenteditable'); });
+  if(window._goCore) window._goCore('v-cnt-eventos','left');
+  else if(window.go) window.go('v-cnt-eventos','left');
 };
 
 window.cntGuardarEdicion = async function(id){
