@@ -6155,97 +6155,68 @@ window.impulsaSeleccionarPlan = function(tipo) {
       + '</div></div>';
   }
   go('v-impulsa-pago', 'right');
-  setTimeout(function() { window.impulsaIniciarBrick && window.impulsaIniciarBrick(); }, 350);
 };
 
-// ── Pantalla 3: MP Payment Brick ─────────────────────────────────────────
-window.impulsaIniciarBrick = async function() {
-  var cont = document.getElementById('impulsa-brick-cont');
-  if (!cont) return;
-  cont.innerHTML = '<div style="text-align:center;padding:40px;color:#888;font-size:13px;">⏳ Iniciando pago seguro...</div>';
-
-  if (typeof MercadoPago === 'undefined') {
-    cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">SDK de pago no disponible. Recarga la página e intenta de nuevo.</div>';
-    return;
-  }
-
-  // Desmontar brick anterior si existe
-  if (_impulsaBrick) {
-    try { await _impulsaBrick.unmount(); } catch(_e) {}
-    _impulsaBrick = null;
-  }
-
-  var plan = _MP_PLANES[_impulsaPlanSel];
-  if (!plan) return;
-
-  // Crear contenedor blanco para el brick
-  cont.innerHTML = '<div id="impulsa-brick-inner"></div>';
+// ── Pantalla 3: Checkout Pro ──────────────────────────────────────────────
+window.impulsaAbrirCheckout = async function() {
+  var btn = document.getElementById('impulsa-btn-pagar');
+  var errDiv = document.getElementById('impulsa-checkout-error');
+  if (errDiv) errDiv.style.display = 'none';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando enlace...'; }
 
   try {
-    var mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-MX', advancedFraudPrevention: false });
-    var userEmail = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.email) || '';
+    var user = window._fbAuth && window._fbAuth.currentUser;
+    if (!user) throw new Error('Sin sesión. Vuelve a iniciar sesión.');
 
-    _impulsaBrick = await mp.bricks().create('payment', 'impulsa-brick-inner', {
-      initialization: {
-        amount: plan.monto,
-        payer: { email: userEmail }
-      },
-      customization: {
-        paymentMethods: {
-          creditCard: 'all',
-          debitCard: 'all',
-          ticket: 'all'
-        }
-      },
-      callbacks: {
-        onReady: function() {},
-        onSubmit: function(_ref) {
-          var formData = _ref.formData;
-          return new Promise(async function(resolve, reject) {
-            try {
-              var user = window._fbAuth && window._fbAuth.currentUser;
-              if (!user) { reject(new Error('Sin sesión. Vuelve a iniciar sesión.')); return; }
-
-              var _fns = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-functions.js');
-              var fn = _fns.httpsCallable(window._fbFunctions, 'mpActivarImpulsa');
-              var result = await fn({ formData: formData, planTipo: _impulsaPlanSel, email: userEmail });
-
-              if (result.data && result.data.ok) {
-                // Mostrar éxito
-                var okVence = document.getElementById('impulsa-ok-vence');
-                if (okVence && result.data.planVence) {
-                  var fStr = new Date(result.data.planVence).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
-                  okVence.textContent = 'Plan activo hasta el ' + fStr;
-                }
-                resolve();
-                setTimeout(function() { go('v-impulsa-ok', 'right'); }, 100);
-              } else {
-                reject(new Error((result.data && result.data.msg) || 'Error en el pago'));
-              }
-            } catch(e) {
-              reject(e);
-            }
-          });
-        },
-        onError: function(error) {
-          console.error('[MP Brick error]', error);
-          var errMsg = (error && (error.message || error.cause || JSON.stringify(error))) || 'Error desconocido';
-          if (cont) cont.innerHTML = _impErrorPago(errMsg);
-        }
-      }
+    var _fns = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-functions.js');
+    var fn = _fns.httpsCallable(window._fbFunctions, 'mpCrearPreferencia');
+    var result = await fn({
+      planTipo: _impulsaPlanSel,
+      appUrl:   window.location.origin + window.location.pathname
     });
+
+    if (result.data && result.data.url) {
+      window.open(result.data.url, '_blank');
+      // Mostrar aviso de regreso
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>💳</span> Abrir MercadoPago de nuevo';
+      }
+    } else {
+      throw new Error('No se obtuvo URL de pago');
+    }
   } catch(e) {
-    console.error('impulsaIniciarBrick', e);
-    var errMsg = (e && (e.message || e.cause || JSON.stringify(e))) || 'Error desconocido';
-    if (cont) cont.innerHTML = _impErrorPago(errMsg);
+    console.error('impulsaAbrirCheckout', e);
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span>💳</span> Pagar con MercadoPago'; }
+    if (errDiv) {
+      errDiv.textContent = 'Error: ' + (e.message || 'No se pudo generar el enlace de pago');
+      errDiv.style.display = 'block';
+    }
   }
 };
 
-function _impErrorPago(msg) {
-  return '<div style="padding:30px 20px;text-align:center;">'
-    + '<div style="font-size:36px;margin-bottom:12px;">⚠️</div>'
-    + '<div style="font-size:14px;font-weight:700;color:#333;margin-bottom:8px;">No se pudo cargar el formulario de pago</div>'
-    + '<div style="font-size:11px;color:#888;margin-bottom:20px;word-break:break-all;">' + msg + '</div>'
-    + '<button onclick="window.impulsaIniciarBrick&&window.impulsaIniciarBrick()" style="background:#009ee3;color:#fff;border:none;border-radius:12px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Reintentar</button>'
-    + '</div>';
-}
+// Botón "Ya pagué" — verifica si el plan se activó vía webhook
+window.impulsaVerificarPago = async function() {
+  try {
+    var user = window._fbAuth && window._fbAuth.currentUser;
+    if (!user) return;
+    var snap = await _fbGet2('usuarios', user.uid);
+    var d = snap.exists() ? snap.data() : {};
+    var activo = d.plan === 'impulsa' && d.planVence
+      && ((d.planVence.toMillis ? d.planVence.toMillis() : d.planVence.seconds * 1000) > Date.now());
+    if (activo) {
+      var fin = d.planVence.toMillis ? new Date(d.planVence.toMillis()) : new Date(d.planVence.seconds * 1000);
+      var okVence = document.getElementById('impulsa-ok-vence');
+      if (okVence) okVence.textContent = 'Plan activo hasta el ' + fin.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+      go('v-impulsa-ok', 'right');
+    } else {
+      var errDiv = document.getElementById('impulsa-checkout-error');
+      if (errDiv) {
+        errDiv.textContent = 'El pago aún no está confirmado. Si ya pagaste, espera unos segundos e intenta de nuevo.';
+        errDiv.style.display = 'block';
+      }
+    }
+  } catch(e) {
+    console.error('impulsaVerificarPago', e);
+  }
+};
