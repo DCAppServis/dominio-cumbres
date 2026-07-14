@@ -6182,7 +6182,7 @@ window.impulsaIniciarBrick = async function() {
   cont.innerHTML = '<div id="impulsa-brick-inner"></div>';
 
   try {
-    var mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-MX' });
+    var mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-MX', advancedFraudPrevention: false });
     var userEmail = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.email) || '';
 
     _impulsaBrick = await mp.bricks().create('payment', 'impulsa-brick-inner', {
@@ -6229,11 +6229,23 @@ window.impulsaIniciarBrick = async function() {
         },
         onError: function(error) {
           console.error('[MP Brick error]', error);
+          var errMsg = (error && (error.message || error.cause || JSON.stringify(error))) || 'Error desconocido';
+          if (cont) cont.innerHTML = _impErrorPago(errMsg);
         }
       }
     });
   } catch(e) {
     console.error('impulsaIniciarBrick', e);
-    if (cont) cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">Error al iniciar pago:<br>' + e.message + '</div>';
+    var errMsg = (e && (e.message || e.cause || JSON.stringify(e))) || 'Error desconocido';
+    if (cont) cont.innerHTML = _impErrorPago(errMsg);
   }
 };
+
+function _impErrorPago(msg) {
+  return '<div style="padding:30px 20px;text-align:center;">'
+    + '<div style="font-size:36px;margin-bottom:12px;">⚠️</div>'
+    + '<div style="font-size:14px;font-weight:700;color:#333;margin-bottom:8px;">No se pudo cargar el formulario de pago</div>'
+    + '<div style="font-size:11px;color:#888;margin-bottom:20px;word-break:break-all;">' + msg + '</div>'
+    + '<button onclick="window.impulsaIniciarBrick&&window.impulsaIniciarBrick()" style="background:#009ee3;color:#fff;border:none;border-radius:12px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Reintentar</button>'
+    + '</div>';
+}
