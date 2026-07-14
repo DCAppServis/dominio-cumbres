@@ -792,16 +792,6 @@
 })();
 
 
-(function(){
-  window.DC_LIMPIEZA_5_BLOQUES_APAGADOS = Object.freeze({
-    modulo: 'Plaza / Mis Compras',
-    accion: 'Retiro de bloques apagados heredados sin tocar funciones vivas',
-    retirado: ['goWrap QF36 apagado','observer QF36 apagado','listeners/click/touch/seguimiento QF42 antiguos apagados','comentario override final neutralizado'],
-    noTocado: ['Food','Restaurante','Negocio','go oficial','Plaza Online validada','Mis Compras QF42 oficial']
-  });
-})();
-
-
 /* ═══════════════════════════════════════════════════════
    PLAZA ONLINE — CIERRE TÉCNICO / NO OVERRIDE GUARD
    Objetivo único:
@@ -1372,22 +1362,6 @@
   }) : {modulo:'Mis Compras Plaza', limpieza:'PUNTO_3', fuenteOficial:'QF42', estado: ok ? 'VALIDADO' : 'REVISAR'};
 })();
 
-
-(function(){
-  if(window.__dcLimpieza4IdsAudit)return; window.__dcLimpieza4IdsAudit=true;
-  window.dcAuditIdsDuplicados=function(){
-    try{
-      var ids={},dups=[];
-      document.querySelectorAll('[id]').forEach(function(el){
-        var id=el.id; if(!id)return;
-        if(ids[id])dups.push(id); else ids[id]=1;
-      });
-      if(dups.length){ console.warn('[DC LIMPIEZA 4] IDs duplicados en runtime:', Array.from(new Set(dups))); }
-      return Array.from(new Set(dups));
-    }catch(e){return [];}
-  };
-  setTimeout(window.dcAuditIdsDuplicados,300);
-})();
 
 
 /* LIMPIEZA 8A — FOOD PEDIDOS / SEGUIMIENTO OFICIAL
