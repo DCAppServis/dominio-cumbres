@@ -13175,25 +13175,20 @@ if (typeof window.go !== 'function') {
     clearTimeout(window._dcPlazaFFV51_1);
     clearTimeout(window._dcPlazaFFV51_2);
 
-    // FASE 1 — mismo estilo oficial: brújula/proceso
-    box.className='dc-overlay-box phase-send';
-    body.innerHTML='<div class="dc-logo-wrap">'+_svgLogoOficial()+'</div>'
-      + '<div class="dc-ov-title" style="color:var(--yellow);font-size:20px;font-weight:700;margin-top:0;">Agregando al carrito...</div>'
-      + '<div class="dc-ov-sub" style="color:rgba(245,197,24,.8);font-size:13px;margin-top:8px;line-height:1.6;">Estamos guardando tu selección.</div>';
+    // Toast no bloqueante: pointer-events:none para no tapar interacciones
+    ov.style.pointerEvents='none';
+    box.className='dc-overlay-box phase-ok';
+    body.innerHTML='<div class="dc-check">✅</div>'
+      + '<div class="dc-ov-title" style="color:var(--green);font-size:22px;font-weight:700;margin-top:14px;">Producto agregado</div>'
+      + '<div class="dc-ov-sub" style="color:rgba(31,194,106,.85);font-size:13px;margin-top:8px;line-height:1.6;">Agregado al carrito exitosamente.</div>';
     ov.style.display='flex';
 
-    // FASE 2 — mismo estilo oficial: éxito verde
     window._dcPlazaFFV51_1=setTimeout(function(){
-      box.className='dc-overlay-box phase-ok';
-      body.innerHTML='<div class="dc-check">✅</div>'
-        + '<div class="dc-ov-title" style="color:var(--green);font-size:22px;font-weight:700;margin-top:14px;">Producto agregado</div>'
-        + '<div class="dc-ov-sub" style="color:rgba(31,194,106,.85);font-size:13px;margin-top:8px;line-height:1.6;">Producto agregado al carrito<br>exitosamente.</div>';
-      window._dcPlazaFFV51_2=setTimeout(function(){
-        ov.style.display='none';
-        try{ if(window.cargarMisComprasPlaza) window.cargarMisComprasPlaza(); }catch(e){}
-        if(typeof onDone==='function') onDone();
-      },1000);
-    },800);
+      ov.style.display='none';
+      ov.style.pointerEvents='';
+      try{ if(window.cargarMisComprasPlaza) window.cargarMisComprasPlaza(); }catch(e){}
+      if(typeof onDone==='function') onDone();
+    },1200);
   }
 
   // Punto único usado por el botón activo de Plaza. No se toca el render del modal.
