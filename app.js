@@ -1062,14 +1062,13 @@ function _postHooks(id){
     }
     if(typeof window.__dcNavPatchAll==='function'){setTimeout(window.__dcNavPatchAll,35);setTimeout(window.__dcNavPatchAll,180);}
     _patchFavBack();
-    // FAB: solo visible en pantallas principales de navegación
+    // FAB: visible solo si la pantalla activa tiene barra nav inferior
     try {
       var fab = document.getElementById('dc-fab-global');
       if (fab && fab.classList.contains('visible')) {
-        var _fabMostrar = ['v-home','v-servicios','v-informa','v-plaza',
-                           'v-mi-perfil','v-mipanel','v-favoritos',
-                           'v-notificaciones','v-busqueda'];
-        if (_fabMostrar.indexOf(id) !== -1) {
+        var _activeView = document.getElementById(id);
+        var _tieneNav = _activeView && _activeView.querySelector('.nav');
+        if (_tieneNav) {
           fab.style.opacity = '1';
           fab.style.pointerEvents = 'auto';
         } else {
