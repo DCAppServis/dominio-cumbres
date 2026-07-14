@@ -1067,7 +1067,10 @@ function _postHooks(id){
       var fab = document.getElementById('dc-fab-global');
       if (fab && fab.classList.contains('visible')) {
         var _fabOcultar = ['v-impulsa','v-impulsa-planes','v-impulsa-pago','v-impulsa-ok',
-                           'v-splash','v-login','v-register','v-role','v-loading'];
+                           'v-splash','v-login','v-register','v-role','v-loading',
+                           'v-admin-login','v-admin-panel',
+                           'v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz',
+                           'v-reg-proveedor','v-reg-restaurante','v-reg-negocio','v-reg-transporte'];
         if (_fabOcultar.indexOf(id) !== -1) {
           fab.style.opacity = '0';
           fab.style.pointerEvents = 'none';
