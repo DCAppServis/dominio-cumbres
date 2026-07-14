@@ -104,13 +104,24 @@ function mcRowsRead(items){
 function mcCartRows(items){
   return norm(items).map(function(x,i){
     var k=esc(keyOf(x,i)),q=qty(x.cantidad),p=num(x.precio);
-    return '<div class="dc-l14-cart-row"><div class="dc-l14-thumb">'+(x.foto?'<img src="'+esc(x.foto)+'">':'🛒')+'</div><div style="flex:1;min-width:0"><div class="dc-l14-prod">'+esc(x.nombre)+'</div><div class="dc-l14-muted">'+money(p)+' × '+q+' = '+money(p*q)+'</div></div><div class="dc-l14-controls"><button type="button" data-l14-qty="-1" data-key="'+k+'">−</button><b>'+q+'</b><button type="button" data-l14-qty="1" data-key="'+k+'">+</button><button type="button" class="del" data-l14-del="1" data-key="'+k+'">×</button></div></div>';
+    return '<div class="dc-l14-cart-row">'+
+      '<div style="flex:1;min-width:0;">'+
+        '<div class="dc-l14-prod">'+esc(x.nombre)+'</div>'+
+        '<div class="dc-l14-muted" style="margin-top:2px;">'+money(p)+' c/u · Total '+money(p*q)+'</div>'+
+      '</div>'+
+      '<div class="dc-l14-controls">'+
+        '<button type="button" data-l14-qty="-1" data-key="'+k+'">−</button>'+
+        '<b>'+q+'</b>'+
+        '<button type="button" data-l14-qty="1" data-key="'+k+'">+</button>'+
+        '<button type="button" class="del" data-l14-del="1" data-key="'+k+'">×</button>'+
+      '</div>'+
+    '</div>';
   }).join('');
 }
 function mcCartCard(c){
   c=norm(c); if(!c.length) return '';
   var open=localStorage.getItem(OPEN_CART)==='1', vac=localStorage.getItem(VAC_KEY)==='1', t=total(c);
-  var html='<div class="dc-l14-card dc-l14-pending" data-l14-card="cart"><div class="dc-l14-head" data-l14-toggle-cart="1"><div class="dc-l14-icon">🛒</div><div class="dc-l14-main"><div class="dc-l14-title">Plaza Online — Carrito</div><div class="dc-l14-muted">'+c.length+' producto(s) · '+money(t)+'</div>'+mcState('pendiente','Pendiente')+'</div><div class="dc-l14-right"><div class="dc-l14-total">'+money(t)+'</div><div class="dc-l14-arrow">'+(open?'▲':'▼')+'</div></div></div>';
+  var html='<div class="dc-l14-card dc-l14-pending" data-l14-card="cart"><div class="dc-l14-head" data-l14-toggle-cart="1"><div class="dc-l14-icon">🛒</div><div class="dc-l14-main"><div class="dc-l14-title">Mi carrito</div><div class="dc-l14-muted">'+c.length+' producto(s) · '+money(t)+'</div>'+mcState('pendiente','Pendiente')+'</div><div class="dc-l14-right"><div class="dc-l14-total">'+money(t)+'</div><div class="dc-l14-arrow">'+(open?'▲':'▼')+'</div></div></div>';
   if(open){
     html+='<div class="dc-l14-body">'+mcCartRows(c)+'<button type="button" class="dc-l14-btn" data-l14-continuar="1">Continuar compra →</button>';
     if(vac) html+='<div class="dc-l14-confirm"><b>¿Vaciar carrito?</b><div><button type="button" data-l14-vac-cancel="1">Cancelar</button><button type="button" class="danger" data-l14-vac-ok="1">Sí, vaciar</button></div></div>';
@@ -245,7 +256,7 @@ setInterval(function(){
 // MIS COMPRAS — STYLES
 // ══════════════════════════════════════════════
 (function(){
-  if(document.getElementById('dc-plaza-l14-style')) return;
+  var old=document.getElementById('dc-plaza-l14-style'); if(old) old.remove();
   var s=document.createElement('style'); s.id='dc-plaza-l14-style';
   s.textContent=
 '#miscompras-plaza-lista{padding:12px 10px 90px;background:#F5F6F0;}'+
@@ -269,13 +280,11 @@ setInterval(function(){
 '.dc-l14-prod{font-size:12px;font-weight:700;color:#111;line-height:1.3;}'+
 '.dc-l14-row .dc-l14-muted{font-size:11px;color:#999;margin-top:2px;white-space:normal;}'+
 '.dc-l14-row b{font-size:12px;font-weight:900;color:#111;white-space:nowrap;}'+
-'.dc-l14-cart-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:.5px solid #f5f5f5;}'+
+'.dc-l14-cart-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:.5px solid #f5f5f5;}'+
 '.dc-l14-cart-row:last-of-type{border-bottom:none;}'+
-'.dc-l14-thumb{width:38px;height:38px;border-radius:9px;background:#F3F5F7;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;}'+
-'.dc-l14-thumb img{width:100%;height:100%;object-fit:cover;}'+
-'.dc-l14-cart-row .dc-l14-prod{font-size:12px;font-weight:800;color:#111;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}'+
-'.dc-l14-cart-row .dc-l14-muted{font-size:11px;color:#888;margin-top:1px;white-space:nowrap;}'+
-'.dc-l14-controls{display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:6px;}'+
+'.dc-l14-cart-row .dc-l14-prod{font-size:12px;font-weight:800;color:#111;line-height:1.35;}'+
+'.dc-l14-cart-row .dc-l14-muted{font-size:11px;color:#888;}'+
+'.dc-l14-controls{display:flex;align-items:center;gap:3px;flex-shrink:0;}'+
 '.dc-l14-controls button{width:24px;height:24px;border-radius:6px;border:1px solid #e0e3e8;background:#f7f8fa;color:#333;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}'+
 '.dc-l14-controls button.del{background:#FFF0F0;border-color:#ffd0d0;color:#D63A2A;font-size:12px;}'+
 '.dc-l14-controls b{font-size:12px;font-weight:900;color:#111;min-width:16px;text-align:center;}'+
