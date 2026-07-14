@@ -1151,7 +1151,7 @@ window.plazaAgregarAlCarritoDetalle = function(pid){
   try { localStorage.setItem('dcPlazaCarrito', JSON.stringify(window._plazaCarrito)); } catch(e) {}
   window.plazaCerrarProductoDetalle();
   setTimeout(function(){
-    window.plazaShowCarritoToast('✅ Producto agregado al carrito exitosamente');
+    try{window.plazaShowCarritoToast('✅ Producto agregado al carrito exitosamente');}catch(e){}
     window._plazaAgregandoDetalle = false;
   }, 80);
   return false;
