@@ -1071,9 +1071,11 @@ function _postHooks(id){
         if (_tieneNav) {
           fab.style.opacity = '1';
           fab.style.pointerEvents = 'auto';
+          fab.style.bottom = '140px';
         } else {
-          fab.style.opacity = '0';
-          fab.style.pointerEvents = 'none';
+          fab.style.opacity = '1';
+          fab.style.pointerEvents = 'auto';
+          fab.style.bottom = '80px';
         }
       }
     } catch(_) {}
