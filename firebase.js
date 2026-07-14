@@ -307,6 +307,7 @@
               if('Notification' in window) Notification.requestPermission();
               window.verificarChatsProveedor && window.verificarChatsProveedor();
               window.activarNotificacionesProveedor && window.activarNotificacionesProveedor();
+              window._dcFabInit && window._dcFabInit();
             }, 1500);
           } else {
             go('v-espera-revision','right');

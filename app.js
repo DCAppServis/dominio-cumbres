@@ -1062,6 +1062,21 @@ function _postHooks(id){
     }
     if(typeof window.__dcNavPatchAll==='function'){setTimeout(window.__dcNavPatchAll,35);setTimeout(window.__dcNavPatchAll,180);}
     _patchFavBack();
+    // FAB: ocultar en vistas de Impulsa y login, mostrar en el resto
+    try {
+      var fab = document.getElementById('dc-fab-global');
+      if (fab && fab.classList.contains('visible')) {
+        var _fabOcultar = ['v-impulsa','v-impulsa-planes','v-impulsa-pago','v-impulsa-ok',
+                           'v-splash','v-login','v-register','v-role','v-loading'];
+        if (_fabOcultar.indexOf(id) !== -1) {
+          fab.style.opacity = '0';
+          fab.style.pointerEvents = 'none';
+        } else {
+          fab.style.opacity = '1';
+          fab.style.pointerEvents = 'auto';
+        }
+      }
+    } catch(_) {}
   }catch(_){}
 }
 
@@ -6028,24 +6043,30 @@ window._irAImpulsa = function() {
   setTimeout(window.impulsaCargar, 200);
 };
 
-// ── FAB Impulsa / Publicidad ─────────────────────────────────────────────
-window._actualizarFabHome = function() {
+// ── FAB Global Impulsa / Publicidad ──────────────────────────────────────
+// Aparece sobre TODA la app (z-index 9500, dentro de .screen)
+// Solo para proveedor, restaurante, negocio.
+// ⭐ → sin plan activo → va a Impulsa
+// 📢 → plan activo → va a Publicidad
+window._dcFabInit = function() {
   var tipo = (localStorage.getItem('dcuserTipo') || 'vecino').toLowerCase();
-  var fab = document.getElementById('home-fab');
+  var fab = document.getElementById('dc-fab-global');
   if (!fab) return;
+
   var ROLES_NEGOCIO = ['proveedor','restaurante','negocio'];
-  if (ROLES_NEGOCIO.indexOf(tipo) === -1) { fab.style.display = 'none'; return; }
+  if (ROLES_NEGOCIO.indexOf(tipo) === -1) {
+    fab.classList.remove('visible');
+    return;
+  }
 
-  fab.style.display = '';
-  var ic = document.getElementById('home-fab-ic');
-  var lb = document.getElementById('home-fab-lb');
-  var btn = document.getElementById('home-fab-btn');
+  // Mostrar con ⭐ mientras verifica plan
+  fab.classList.add('visible');
+  window._dcFabAccion = function() { window._irAImpulsa && window._irAImpulsa(); };
 
-  // Verificar plan activo desde Firestore
   (async function() {
     try {
       var user = window._fbAuth && window._fbAuth.currentUser;
-      if (!user) throw new Error('no-user');
+      if (!user) return;
       var snap = await _fbGet2('usuarios', user.uid);
       var d = snap.exists() ? snap.data() : {};
       var ahora = Date.now();
@@ -6053,26 +6074,19 @@ window._actualizarFabHome = function() {
         ? (d.planVence.toMillis ? d.planVence.toMillis() : (d.planVence.seconds || 0) * 1000)
         : 0;
       var esImpulsa = d.plan === 'impulsa' && venceMs > ahora;
-
+      var star = document.getElementById('dc-fab-star');
+      var lbl  = document.getElementById('dc-fab-label');
       if (esImpulsa) {
-        if (ic) ic.textContent = '📢';
-        if (lb) lb.textContent = 'Publicidad';
-        if (btn) btn.style.background = 'linear-gradient(135deg,#1a4a2a,#1FC26A)';
-        window._homeFabAccion = function() { window._dcProximamente && window._dcProximamente('El módulo de Publicidad estará disponible pronto.'); };
-      } else {
-        if (ic) ic.textContent = '⭐';
-        if (lb) lb.textContent = 'Impulsa';
-        if (btn) btn.style.background = 'linear-gradient(135deg,#c8940a,#f5c518)';
-        window._homeFabAccion = function() { window._irAImpulsa && window._irAImpulsa(); };
+        if (star) { star.textContent = '📢'; star.style.filter = 'drop-shadow(0 4px 12px rgba(31,194,106,.7))'; }
+        if (lbl)  { lbl.textContent = 'PUBLICIDAD'; lbl.style.textShadow = '0 1px 6px rgba(0,0,0,.7),0 0 12px rgba(31,194,106,.5)'; }
+        window._dcFabAccion = function() { window._dcProximamente && window._dcProximamente('El módulo de Publicidad estará disponible pronto.'); };
       }
-    } catch(e) {
-      if (ic) ic.textContent = '⭐';
-      if (lb) lb.textContent = 'Impulsa';
-      if (btn) btn.style.background = 'linear-gradient(135deg,#c8940a,#f5c518)';
-      window._homeFabAccion = function() { window._irAImpulsa && window._irAImpulsa(); };
-    }
+    } catch(e) { /* queda en ⭐ Impulsa */ }
   })();
 };
+
+// Alias para compatibilidad con llamada desde renderHomeM2
+window._actualizarFabHome = window._dcFabInit;
 
 // ── Pantalla 1: Estado del plan ──────────────────────────────────────────
 window.impulsaCargar = async function() {

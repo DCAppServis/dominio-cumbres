@@ -984,20 +984,6 @@
     <div style="height:14px;"></div>
   </div><!-- /scroll -->
 
-  <!-- ── FAB IMPULSA / PUBLICIDAD ── -->
-  <div id="home-fab" style="display:none;position:absolute;bottom:72px;right:16px;z-index:20;">
-    <button id="home-fab-btn" onclick="window._homeFabAccion&&window._homeFabAccion()"
-      style="width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;
-             display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-             box-shadow:0 4px 18px rgba(0,0,0,.22);font-family:'Inter',sans-serif;
-             background:linear-gradient(135deg,#c8940a,#f5c518);transition:transform .13s,box-shadow .13s;"
-      ontouchstart="this.style.transform='scale(.92)';this.style.boxShadow='0 2px 8px rgba(0,0,0,.18)'"
-      ontouchend="this.style.transform='';this.style.boxShadow='0 4px 18px rgba(0,0,0,.22)'">
-      <span id="home-fab-ic" style="font-size:22px;line-height:1;">⭐</span>
-      <span id="home-fab-lb" style="font-size:8px;font-weight:800;color:#3d2c00;letter-spacing:.2px;text-transform:uppercase;line-height:1.2;">Impulsa</span>
-    </button>
-  </div>
-
   <!-- ── BOTTOM NAV ── -->
   <div class="nav" id="v-home-nav">
     <div class="ni"><div class="ni-ic">🏠</div><div class="si04 ni-lb">Inicio</div></div>
@@ -5883,6 +5869,63 @@
     <div style="font-size:12px;color:rgba(255,255,255,.35);margin-bottom:36px;" id="impulsa-ok-vence"></div>
     <button onclick="go('v-home','left');setTimeout(window.renderHomeM2,200)" style="width:100%;max-width:300px;background:#F5C518;color:#3d2900;border:none;border-radius:16px;padding:16px;font-size:15px;font-weight:900;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:14px;">🏠 Ir al inicio</button>
     <button onclick="go('v-impulsa','left');setTimeout(window.impulsaCargar,200)" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;">Ver mi plan →</button>
+  </div>
+</div>
+
+<!-- ╔═══════════════════════════════════════════════════════╗
+     ║  FAB GLOBAL — Impulsa / Publicidad (flota sobre todo) ║
+     ╚═══════════════════════════════════════════════════════╝ -->
+<style>
+@keyframes dc-fab-float {
+  0%,100% { transform: translateY(0px) rotate(-2deg); }
+  50%      { transform: translateY(-8px) rotate(2deg); }
+}
+@keyframes dc-fab-pulse {
+  0%,100% { box-shadow: 0 4px 22px rgba(245,197,24,.45), 0 0 0 0 rgba(245,197,24,.25); }
+  50%      { box-shadow: 0 8px 30px rgba(245,197,24,.65), 0 0 0 8px rgba(245,197,24,.0); }
+}
+#dc-fab-global {
+  position: absolute;
+  bottom: 80px;
+  right: 14px;
+  z-index: 9500;
+  display: none;
+  pointer-events: none;
+  transition: opacity .25s;
+}
+#dc-fab-global.visible { display: block; pointer-events: auto; }
+#dc-fab-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  animation: dc-fab-float 3s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+#dc-fab-inner:active { animation: none; transform: scale(.88); }
+#dc-fab-star {
+  font-size: 40px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(245,197,24,.7)) drop-shadow(0 0 6px rgba(245,197,24,.4));
+  display: block;
+}
+#dc-fab-label {
+  font-size: 10px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  text-shadow: 0 1px 6px rgba(0,0,0,.7), 0 0 12px rgba(245,197,24,.5);
+  line-height: 1;
+}
+</style>
+
+<div id="dc-fab-global">
+  <div id="dc-fab-inner" onclick="window._dcFabAccion&&window._dcFabAccion()">
+    <span id="dc-fab-star">⭐</span>
+    <span id="dc-fab-label">IMPULSA</span>
   </div>
 </div>
 
