@@ -76,7 +76,7 @@
     c.forEach(function(x){html+='<div class="dc-buy-row"><div><div style="font-size:13px;font-weight:900;color:#111;">'+esc(getName(x))+'</div><div class="dc-buy-sub">Cantidad '+getQty(x)+' · '+money(getPrice(x))+'</div></div><div style="font-size:13px;font-weight:900;color:#111;">'+money(getPrice(x)*getQty(x))+'</div></div>';});
     html+='</div>';
     html+='<div class="dc-buy-card"><div class="dc-buy-title" style="margin-bottom:10px;">Entrega</div><div style="display:flex;gap:8px;margin-bottom:10px;"><button type="button" class="dc-buy-pill active" data-dc-plaza-entrega="domicilio">Entrega a domicilio</button><button type="button" class="dc-buy-pill" data-dc-plaza-entrega="recoger">Pasaré a recoger</button></div><input class="dc-buy-input" id="dc-legacy-dc-plaza-dir-compra-1" data-dc-legacy-id="dc-plaza-dir-compra" placeholder="Dirección de entrega"><textarea class="dc-buy-input" id="dc-legacy-dc-plaza-nota-compra-1" data-dc-legacy-id="dc-plaza-nota-compra" style="margin-top:8px;min-height:70px;resize:none;" placeholder="Nota para el negocio"></textarea></div>';
-    html+='<div class="dc-buy-card"><div class="dc-buy-title" style="margin-bottom:8px;">Pago</div><div class="dc-buy-sub">Forma de pago pendiente de conexión real. Por ahora queda como compra local/demo.</div><div class="dc-buy-row" style="margin-top:8px;"><div class="dc-buy-title">Total</div><div class="dc-buy-title">'+money(total(c))+'</div></div><button type="button" class="dc-buy-primary" id="dc-legacy-dc-plaza-confirmar-compra-2" data-dc-legacy-id="dc-plaza-confirmar-compra">Comprar</button></div>';
+    html+='<div class="dc-buy-card"><div class="dc-buy-title" style="margin-bottom:8px;">Pago</div><div class="dc-buy-sub">Forma de pago pendiente de conexión real. Por ahora queda como compra local/demo.</div><div class="dc-buy-row" style="margin-top:8px;"><div class="dc-buy-title">Total</div><div class="dc-buy-title">'+money(total(c))+'</div></div><button type="button" class="dc-buy-primary" id="dc-plaza-confirmar-compra">Comprar</button></div>';
     el.innerHTML=html;
   }
   function renderSeguimiento(order){
@@ -302,7 +302,7 @@
     html+='<div class="dc-plz-option" data-dc-plaza-pago="tarjeta"><div class="dc-plz-option-ic">💳</div><div class="dc-plz-option-txt"><div class="dc-plz-option-title">Tarjeta al entregar</div><div class="dc-plz-option-sub">Terminal en la entrega</div></div><div class="dc-plz-radio"></div></div>';
     html+='<div class="dc-plz-option" data-dc-plaza-pago="transferencia"><div class="dc-plz-option-ic">🏦</div><div class="dc-plz-option-txt"><div class="dc-plz-option-title">Transferencia</div><div class="dc-plz-option-sub">SPEI / Nómina</div></div><div class="dc-plz-radio"></div></div>';
     html+='<div class="dc-plz-summary"><div class="dc-plz-srow"><span>Subtotal</span><span>'+money(subtotal)+'</span></div><div class="dc-plz-srow"><span>Envío</span><span>'+(envio?money(envio):'Gratis')+'</span></div><div class="dc-plz-srow total"><span>Total</span><span>'+money(subtotal+envio)+'</span></div></div>';
-    html+='<button type="button" class="dc-plz-buy-btn" id="dc-legacy-dc-plaza-confirmar-compra-4" data-dc-legacy-id="dc-plaza-confirmar-compra">Comprar →</button>';
+    html+='<button type="button" class="dc-plz-buy-btn" id="dc-plaza-confirmar-compra">Comprar →</button>';
     el.innerHTML=html;
     return false;
   }
@@ -422,7 +422,7 @@
     if(b){b.id='dc-plaza-confirmar-compra-final';b.setAttribute('type','button');}
   }
   var oldRenderComprando=window.dcPlazaRenderComprandoRestaurant||window.dcPlazaRenderComprando;
-  function renderComprandoSafe(){if(typeof oldRenderComprando==='function')oldRenderComprando();setTimeout(normalizeConfirmButton,0);setTimeout(normalizeConfirmButton,70);return false;}
+  function renderComprandoSafe(){if(typeof oldRenderComprando==='function')oldRenderComprando();setTimeout(normalizeConfirmButton,0);setTimeout(normalizeConfirmButton,70);setTimeout(normalizeConfirmButton,150);setTimeout(normalizeConfirmButton,250);return false;}
 
   document.addEventListener('click',function(e){
     var t=e.target;if(!t||!t.closest)return;
@@ -513,10 +513,10 @@
   function cart(){
     var o=activeOrder();
     var c=norm(rj(CART_KEY,[]));
-    if(c.length){ if(o&&sameItems(c,o.items)){clearCartOnly(); return [];} return c; }
+    if(c.length){ return c; }
     for(var i=0;i<LEGACY_CART_KEYS.length;i++){
       var l=norm(rj(LEGACY_CART_KEYS[i],[]));
-      if(l.length){ if(o&&sameItems(l,o.items)){clearCartOnly(); return [];} saveCart(l); return l; }
+      if(l.length){ saveCart(l); return l; }
     }
     return [];
   }
