@@ -3381,6 +3381,26 @@ window.renderHomeM2 = function() {
         + modulo('⭐','#FFF8DC','Membresía','Estado y plan',"go('v-membresia','right');setTimeout(window.cargarMembresia,200)")
         + '</div>';
 
+      // Banner CMV — igual estilo que otros banners del home
+      html += '<div onclick="go(\'v-prov-cmv\',\'right\');setTimeout(window.vprovCmvCargar,200)" style="margin:0 14px 14px;background:linear-gradient(120deg,#0d3d24,#1a6640);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:0 4px 18px rgba(31,194,106,.25);">'
+        + '<div style="width:48px;height:48px;border-radius:13px;background:rgba(31,194,106,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:26px;">👁</div>'
+        + '<div style="flex:1;"><div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:2px;">Cómo me ve el cliente</div><div style="font-size:11px;color:rgba(255,255,255,.65);">Foto · descripción · galería de trabajos</div></div>'
+        + '<div style="color:rgba(255,255,255,.5);font-size:20px;">›</div>'
+        + '</div>';
+
+      // Accesos rápidos proveedor
+      html += secLabel('Accesos rápidos');
+      html += '<div style="display:flex;gap:10px;padding:0 14px;margin-bottom:18px;overflow-x:auto;">'
+        + '<div onclick="go(\'v-mis-chats\',\'right\');setTimeout(cargarMisChats,200)" style="flex-shrink:0;background:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:.5px solid #e8e8e8;cursor:pointer;">'
+        + '<span style="font-size:18px;">💬</span><span style="font-size:12px;font-weight:700;color:#111;">Mis chats</span></div>'
+        + '<div onclick="go(\'v-mis-reportes\',\'right\');setTimeout(function(){window.cargarMisReportes&&window.cargarMisReportes();},300)" style="flex-shrink:0;background:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:.5px solid #e8e8e8;cursor:pointer;">'
+        + '<span style="font-size:18px;">📋</span><span style="font-size:12px;font-weight:700;color:#111;">Historial</span></div>'
+        + '<div onclick="go(\'v-notificaciones\',\'right\');setTimeout(window.renderNotificaciones,300)" style="flex-shrink:0;background:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:.5px solid #e8e8e8;cursor:pointer;">'
+        + '<span style="font-size:18px;">🔔</span><span style="font-size:12px;font-weight:700;color:#111;">Alertas</span></div>'
+        + '<div onclick="go(\'v-agenda\',\'right\');setTimeout(function(){window._renderAgenda&&window._renderAgenda();},100)" style="flex-shrink:0;background:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:.5px solid #e8e8e8;cursor:pointer;">'
+        + '<span style="font-size:18px;">📅</span><span style="font-size:12px;font-weight:700;color:#111;">Agenda</span></div>'
+        + '</div>';
+
       html += descubrimiento(tieneActividad);
       html += secLabel('Actividad reciente');
       html += '<div id="home-actividad" style="padding:0 14px;">'
