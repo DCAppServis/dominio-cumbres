@@ -1087,7 +1087,7 @@ function _postHooks(id){
 window._dcFabInit = function() {
   var fab = document.getElementById('dc-fab-global');
   if (!fab) return;
-  var ROLES_NEGOCIO = ['proveedor'];
+  var ROLES_NEGOCIO = ['proveedor','restaurante','negocio'];
   var tipo = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
   // Si no hay tipo en localStorage, intentar leerlo del usuario actual
   if (!tipo) {
