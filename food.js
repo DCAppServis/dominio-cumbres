@@ -171,6 +171,12 @@ window.dcFood_cargarRestaurantes = async function() {
       if(CATS_FOOD.indexOf(cat)===-1) return;
       docs.push(Object.assign({_id:d.id},r));
     });
+    // Impulsa primero, luego el resto
+    docs.sort(function(a,b){
+      var ai = (window._planEsImpulsa && window._planEsImpulsa(a)) ? 0 : 1;
+      var bi = (window._planEsImpulsa && window._planEsImpulsa(b)) ? 0 : 1;
+      return ai - bi;
+    });
     _S.historial = docs;
     if (subEl) subEl.textContent = docs.length > 0 ? docs.length + ' disponibles' : 'Sin restaurantes activos';
     _cargarRestConPedido().then(function(){ _dcfRenderLista(docs); });
@@ -256,12 +262,14 @@ function _dcfRenderLista(docs) {
     var calBtn = puedeCal
       ? '<button data-rate-id="'+_fesc(r._id)+'" onclick="event.stopPropagation();window.dcRatingAbrirPopup&&window.dcRatingAbrirPopup(\''+_fesc(r._id)+'\',\''+_fesc(r.nombreNegocio||r.nombre||'')+'\',event)" style="background:#FFF8DC;border:1px solid #F5C518;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#9a7020;cursor:pointer;font-family:inherit;white-space:nowrap;">⭐ Calificar</button>'
       : '<span onclick="event.stopPropagation();_dcfMsgNoPuedeCal()" style="background:#f5f5f5;border:1px solid #e0e0e0;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;color:#bbb;white-space:nowrap;cursor:pointer;" title="Pide aquí para poder calificar">⭐ Calificar</span>';
-    return '<div class="dcf-rcard" onclick="dcFood_abrirRest(\''+r._id+'\')" style="'+(estOp==='cerrado'?'opacity:.6;filter:grayscale(.4);':'')+'">'
+    var esImpulsa = window._planEsImpulsa && window._planEsImpulsa(r);
+    return '<div class="dcf-rcard" onclick="dcFood_abrirRest(\''+r._id+'\')" style="'+(estOp==='cerrado'?'opacity:.6;filter:grayscale(.4);':'')+(esImpulsa?'border:1.5px solid #F5C518;box-shadow:0 2px 12px rgba(245,197,24,.18);':'')+'">'
       +'<div class="rbanner" style="background:'+bg+';">'
       +(r.fotoPerfil && r.fotoPerfil.indexOf('data:image')===0
         ? '<img src="'+r.fotoPerfil+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:0;">'
         : em)
       +(estOp==='cerrado' ? '<div style="position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;"><span style="background:#D63A2A;color:#fff;font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;letter-spacing:.3px;">🔴 CERRADO</span>'+(proximaApert?'<span style="background:rgba(0,0,0,.5);color:#fff;font-size:10px;font-weight:600;padding:2px 10px;border-radius:20px;">'+_fesc(proximaApert)+'</span>':'')+'</div>' : '')
+      +(esImpulsa ? '<span style="position:absolute;top:8px;left:8px;background:#F5C518;color:#1A3A5C;font-size:9px;font-weight:900;padding:2px 8px;border-radius:20px;letter-spacing:.3px;">⭐ Impulsa</span>' : '')
       +'<span class="rbadge">'+(r.estado==='aprobado_pendiente_pago'?'⏳ Pend. pago':'✓ Verificado')+'</span></div>'
       +'<div class="rbody">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;">'
