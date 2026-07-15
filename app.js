@@ -6154,7 +6154,7 @@ window.impulsaCargar = async function() {
 
         // Título principal
         '<div style="padding:20px 14px 4px;">',
-          '<div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.55);margin-bottom:4px;">Adquiere!!</div>',
+          '<div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:4px;">Adquiere!!</div>',
           '<div style="font-size:28px;font-weight:900;color:#F5C518;letter-spacing:-.5px;">⭐ PLAN IMPULSA</div>',
           '<div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:4px;">Elige el plan que más te convenga</div>',
         '</div>',
@@ -6174,7 +6174,7 @@ window.impulsaCargar = async function() {
         '</div>',
 
         // Plan Mensual
-        '<div onclick="window.impulsaSeleccionarPlan(\'mensual\')" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px;margin:14px 14px 0;cursor:pointer;display:flex;align-items:center;gap:14px;">',
+        '<div onclick="window.impulsaSeleccionarPlan(\'mensual\')" style="background:rgba(31,194,106,.08);border:1.5px solid rgba(31,194,106,.4);border-radius:20px;padding:18px;margin:14px 14px 0;cursor:pointer;display:flex;align-items:center;gap:14px;">',
           '<div style="font-size:36px;">⭐</div>',
           '<div style="flex:1;">',
             '<div style="font-size:15px;font-weight:800;color:#fff;">Impulsa Mensual</div>',
