@@ -6402,6 +6402,20 @@ window.impulsaIniciarTransferencia = async function() {
 };
 
 // ── Admin: Guardar/Cargar datos SPEI ─────────────────────────────────────
+function _icSetReadonly(on) {
+  ['ic-banco','ic-clabe','ic-beneficiario'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.readOnly = on;
+    el.style.opacity = on ? '0.55' : '1';
+    el.style.cursor = on ? 'default' : 'text';
+  });
+  var btn = document.getElementById('ic-guardar-btn');
+  var editBtn = document.getElementById('ic-editar-btn');
+  if (btn) btn.style.display = on ? 'none' : 'block';
+  if (editBtn) editBtn.style.display = on ? 'block' : 'none';
+}
+
 window.adminImpulsaConfigCargar = async function() {
   try {
     var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
@@ -6414,12 +6428,20 @@ window.adminImpulsaConfigCargar = async function() {
       if (b) b.value = d.banco || '';
       if (c) c.value = d.clabe || '';
       if (ben) ben.value = d.beneficiario || '';
+      _icSetReadonly(true);
     }
   } catch(e) { console.error('adminImpulsaConfigCargar', e); }
 };
 
+window.adminImpulsaConfigEditar = function() {
+  _icSetReadonly(false);
+  var status = document.getElementById('ic-status');
+  if (status) status.style.display = 'none';
+  var el = document.getElementById('ic-banco');
+  if (el) el.focus();
+};
+
 window.adminImpulsaConfigGuardar = async function() {
-  var btn = document.getElementById('ic-guardar-btn');
   var status = document.getElementById('ic-status');
   var banco = (document.getElementById('ic-banco')?.value || '').trim();
   var clabe = (document.getElementById('ic-clabe')?.value || '').trim();
@@ -6434,11 +6456,14 @@ window.adminImpulsaConfigGuardar = async function() {
     return;
   }
 
+  var btn = document.getElementById('ic-guardar-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
   try {
     var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
     await _fs.setDoc(_fs.doc(window._fbDb, 'config', 'spei'), { banco: banco, clabe: clabe, beneficiario: beneficiario }, { merge: true });
     if (status) { status.style.display='block'; status.style.background='#e8f5e1'; status.style.color='#1a6a2a'; status.textContent='✅ Datos guardados correctamente.'; }
+    try { window._dcDirtyV = null; } catch(_) {}
+    _icSetReadonly(true);
   } catch(e) {
     if (status) { status.style.display='block'; status.style.background='#fee'; status.style.color='#c00'; status.textContent='Error al guardar: ' + e.message; }
   } finally {
