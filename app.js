@@ -6307,7 +6307,15 @@ window.impulsaIniciarMP = async function() {
   var plan = _MP_PLANES[_impulsaPlanSel];
   if (!plan) return;
 
-  cont.innerHTML = '<div id="impulsa-brick-inner"></div>';
+  cont.innerHTML = '<div id="impulsa-brick-inner" style="min-height:420px;"></div>';
+
+  // Timeout fallback: if brick doesn't render in 12s, show error
+  var _brickTimeout = setTimeout(function() {
+    var inner = document.getElementById('impulsa-brick-inner');
+    if (inner && inner.children.length === 0) {
+      cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">No se pudo cargar el módulo de pago.<br><br><button onclick="window.impulsaIniciarBrick()" style="background:#009ee3;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;cursor:pointer;">← Volver a opciones</button></div>';
+    }
+  }, 12000);
 
   try {
     var mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-MX' });
@@ -6317,7 +6325,7 @@ window.impulsaIniciarMP = async function() {
       initialization: { amount: plan.monto, payer: { email: userEmail } },
       customization: { paymentMethods: { creditCard: 'all', debitCard: 'all', ticket: 'all' } },
       callbacks: {
-        onReady: function() {},
+        onReady: function() { clearTimeout(_brickTimeout); },
         onSubmit: function(_ref) {
           var formData = _ref.formData;
           return new Promise(async function(resolve, reject) {
@@ -6341,12 +6349,18 @@ window.impulsaIniciarMP = async function() {
             } catch(e) { reject(e); }
           });
         },
-        onError: function(error) { console.error('[MP Brick error]', error); }
+        onError: function(error) {
+          clearTimeout(_brickTimeout);
+          console.error('[MP Brick error]', error);
+          var c = document.getElementById('impulsa-brick-cont');
+          if (c) c.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">Error al cargar el módulo de pago.<br><small style="color:#aaa;">' + (error && error.message || JSON.stringify(error)) + '</small><br><br><button onclick="window.impulsaIniciarBrick()" style="background:#009ee3;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;cursor:pointer;">← Volver a opciones</button></div>';
+        }
       }
     });
   } catch(e) {
+    clearTimeout(_brickTimeout);
     console.error('impulsaIniciarMP', e);
-    if (cont) cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">Error al iniciar pago:<br>' + e.message + '</div>';
+    if (cont) cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">Error al iniciar pago:<br>' + e.message + '<br><br><button onclick="window.impulsaIniciarBrick()" style="background:#009ee3;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;cursor:pointer;">← Volver a opciones</button></div>';
   }
 };
 
