@@ -6143,19 +6143,20 @@ window.impulsaCargar = async function() {
       if (badge) badge.textContent = '🏪 Plan Básico · activo';
 
       cont.innerHTML = [
-        // Plan actual — discreto
-        '<div style="margin:14px 14px 0;background:rgba(255,255,255,.06);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;">',
-          '<div style="font-size:20px;">🏪</div>',
+        // Plan actual — resaltado
+        '<div style="margin:14px 14px 0;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">',
+          '<div style="font-size:24px;">🏪</div>',
           '<div>',
-            '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;">Plan actual</div>',
-            '<div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);">Básico <span style="color:#1FC26A;">· activo</span></div>',
+            '<div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px;">Plan actual</div>',
+            '<div style="font-size:15px;font-weight:900;color:#fff;">Básico <span style="font-size:13px;font-weight:700;color:#1FC26A;">· activo</span></div>',
           '</div>',
         '</div>',
 
         // Título principal
         '<div style="padding:20px 14px 4px;">',
-          '<div style="font-size:22px;font-weight:900;color:#F5C518;letter-spacing:-.3px;">⭐ Adquiere Plan IMPULSA</div>',
-          '<div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:4px;">Elige el plan que más te convenga</div>',
+          '<div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.55);margin-bottom:4px;">Adquiere!!</div>',
+          '<div style="font-size:28px;font-weight:900;color:#F5C518;letter-spacing:-.5px;">⭐ PLAN IMPULSA</div>',
+          '<div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:4px;">Elige el plan que más te convenga</div>',
         '</div>',
 
         // Plan Anual — destacado
