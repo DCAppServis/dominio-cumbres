@@ -1067,7 +1067,9 @@ function _postHooks(id){
       if (fab) {
         var _fabOcultar = ['v-impulsa','v-impulsa-planes','v-impulsa-pago','v-impulsa-ok',
                            'v-splash','v-login','v-register','v-role','v-loading',
-                           'v-admin-login','v-admin-panel',
+                           'v-admin-login','v-admin-panel','v-admin-config','v-admin-solicitudes',
+                           'v-admin-usuarios','v-admin-monetizacion','v-admin-analytics',
+                           'v-admin-publicaciones','v-admin-alertas','v-admin-planes','v-admin-campanas',
                            'v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz',
                            'v-reg-proveedor','v-reg-restaurante','v-reg-negocio','v-reg-transporte'];
         var _tipoUser = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
@@ -6397,4 +6399,49 @@ window.impulsaIniciarTransferencia = async function() {
       '<button onclick="window.impulsaIniciarBrick()" style="width:100%;background:#f0f0f0;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#555;cursor:pointer;font-family:\'Inter\',sans-serif;">← Volver a opciones de pago</button>',
     '</div>'
   ].join('');
+};
+
+// ── Admin: Guardar/Cargar datos SPEI ─────────────────────────────────────
+window.adminImpulsaConfigCargar = async function() {
+  try {
+    var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var snap = await _fs.getDoc(_fs.doc(window._db, 'config', 'spei'));
+    if (snap.exists()) {
+      var d = snap.data();
+      var b = document.getElementById('ic-banco');
+      var c = document.getElementById('ic-clabe');
+      var ben = document.getElementById('ic-beneficiario');
+      if (b) b.value = d.banco || '';
+      if (c) c.value = d.clabe || '';
+      if (ben) ben.value = d.beneficiario || '';
+    }
+  } catch(e) { console.error('adminImpulsaConfigCargar', e); }
+};
+
+window.adminImpulsaConfigGuardar = async function() {
+  var btn = document.getElementById('ic-guardar-btn');
+  var status = document.getElementById('ic-status');
+  var banco = (document.getElementById('ic-banco')?.value || '').trim();
+  var clabe = (document.getElementById('ic-clabe')?.value || '').trim();
+  var beneficiario = (document.getElementById('ic-beneficiario')?.value || '').trim();
+
+  if (!banco || !clabe || !beneficiario) {
+    if (status) { status.style.display='block'; status.style.background='#fee'; status.style.color='#c00'; status.textContent='Completa todos los campos.'; }
+    return;
+  }
+  if (clabe.length !== 18 || !/^\d+$/.test(clabe)) {
+    if (status) { status.style.display='block'; status.style.background='#fee'; status.style.color='#c00'; status.textContent='La CLABE debe tener exactamente 18 dígitos.'; }
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  try {
+    var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    await _fs.setDoc(_fs.doc(window._db, 'config', 'spei'), { banco: banco, clabe: clabe, beneficiario: beneficiario }, { merge: true });
+    if (status) { status.style.display='block'; status.style.background='#e8f5e1'; status.style.color='#1a6a2a'; status.textContent='✅ Datos guardados correctamente.'; }
+  } catch(e) {
+    if (status) { status.style.display='block'; status.style.background='#fee'; status.style.color='#c00'; status.textContent='Error al guardar: ' + e.message; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar datos bancarios'; }
+  }
 };
