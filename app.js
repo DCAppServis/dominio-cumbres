@@ -1067,7 +1067,9 @@ function _postHooks(id){
       if (fab) {
         var _fabOcultar = ['v-impulsa','v-impulsa-planes','v-impulsa-pago','v-impulsa-ok',
                            'v-splash','v-login','v-register','v-role','v-loading',
-                           'v-admin-login','v-admin-panel',
+                           'v-admin-login','v-admin-panel','v-admin-config','v-admin-solicitudes',
+                           'v-admin-usuarios','v-admin-monetizacion','v-admin-analytics',
+                           'v-admin-publicaciones','v-admin-alertas','v-admin-planes','v-admin-campanas',
                            'v-reg-vecino','v-reg-prov','v-reg-ride','v-reg-biz',
                            'v-reg-proveedor','v-reg-restaurante','v-reg-negocio','v-reg-transporte'];
         var _tipoUser = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
@@ -6143,18 +6145,21 @@ window.impulsaCargar = async function() {
       if (badge) badge.textContent = '🏪 Plan Básico · activo';
 
       cont.innerHTML = [
-        // Mi plan actual
-        '<div style="margin:16px 14px 0;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;">',
-          '<div style="font-size:28px;">🏪</div>',
+        // Plan actual — resaltado
+        '<div style="margin:14px 14px 0;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">',
+          '<div style="font-size:24px;">🏪</div>',
           '<div>',
-            '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">Mi Plan Actual</div>',
-            '<div style="font-size:14px;font-weight:800;color:#fff;">Plan Básico <span style="font-size:11px;font-weight:600;color:#1FC26A;">· activo</span></div>',
-            '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:1px;">Tu perfil está visible en la app</div>',
+            '<div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px;">Plan actual</div>',
+            '<div style="font-size:15px;font-weight:900;color:#fff;">Básico <span style="font-size:13px;font-weight:700;color:#1FC26A;">· activo</span></div>',
           '</div>',
         '</div>',
 
-        // Elige tu plan
-        '<div style="padding:18px 14px 8px;font-size:11px;font-weight:800;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.6px;">Elige tu plan</div>',
+        // Título principal
+        '<div style="padding:20px 14px 4px;">',
+          '<div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:4px;">Adquiere!!</div>',
+          '<div style="font-size:28px;font-weight:900;color:#F5C518;letter-spacing:-.5px;">⭐ PLAN IMPULSA</div>',
+          '<div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:4px;">Elige el plan que más te convenga</div>',
+        '</div>',
 
         // Plan Anual — destacado
         '<div onclick="window.impulsaSeleccionarPlan(\'anual\')" style="position:relative;background:linear-gradient(135deg,#2a1f00,#4d3900);border:2px solid #F5C518;border-radius:20px;padding:20px 18px 18px;margin:16px 14px 0;cursor:pointer;">',
@@ -6171,7 +6176,7 @@ window.impulsaCargar = async function() {
         '</div>',
 
         // Plan Mensual
-        '<div onclick="window.impulsaSeleccionarPlan(\'mensual\')" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px;margin:14px 14px 0;cursor:pointer;display:flex;align-items:center;gap:14px;">',
+        '<div onclick="window.impulsaSeleccionarPlan(\'mensual\')" style="background:rgba(31,194,106,.08);border:1.5px solid rgba(31,194,106,.4);border-radius:20px;padding:18px;margin:14px 14px 0;cursor:pointer;display:flex;align-items:center;gap:14px;">',
           '<div style="font-size:36px;">⭐</div>',
           '<div style="flex:1;">',
             '<div style="font-size:15px;font-weight:800;color:#fff;">Impulsa Mensual</div>',
@@ -6251,18 +6256,49 @@ window.impulsaSeleccionarPlan = function(tipo) {
   setTimeout(function() { window.impulsaIniciarBrick && window.impulsaIniciarBrick(); }, 350);
 };
 
-// ── Pantalla 3: MP Payment Brick ─────────────────────────────────────────
-window.impulsaIniciarBrick = async function() {
+// ── Pantalla 3: Opciones de pago ─────────────────────────────────────────
+window.impulsaIniciarBrick = function() {
+  var cont = document.getElementById('impulsa-brick-cont');
+  if (!cont) return;
+  var plan = _MP_PLANES[_impulsaPlanSel];
+  if (!plan) return;
+
+  cont.innerHTML = [
+    '<div style="padding:4px 0 8px;">',
+
+    // Opción MercadoPago
+    '<div style="background:#fff;border-radius:16px;padding:18px;margin-bottom:12px;border:1.5px solid #e0e0e0;">',
+      '<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Tarjeta / Efectivo</div>',
+      '<button onclick="window.impulsaIniciarMP()" style="width:100%;background:#009ee3;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;">',
+        '<span style="font-size:20px;">💳</span> Pagar con MercadoPago',
+      '</button>',
+      '<div style="font-size:11px;color:#aaa;text-align:center;margin-top:8px;">Tarjeta de crédito, débito o OXXO</div>',
+    '</div>',
+
+    // Opción Transferencia SPEI
+    '<div style="background:#fff;border-radius:16px;padding:18px;border:1.5px solid #e0e0e0;">',
+      '<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Transferencia bancaria</div>',
+      '<button onclick="window.impulsaIniciarTransferencia()" style="width:100%;background:#1a6fbf;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;color:#fff;cursor:pointer;font-family:\'Inter\',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;">',
+        '<span style="font-size:20px;">🏦</span> Pagar por SPEI',
+      '</button>',
+      '<div style="font-size:11px;color:#aaa;text-align:center;margin-top:8px;">Te mostramos la CLABE para transferir</div>',
+    '</div>',
+
+    '</div>'
+  ].join('');
+};
+
+// ── MercadoPago Checkout Pro ──────────────────────────────────────────────
+window.impulsaIniciarMP = async function() {
   var cont = document.getElementById('impulsa-brick-cont');
   if (!cont) return;
   cont.innerHTML = '<div style="text-align:center;padding:40px;color:#888;font-size:13px;">⏳ Iniciando pago seguro...</div>';
 
   if (typeof MercadoPago === 'undefined') {
-    cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">SDK de pago no disponible. Recarga la página e intenta de nuevo.</div>';
+    cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">SDK de pago no disponible. Recarga la página.</div>';
     return;
   }
 
-  // Desmontar brick anterior si existe
   if (_impulsaBrick) {
     try { await _impulsaBrick.unmount(); } catch(_e) {}
     _impulsaBrick = null;
@@ -6271,40 +6307,35 @@ window.impulsaIniciarBrick = async function() {
   var plan = _MP_PLANES[_impulsaPlanSel];
   if (!plan) return;
 
-  // Crear contenedor blanco para el brick
-  cont.innerHTML = '<div id="impulsa-brick-inner"></div>';
+  cont.innerHTML = '<div id="impulsa-brick-inner" style="min-height:420px;"></div>';
+
+  // Timeout fallback: if brick doesn't render in 12s, show error
+  var _brickTimeout = setTimeout(function() {
+    var inner = document.getElementById('impulsa-brick-inner');
+    if (inner && inner.children.length === 0) {
+      cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">No se pudo cargar el módulo de pago.<br><br><button onclick="window.impulsaIniciarBrick()" style="background:#009ee3;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;cursor:pointer;">← Volver a opciones</button></div>';
+    }
+  }, 12000);
 
   try {
     var mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-MX' });
     var userEmail = (window._fbAuth && window._fbAuth.currentUser && window._fbAuth.currentUser.email) || '';
 
     _impulsaBrick = await mp.bricks().create('payment', 'impulsa-brick-inner', {
-      initialization: {
-        amount: plan.monto,
-        payer: { email: userEmail }
-      },
-      customization: {
-        paymentMethods: {
-          creditCard: 'all',
-          debitCard: 'all',
-          ticket: 'all'
-        }
-      },
+      initialization: { amount: plan.monto, payer: { email: userEmail } },
+      customization: { paymentMethods: { creditCard: 'all', debitCard: 'all', ticket: 'all' } },
       callbacks: {
-        onReady: function() {},
+        onReady: function() { clearTimeout(_brickTimeout); },
         onSubmit: function(_ref) {
           var formData = _ref.formData;
           return new Promise(async function(resolve, reject) {
             try {
               var user = window._fbAuth && window._fbAuth.currentUser;
-              if (!user) { reject(new Error('Sin sesión. Vuelve a iniciar sesión.')); return; }
-
+              if (!user) { reject(new Error('Sin sesión.')); return; }
               var _fns = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-functions.js');
               var fn = _fns.httpsCallable(window._fbFunctions, 'mpActivarImpulsa');
               var result = await fn({ formData: formData, planTipo: _impulsaPlanSel, email: userEmail });
-
               if (result.data && result.data.ok) {
-                // Mostrar éxito
                 var okVence = document.getElementById('impulsa-ok-vence');
                 if (okVence && result.data.planVence) {
                   var fStr = new Date(result.data.planVence).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -6315,18 +6346,141 @@ window.impulsaIniciarBrick = async function() {
               } else {
                 reject(new Error((result.data && result.data.msg) || 'Error en el pago'));
               }
-            } catch(e) {
-              reject(e);
-            }
+            } catch(e) { reject(e); }
           });
         },
         onError: function(error) {
+          clearTimeout(_brickTimeout);
           console.error('[MP Brick error]', error);
+          var c = document.getElementById('impulsa-brick-cont');
+          if (c) c.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">Error al cargar el módulo de pago.<br><small style="color:#aaa;">' + (error && error.message || JSON.stringify(error)) + '</small><br><br><button onclick="window.impulsaIniciarBrick()" style="background:#009ee3;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;cursor:pointer;">← Volver a opciones</button></div>';
         }
       }
     });
   } catch(e) {
-    console.error('impulsaIniciarBrick', e);
-    if (cont) cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">Error al iniciar pago:<br>' + e.message + '</div>';
+    clearTimeout(_brickTimeout);
+    console.error('impulsaIniciarMP', e);
+    if (cont) cont.innerHTML = '<div style="padding:20px;text-align:center;color:#c00;font-size:13px;">Error al iniciar pago:<br>' + e.message + '<br><br><button onclick="window.impulsaIniciarBrick()" style="background:#009ee3;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;cursor:pointer;">← Volver a opciones</button></div>';
+  }
+};
+
+// ── SPEI / Transferencia ──────────────────────────────────────────────────
+window.impulsaIniciarTransferencia = async function() {
+  var cont = document.getElementById('impulsa-brick-cont');
+  if (!cont) return;
+
+  var plan = _MP_PLANES[_impulsaPlanSel];
+  if (!plan) return;
+
+  // Leer datos bancarios de Firebase
+  var banco = '', clabe = '', beneficiario = '';
+  try {
+    var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var snap = await _fs.getDoc(_fs.doc(window._fbDb, 'config', 'spei'));
+    if (snap.exists()) {
+      var d = snap.data();
+      banco = d.banco || '';
+      clabe = d.clabe || '';
+      beneficiario = d.beneficiario || '';
+    }
+  } catch(e) {}
+
+  var user = window._fbAuth && window._fbAuth.currentUser;
+  var uid = user ? user.uid : '';
+
+  cont.innerHTML = [
+    '<div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;">',
+      '<div style="font-size:14px;font-weight:800;color:#1a1a1a;margin-bottom:16px;">🏦 Datos para transferir</div>',
+      '<div style="margin-bottom:12px;padding:12px;background:#f5f5f5;border-radius:10px;">',
+        '<div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:4px;">Banco</div>',
+        '<div style="font-size:15px;font-weight:800;color:#111;">' + (banco || '—') + '</div>',
+      '</div>',
+      '<div style="margin-bottom:12px;padding:12px;background:#f5f5f5;border-radius:10px;">',
+        '<div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:4px;">CLABE</div>',
+        '<div style="font-size:18px;font-weight:900;color:#1a6fbf;letter-spacing:2px;">' + (clabe || '—') + '</div>',
+      '</div>',
+      '<div style="margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:10px;">',
+        '<div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:4px;">Beneficiario</div>',
+        '<div style="font-size:15px;font-weight:800;color:#111;">' + (beneficiario || '—') + '</div>',
+      '</div>',
+      '<div style="padding:12px;background:#fff8e1;border-radius:10px;border-left:3px solid #F5C518;font-size:12px;color:#555;line-height:1.6;margin-bottom:16px;">',
+        '<strong>Monto a transferir:</strong> $' + plan.monto.toLocaleString('es-MX') + ' MXN<br>',
+        '<strong>Concepto:</strong> Impulsa ' + (_impulsaPlanSel === 'anual' ? 'Anual' : 'Mensual') + ' · ' + uid.slice(0,8),
+      '</div>',
+      '<div style="font-size:11px;color:#888;margin-bottom:16px;line-height:1.6;">',
+        'Después de transferir, envía tu comprobante por WhatsApp o a través de soporte. Tu plan se activará en menos de 24 horas.',
+      '</div>',
+      '<button onclick="window.impulsaIniciarBrick()" style="width:100%;background:#f0f0f0;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#555;cursor:pointer;font-family:\'Inter\',sans-serif;">← Volver a opciones de pago</button>',
+    '</div>'
+  ].join('');
+};
+
+// ── Admin: Guardar/Cargar datos SPEI ─────────────────────────────────────
+function _icSetReadonly(on) {
+  ['ic-banco','ic-clabe','ic-beneficiario'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.readOnly = on;
+    el.style.opacity = on ? '0.55' : '1';
+    el.style.cursor = on ? 'default' : 'text';
+  });
+  var btn = document.getElementById('ic-guardar-btn');
+  var editBtn = document.getElementById('ic-editar-btn');
+  if (btn) btn.style.display = on ? 'none' : 'block';
+  if (editBtn) editBtn.style.display = on ? 'block' : 'none';
+}
+
+window.adminImpulsaConfigCargar = async function() {
+  try {
+    var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    var snap = await _fs.getDoc(_fs.doc(window._fbDb, 'config', 'spei'));
+    if (snap.exists()) {
+      var d = snap.data();
+      var b = document.getElementById('ic-banco');
+      var c = document.getElementById('ic-clabe');
+      var ben = document.getElementById('ic-beneficiario');
+      if (b) b.value = d.banco || '';
+      if (c) c.value = d.clabe || '';
+      if (ben) ben.value = d.beneficiario || '';
+      _icSetReadonly(true);
+    }
+  } catch(e) { console.error('adminImpulsaConfigCargar', e); }
+};
+
+window.adminImpulsaConfigEditar = function() {
+  _icSetReadonly(false);
+  var status = document.getElementById('ic-status');
+  if (status) status.style.display = 'none';
+  var el = document.getElementById('ic-banco');
+  if (el) el.focus();
+};
+
+window.adminImpulsaConfigGuardar = async function() {
+  var status = document.getElementById('ic-status');
+  var banco = (document.getElementById('ic-banco')?.value || '').trim();
+  var clabe = (document.getElementById('ic-clabe')?.value || '').trim();
+  var beneficiario = (document.getElementById('ic-beneficiario')?.value || '').trim();
+
+  if (!banco || !clabe || !beneficiario) {
+    if (status) { status.style.display='block'; status.style.background='#fee'; status.style.color='#c00'; status.textContent='Completa todos los campos.'; }
+    return;
+  }
+  if (clabe.length !== 18 || !/^\d+$/.test(clabe)) {
+    if (status) { status.style.display='block'; status.style.background='#fee'; status.style.color='#c00'; status.textContent='La CLABE debe tener exactamente 18 dígitos.'; }
+    return;
+  }
+
+  var btn = document.getElementById('ic-guardar-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  try {
+    var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
+    await _fs.setDoc(_fs.doc(window._fbDb, 'config', 'spei'), { banco: banco, clabe: clabe, beneficiario: beneficiario }, { merge: true });
+    if (status) { status.style.display='block'; status.style.background='#e8f5e1'; status.style.color='#1a6a2a'; status.textContent='✅ Datos guardados correctamente.'; }
+    try { window._dcDirtyV = null; } catch(_) {}
+    _icSetReadonly(true);
+  } catch(e) {
+    if (status) { status.style.display='block'; status.style.background='#fee'; status.style.color='#c00'; status.textContent='Error al guardar: ' + e.message; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar datos bancarios'; }
   }
 };
