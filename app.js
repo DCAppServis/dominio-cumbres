@@ -6362,7 +6362,7 @@ window.impulsaIniciarTransferencia = async function() {
   var banco = '', clabe = '', beneficiario = '';
   try {
     var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    var snap = await _fs.getDoc(_fs.doc(window._db, 'config', 'spei'));
+    var snap = await _fs.getDoc(_fs.doc(window._fbDb, 'config', 'spei'));
     if (snap.exists()) {
       var d = snap.data();
       banco = d.banco || '';
@@ -6405,7 +6405,7 @@ window.impulsaIniciarTransferencia = async function() {
 window.adminImpulsaConfigCargar = async function() {
   try {
     var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    var snap = await _fs.getDoc(_fs.doc(window._db, 'config', 'spei'));
+    var snap = await _fs.getDoc(_fs.doc(window._fbDb, 'config', 'spei'));
     if (snap.exists()) {
       var d = snap.data();
       var b = document.getElementById('ic-banco');
@@ -6437,7 +6437,7 @@ window.adminImpulsaConfigGuardar = async function() {
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
   try {
     var _fs = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
-    await _fs.setDoc(_fs.doc(window._db, 'config', 'spei'), { banco: banco, clabe: clabe, beneficiario: beneficiario }, { merge: true });
+    await _fs.setDoc(_fs.doc(window._fbDb, 'config', 'spei'), { banco: banco, clabe: clabe, beneficiario: beneficiario }, { merge: true });
     if (status) { status.style.display='block'; status.style.background='#e8f5e1'; status.style.color='#1a6a2a'; status.textContent='✅ Datos guardados correctamente.'; }
   } catch(e) {
     if (status) { status.style.display='block'; status.style.background='#fee'; status.style.color='#c00'; status.textContent='Error al guardar: ' + e.message; }
