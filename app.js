@@ -6143,18 +6143,20 @@ window.impulsaCargar = async function() {
       if (badge) badge.textContent = '🏪 Plan Básico · activo';
 
       cont.innerHTML = [
-        // Mi plan actual
-        '<div style="margin:16px 14px 0;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;">',
-          '<div style="font-size:28px;">🏪</div>',
+        // Plan actual — discreto
+        '<div style="margin:14px 14px 0;background:rgba(255,255,255,.06);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;">',
+          '<div style="font-size:20px;">🏪</div>',
           '<div>',
-            '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">Mi Plan Actual</div>',
-            '<div style="font-size:14px;font-weight:800;color:#fff;">Plan Básico <span style="font-size:11px;font-weight:600;color:#1FC26A;">· activo</span></div>',
-            '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:1px;">Tu perfil está visible en la app</div>',
+            '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;">Plan actual</div>',
+            '<div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);">Básico <span style="color:#1FC26A;">· activo</span></div>',
           '</div>',
         '</div>',
 
-        // Elige tu plan
-        '<div style="padding:18px 14px 8px;font-size:11px;font-weight:800;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.6px;">Elige tu plan</div>',
+        // Título principal
+        '<div style="padding:20px 14px 4px;">',
+          '<div style="font-size:22px;font-weight:900;color:#F5C518;letter-spacing:-.3px;">⭐ Adquiere Plan IMPULSA</div>',
+          '<div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:4px;">Elige el plan que más te convenga</div>',
+        '</div>',
 
         // Plan Anual — destacado
         '<div onclick="window.impulsaSeleccionarPlan(\'anual\')" style="position:relative;background:linear-gradient(135deg,#2a1f00,#4d3900);border:2px solid #F5C518;border-radius:20px;padding:20px 18px 18px;margin:16px 14px 0;cursor:pointer;">',
