@@ -894,7 +894,7 @@ window.vnegFotoSeleccionada = function(input){
   if(!file.type.match(/^image\//)){_vnegToast('⚠️ Solo se aceptan imágenes');return;}
   if(file.size>5*1024*1024){_vnegToast('⚠️ Imagen demasiado grande (máx 5 MB)');return;}
   var r=new FileReader();
-  r.onload=function(e){ _vnegFotoB64=e.target.result; _vnegRenderFotoUI(); _vnegBindProdDirty(); _vnegMarcarProdSucio(); _vnegToast('📷 Foto cargada'); };
+  r.onload=function(e){ window.dcComprimirFoto(e.target.result,function(c){ _vnegFotoB64=c; _vnegRenderFotoUI(); _vnegBindProdDirty(); _vnegMarcarProdSucio(); _vnegToast('📷 Foto cargada'); }); };
   r.onerror=function(){ _vnegToast('⚠️ Error al leer la imagen'); };
   r.readAsDataURL(file);
 };
@@ -2369,9 +2369,7 @@ function onFotoSeleccionada(input) {
       toast('⚠️ No se pudo leer la imagen');
       return;
     }
-    _rPfFoto = dataUrl; // base64 dataURL
-    _renderFotoUI();
-    toast('📷 Foto cargada');
+    window.dcComprimirFoto(dataUrl, function(c){ _rPfFoto=c; _renderFotoUI(); toast('📷 Foto cargada'); });
   };
   reader.onerror = function() {
     toast('⚠️ Error al leer la imagen');
@@ -2432,7 +2430,7 @@ function guardarProducto() {
   (async function(){
     try {
       var f=await _vrFb();
-      var data={nombre:nombre,categoria:cat,categoriaPublica:cat,descripcion:desc,descripcionPublica:desc,precio:precio,disponible:_rPfDisp,foto:_rPfFoto||null,fotoProducto:_rPfFoto||null,actualizado:Date.now()};
+      var data={nombre:nombre,categoria:cat,categoriaPublica:cat,descripcion:desc,descripcionPublica:desc,precio:precio,disponible:_rPfDisp,foto:_rPfFoto||null,actualizado:Date.now()};
       if (pid) {
         await f.setDoc(f.doc(db,'menu',uid,'productos',pid),data,{merge:true});
         toast('✅ Producto actualizado');
@@ -2761,12 +2759,13 @@ function vnegCmvFotoChange(inp) {
   if (file.size > 1024 * 1024) { toast('⚠️ Imagen demasiado grande (máx 1 MB)'); inp.value=''; return; }
   var rd = new FileReader();
   rd.onload = function(e){
-    _vnCmvFotoNueva = e.target.result;
-    _vnCmvFotoData = _vnCmvFotoNueva;
-    var fprev = document.getElementById('vn-cmv-foto-prev');
-    if (fprev) fprev.innerHTML = '<img src="'+_vnCmvFotoData+'" style="width:100%;height:100%;object-fit:cover;">';
-    vnegCmvRenderPreview();
-    window._dirtyView = 'vn-cmv';
+    window.dcComprimirFoto(e.target.result, function(c){
+      _vnCmvFotoNueva = c; _vnCmvFotoData = c;
+      var fprev = document.getElementById('vn-cmv-foto-prev');
+      if (fprev) fprev.innerHTML = '<img src="'+c+'" style="width:100%;height:100%;object-fit:cover;">';
+      vnegCmvRenderPreview();
+      window._dirtyView = 'vn-cmv';
+    });
   };
   rd.readAsDataURL(file);
 }
@@ -2927,11 +2926,12 @@ function cmvFotoChange(inp) {
   if (file.size > 1200000) { toast('⚠️ Imagen demasiado grande (máx 1 MB)'); inp.value=''; return; }
   var reader = new FileReader();
   reader.onload = function(e) {
-    _cmvFotoNueva = e.target.result; // nueva foto seleccionada
-    _cmvFotoData  = _cmvFotoNueva;  // sincronizar para que cmvRenderPreview la use
-    var prev = document.getElementById('cmv-foto-prev');
-    if (prev) prev.innerHTML = '<img src="'+_cmvFotoNueva+'" style="width:100%;height:100%;object-fit:cover;">';
-    cmvRenderPreview();
+    window.dcComprimirFoto(e.target.result, function(c){
+      _cmvFotoNueva = c; _cmvFotoData = c;
+      var prev = document.getElementById('cmv-foto-prev');
+      if (prev) prev.innerHTML = '<img src="'+c+'" style="width:100%;height:100%;object-fit:cover;">';
+      cmvRenderPreview();
+    });
   };
   reader.readAsDataURL(file);
 }

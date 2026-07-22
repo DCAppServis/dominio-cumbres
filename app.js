@@ -1649,10 +1649,12 @@ window.vprovCmvRenderPreview=function(){
 window.vprovCmvFotoChange=function(inp){
   if(!inp.files||!inp.files[0])return;
   var r=new FileReader(); r.onload=function(e){
-    window._cmvFotoB64=e.target.result;
-    var pv=document.getElementById('vprov-cmv-foto-prev');
-    if(pv)pv.innerHTML='<img src="'+window._cmvFotoB64+'" style="width:100%;height:100%;object-fit:cover;">';
-    window.vprovCmvRenderPreview();
+    window.dcComprimirFoto(e.target.result, function(compressed){
+      window._cmvFotoB64=compressed;
+      var pv=document.getElementById('vprov-cmv-foto-prev');
+      if(pv)pv.innerHTML='<img src="'+window._cmvFotoB64+'" style="width:100%;height:100%;object-fit:cover;">';
+      window.vprovCmvRenderPreview();
+    });
   }; r.readAsDataURL(inp.files[0]);
 };
 
@@ -1676,7 +1678,7 @@ window.vprovCmvQuitarFoto=function(i){window._cmvFotos.splice(i,1);_cmvRenderGri
 window.vprovCmvFotosChange=function(inp){
   if(!inp.files||!inp.files.length)return;
   Array.from(inp.files).forEach(function(f){
-    var r=new FileReader(); r.onload=function(e){window._cmvFotos.push(e.target.result);_cmvRenderGrid();}; r.readAsDataURL(f);
+    var r=new FileReader(); r.onload=function(e){window.dcComprimirFoto(e.target.result,function(c){window._cmvFotos.push(c);_cmvRenderGrid();});}; r.readAsDataURL(f);
   });
 };
 
@@ -4319,6 +4321,28 @@ window.renderHomeM2 = function() {
    Protege tarjetas/detalles de textos largos, HTML pegado,
    emojis repetidos, saltos excesivos y caracteres de control.
 ═══════════════════════════════════════════════════════ */
+// Comprime cualquier foto a máx 400KB, 1200px, calidad adaptativa
+window.dcComprimirFoto = function(dataUrl, cb) {
+  var img = new Image();
+  img.onload = function() {
+    var MAX_PX = 1200, MAX_KB = 400;
+    var w = img.width, h = img.height;
+    if (w > MAX_PX || h > MAX_PX) {
+      if (w > h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
+      else { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
+    }
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    var q = 0.82, result;
+    do { result = canvas.toDataURL('image/jpeg', q); q -= 0.08; }
+    while (result.length > MAX_KB * 1024 * 1.37 && q > 0.3);
+    cb(result);
+  };
+  img.onerror = function() { cb(dataUrl); };
+  img.src = dataUrl;
+};
+
 window.dcCleanText = function(v, max) {
   var t = String(v == null ? '' : v);
   t = t.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
