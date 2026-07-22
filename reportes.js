@@ -110,14 +110,14 @@ function _redirigirSiRolIncorrecto(tipoEsperado, perfil) {
   const tipo = perfil ? (perfil.tipo || 'vecino') : 'vecino';
   if (tipoEsperado === 'vecino' && _esProveedor(tipo)) {
     // Proveedor intentando entrar a vista de vecino
-    alert('Esta sección es solo para residentes.');
+    window._dcAlerta&&window._dcAlerta('Esta sección es solo para residentes.');
     if (typeof go === 'function') go('v-reportes-disponibles', 'right');
     setTimeout(() => window.cargarReportesDisponibles && window.cargarReportesDisponibles(), 300);
     return true;
   }
   if (tipoEsperado === 'proveedor' && !_esProveedor(tipo)) {
     // Vecino intentando entrar a vista de proveedor
-    alert('Esta sección es solo para proveedores.');
+    window._dcAlerta&&window._dcAlerta('Esta sección es solo para proveedores.');
     if (typeof go === 'function') go('v-solicitud-nueva', 'right');
     return true;
   }
@@ -132,7 +132,7 @@ function _redirigirSiRolIncorrecto(tipoEsperado, perfil) {
 window.publicarReporte = async function() {
   const listo = await _esperarFirebase();
   if (!listo || !window._fbAuth.currentUser) {
-    alert('Debes iniciar sesión para publicar una solicitud.');
+    window._dcAlerta&&window._dcAlerta('Debes iniciar sesión para publicar una solicitud.');
     return;
   }
 
@@ -141,7 +141,7 @@ window.publicarReporte = async function() {
 
   // Bloquear a proveedores
   if (perfil && _esProveedor(perfil.tipo)) {
-    alert('Solo los residentes pueden publicar solicitudes.');
+    window._dcAlerta&&window._dcAlerta('Solo los residentes pueden publicar solicitudes.');
     return;
   }
 
@@ -526,7 +526,7 @@ window.verDetalleReporte = async function(reporteId, datos) {
       'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js'
     );
     const snap = await getDoc(doc(window._fbDb, 'reportes', reporteId));
-    if (!snap.exists()) { alert('Reporte no encontrado.'); return; }
+    if (!snap.exists()) { window._dcAlerta&&window._dcAlerta('Reporte no encontrado.'); return; }
     _renderDetalleReporte(reporteId, snap.data());
     if (typeof go === 'function') go('v-reporte-detalle', 'right');
   } catch (e) {
@@ -586,11 +586,11 @@ function _renderDetalleReporte(id, r) {
 // ── Postular proveedor en reporte y abrir chat con vecino ────
 window._postularEnReporte = async function(reporteId) {
   const listo = await _esperarFirebase();
-  if (!listo || !window._fbAuth?.currentUser) { alert('Sesión no disponible.'); return; }
+  if (!listo || !window._fbAuth?.currentUser) { window._dcAlerta&&window._dcAlerta('Sesión no disponible.'); return; }
 
   const uid    = window._fbAuth.currentUser.uid;
   const perfil = await _leerPerfil(uid);
-  if (!perfil) { alert('No se pudo leer tu perfil.'); return; }
+  if (!perfil) { window._dcAlerta&&window._dcAlerta('No se pudo leer tu perfil.'); return; }
 
   const { getDoc, doc, updateDoc, arrayUnion, increment, setDoc, addDoc, collection, serverTimestamp } =
     await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
@@ -599,21 +599,21 @@ window._postularEnReporte = async function(reporteId) {
   const repRef  = doc(db, 'reportes', reporteId);
   const repSnap = await getDoc(repRef);
 
-  if (!repSnap.exists()) { alert('Solicitud no encontrada.'); return; }
+  if (!repSnap.exists()) { window._dcAlerta&&window._dcAlerta('Solicitud no encontrada.'); return; }
 
   const r = repSnap.data();
 
   if (r.estado !== 'publicado' && r.estado !== 'en_cotizacion') {
-    alert('Esta solicitud ya no está disponible.'); return;
+    window._dcAlerta&&window._dcAlerta('Esta solicitud ya no está disponible.'); return;
   }
 
   const _maxPost = (typeof DC_MAX_POSTULANTES !== 'undefined') ? DC_MAX_POSTULANTES : 3;
   if ((r.totalPostulantes || 0) >= _maxPost) {
-    alert('Esta solicitud ya tiene el máximo de proveedores.'); return;
+    window._dcAlerta&&window._dcAlerta('Esta solicitud ya tiene el máximo de proveedores.'); return;
   }
 
   if (Array.isArray(r.postulantes) && r.postulantes.includes(uid)) {
-    alert('Ya te postulaste a esta solicitud.'); return;
+    window._dcAlerta&&window._dcAlerta('Ya te postulaste a esta solicitud.'); return;
   }
 
   await updateDoc(repRef, {
@@ -771,7 +771,7 @@ window._cargarPostulantesVecino = async function(reporteId, postulantes, vecinoU
 
 window._contratarProveedor = async function(reporteId, provUid, provNombre) {
   if (!window._fbAuth || !window._fbAuth.currentUser) return;
-  if (!confirm('¿Contratar a ' + provNombre + ' para esta solicitud?')) return;
+  var _okC = await window._dcConfirmarAsync('¿Contratar a <b>' + provNombre + '</b> para esta solicitud?', { lblSi:'Contratar', colorSi:'#1FC26A' }); if(!_okC) return;
   try {
     var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
     await f.updateDoc(f.doc(window._fbDb, 'reportes', reporteId), {
@@ -784,7 +784,7 @@ window._contratarProveedor = async function(reporteId, provUid, provNombre) {
 
 window._completarReporte = async function(reporteId) {
   if (!window._fbAuth || !window._fbAuth.currentUser) return;
-  if (!confirm('¿Marcar esta solicitud como completada?')) return;
+  var _okX = await window._dcConfirmarAsync('¿Marcar esta solicitud como completada?', { lblSi:'Completar', colorSi:'#1FC26A' }); if(!_okX) return;
   try {
     var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
     await f.updateDoc(f.doc(window._fbDb, 'reportes', reporteId), { estado: 'completado' });
@@ -796,7 +796,7 @@ window._completarReporte = async function(reporteId) {
 
 window._cancelarReporte = async function(reporteId) {
   if (!window._fbAuth || !window._fbAuth.currentUser) return;
-  if (!confirm('¿Cancelar esta solicitud? No se puede deshacer.')) return;
+  var _okZ = await window._dcConfirmarAsync('⚠️ ¿Cancelar esta solicitud? Esta acción no se puede deshacer.', { lblSi:'Cancelar solicitud', colorSi:'#D63A2A' }); if(!_okZ) return;
   try {
     var f = await import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js');
     await f.updateDoc(f.doc(window._fbDb, 'reportes', reporteId), { estado: 'cancelado', proveedorContratado: null });

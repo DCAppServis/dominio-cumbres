@@ -376,8 +376,7 @@ window.cntBulkBorrador  = function(){ if(!cntPuedeEditar())   return; _bulkCambi
 window.cntBulkEliminar  = function(){
   if(!cntPuedeEliminar()) return;
   if(!_cntSelected.length) return;
-  if(!confirm('¿Mover '+_cntSelected.length+' elemento(s) a la papelera?')) return;
-  _bulkCambiarEstado('eliminado');
+  window._dcConfirmar&&window._dcConfirmar('¿Mover '+_cntSelected.length+' elemento(s) a la papelera?', function(){ _bulkCambiarEstado('eliminado'); }, null, { lblSi:'Mover', colorSi:'#D63A2A' }); if(!window._dcConfirmar){ if(confirm('¿Mover '+_cntSelected.length+' elemento(s) a la papelera?')) _bulkCambiarEstado('eliminado'); } return;
 };
 
 // ── Abrir item para editar ────────────────────────────────────────────────────
@@ -648,7 +647,7 @@ window.cntCerrarPrevia = function(){
 // ── Soft delete / Papelera (punto 7) ─────────────────────────────────────────
 window.cntSoftDelete = async function(id){
   if(!cntPuedeEliminar()){ _showToast('Sin permiso'); return; }
-  if(!confirm('¿Mover a la papelera?')) return;
+  var _okSD = await window._dcConfirmarAsync('¿Mover a la papelera?', { lblSi:'Mover', colorSi:'#D63A2A' }); if(!_okSD) return;
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var it = _cntItems.find(function(x){ return x._id===id; }) || {};
@@ -668,7 +667,7 @@ window.cntSoftDelete = async function(id){
 window.cntSoftDeleteLista = async function(id){
   cntCerrarMenu();
   if(!cntPuedeEliminar()){ _showToast('Sin permiso'); return; }
-  if(!confirm('¿Mover a la papelera?')) return;
+  var _okSDL = await window._dcConfirmarAsync('¿Mover a la papelera?', { lblSi:'Mover', colorSi:'#D63A2A' }); if(!_okSDL) return;
   var db = window._fbDb; if(!db) return;
   var m = _secMeta[_cntSec]; if(!m) return;
   var it = _cntItems.find(function(x){ return x._id===id; }) || {};
@@ -1004,7 +1003,7 @@ window.cntVistaPreviaEv = function(id){
 // ── Eventos: soft delete ──────────────────────────────────────────────────────
 window.cntSoftDeleteEvento = async function(id){
   if(!cntPuedeEliminar()){ _showToast('Sin permiso'); return; }
-  if(!confirm('¿Mover evento a la papelera?')) return;
+  var _okEv = await window._dcConfirmarAsync('¿Mover evento a la papelera?', { lblSi:'Mover', colorSi:'#D63A2A' }); if(!_okEv) return;
   var db = window._fbDb; if(!db) return;
   var it = _cntEvItems.find(function(x){ return x._id===id; }) || {};
   var estadoAntes = it.estado;
@@ -1105,7 +1104,7 @@ window.cntCambiarEstadoEvLista = async function(id, estado){
 window.cntSoftDeleteEventoLista = async function(id){
   cntCerrarMenu();
   if(!cntPuedeEliminar()){ _showToast('Sin permiso'); return; }
-  if(!confirm('¿Mover evento a la papelera?')) return;
+  var _okEvL = await window._dcConfirmarAsync('¿Mover evento a la papelera?', { lblSi:'Mover', colorSi:'#D63A2A' }); if(!_okEvL) return;
   var db = window._fbDb; if(!db) return;
   var it = _cntEvItems.find(function(x){ return x._id===id; }) || {};
   var estadoAntes = it.estado;
@@ -1277,7 +1276,7 @@ window.cntGuardarEmergencia = async function(){
   var cat    = (get('cnt-ef-cat')||{}).value     || 'Emergencias';
   var estado = (get('cnt-ef-estado')||{}).value  || 'activo';
 
-  if(!nombre.trim()){ alert('El nombre es obligatorio'); return; }
+  if(!nombre.trim()){ window._dcAlerta&&window._dcAlerta('El nombre es obligatorio'); return; }
 
   var data = {
     icono:icono.trim(), nombre:nombre.trim(), descripcion:desc.trim(),
@@ -1303,7 +1302,7 @@ window.cntGuardarEmergencia = async function(){
 };
 
 window.cntEliminarEmergencia = async function(id){
-  if(!confirm('¿Eliminar este contacto?')) return;
+  var _okEmg = await window._dcConfirmarAsync('⚠️ ¿Eliminar este contacto de emergencia?', { lblSi:'Eliminar', colorSi:'#D63A2A' }); if(!_okEmg) return;
   var db = window._fbDb; if(!db) return;
   try {
     var F = await import(_FBFS);

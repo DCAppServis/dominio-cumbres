@@ -1544,10 +1544,10 @@ window.dcRatingSet=function(n,blockId){
 
 window.dcRatingEnviar=async function(blockId){
   var nr=window._dcRatingSelGen[blockId]||0;
-  if(!nr){alert('Selecciona estrellas');return;}
+  if(!nr){if(window.toast)toast('⭐ Selecciona una calificación');return;}
   var pUid=window._dcRatingUid[blockId]||''; if(!pUid)return;
   var auth=window._fbAuth; var myUid=auth&&auth.currentUser&&auth.currentUser.uid;
-  if(!myUid){alert('Inicia sesión');return;}
+  if(!myUid){window._dcAlerta&&window._dcAlerta('Inicia sesión para calificar');return;}
   var com=(document.getElementById(blockId+'-rating-com')||{}).value||'';
   var btn=document.querySelector('#'+blockId+'-rating-block button:last-child');
   if(btn){btn.disabled=true;btn.textContent='⏳ Guardando...';}
@@ -1568,7 +1568,8 @@ window.dcRatingEnviar=async function(blockId){
   }catch(e){
     console.error('rating-gen',e);
     if(btn){btn.disabled=false;btn.textContent='Enviar calificación →';}
-    alert('Error: '+e.message);
+    if(window._dcAlerta) window._dcAlerta('⚠️ Error al guardar: '+e.message);
+    else if(window.toast) toast('⚠️ Error: '+e.message);
   }
 };
 
@@ -5732,20 +5733,42 @@ window.cargarMisComprasPlaza = function() {
   window._dcProximamente = function(msg) { toast('🔧 ' + (msg || 'Próximamente disponible.')); };
 
   // Reemplaza confirm() — modal bottom-sheet con Cancelar / Confirmar
-  window._dcConfirmar = function(msg, onSi, onNo) {
+  window._dcConfirmar = function(msg, onSi, onNo, opts) {
+    opts = opts || {};
     var ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
     ov.innerHTML = '<div style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;">'
       + '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:16px;line-height:1.4;">' + msg + '</div>'
       + '<div style="display:flex;gap:10px;">'
-      + '<button id="_dcCNo" style="flex:1;background:#f0f0f0;color:#555;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;font-family:\'Inter\',sans-serif;">Cancelar</button>'
-      + '<button id="_dcCSi" style="flex:1;background:#D63A2A;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">Confirmar</button>'
+      + '<button id="_dcCNo" style="flex:1;background:#f0f0f0;color:#555;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;font-family:\'Inter\',sans-serif;">' + (opts.lblNo||'Cancelar') + '</button>'
+      + '<button id="_dcCSi" style="flex:1;background:' + (opts.colorSi||'#D63A2A') + ';color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">' + (opts.lblSi||'Confirmar') + '</button>'
       + '</div></div>';
     document.body.appendChild(ov);
     function cerrar(){ if(ov.parentNode) document.body.removeChild(ov); }
     ov.querySelector('#_dcCSi').onclick = function(){ cerrar(); if(onSi) onSi(); };
     ov.querySelector('#_dcCNo').onclick = function(){ cerrar(); if(onNo) onNo(); };
     ov.onclick = function(e){ if(e.target===ov){ cerrar(); if(onNo) onNo(); } };
+  };
+
+  // Diálogo informativo con un solo botón — reemplaza alert()
+  window._dcAlerta = function(msg, onOk) {
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+    ov.innerHTML = '<div style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;width:100%;">'
+      + '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:16px;line-height:1.4;">' + msg + '</div>'
+      + '<button id="_dcAOk" style="width:100%;background:#1FC26A;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Inter\',sans-serif;">Entendido</button>'
+      + '</div>';
+    document.body.appendChild(ov);
+    function cerrar(){ if(ov.parentNode) document.body.removeChild(ov); }
+    ov.querySelector('#_dcAOk').onclick = function(){ cerrar(); if(onOk) onOk(); };
+    ov.onclick = function(e){ if(e.target===ov){ cerrar(); if(onOk) onOk(); } };
+  };
+
+  // Versión Promise de _dcConfirmar para usar con await en funciones async
+  window._dcConfirmarAsync = function(msg, opts) {
+    return new Promise(function(resolve){
+      window._dcConfirmar(msg, function(){ resolve(true); }, function(){ resolve(false); }, opts);
+    });
   };
 
   // Reemplaza prompt() — modal bottom-sheet con input de texto
