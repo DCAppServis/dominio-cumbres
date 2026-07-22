@@ -658,10 +658,12 @@ window.evSubirImagen = function(input){
   if(err) err.style.display='none';
   var reader = new FileReader();
   reader.onload = function(e){
-    window._evFormData._imagenFile    = file;
-    window._evFormData._imagenPreview = e.target.result;
-    if(prev){ prev.style.display='block'; prev.style.backgroundImage='url('+e.target.result+')'; prev.style.backgroundSize='cover'; prev.style.backgroundPosition='center'; prev.innerHTML=''; }
-    if(lbl) lbl.style.display='none';
+    window.dcComprimirFoto(e.target.result, function(c){
+      window._evFormData._imagenFile    = file;
+      window._evFormData._imagenPreview = c;
+      if(prev){ prev.style.display='block'; prev.style.backgroundImage='url('+c+')'; prev.style.backgroundSize='cover'; prev.style.backgroundPosition='center'; prev.innerHTML=''; }
+      if(lbl) lbl.style.display='none';
+    });
   };
   reader.readAsDataURL(file);
 };
