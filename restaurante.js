@@ -1947,9 +1947,10 @@ function _renderMenuRest() {
       + '</span>';
   }).join('') + '<button class="chip" style="border:1px dashed #ccc;color:var(--tx4);" onclick="crearCategoria()">+ Nueva</button>';
 
-  var lista = _rMenuCat === 'todos'
+  var listaRaw = _rMenuCat === 'todos'
     ? _vrMenu()
     : _vrMenu().filter(function(p){ return p.categoria === _rMenuCat; });
+  var lista = listaRaw.filter(function(p){ return !p._esPlaceholder; });
 
   var nDisp = lista.filter(function(p){ return p.disponible; }).length;
   var nAgot = lista.filter(function(p){ return !p.disponible; }).length;
