@@ -3153,22 +3153,23 @@
           <!-- ZONA 3 — Accesos rápidos -->
           <div>
             <div class="sec-lbl">Accesos rápidos</div>
-            <div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 4px;overflow:hidden;">
-              <div onclick="navTo('vr-pedidos')" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
-                <span style="font-size:13px;font-weight:600;color:#111;">📦 Ver pedidos</span>
-                <span style="color:#ccc;font-size:16px;">›</span>
+            <div class="quick-grid">
+              <div class="qi" onclick="navTo('vr-pedidos')">
+                <span class="qi-badge" id="vr-qi-badge" style="display:none"></span>
+                <div class="qi-icon" style="background:#FDECEA;">📦</div>
+                <span class="qi-lbl">Pedidos</span>
               </div>
-              <div onclick="navTo('vr-menu')" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
-                <span style="font-size:13px;font-weight:600;color:#111;">✏️ Editar menú</span>
-                <span style="color:#ccc;font-size:16px;">›</span>
+              <div class="qi" onclick="navTo('vr-menu')">
+                <div class="qi-icon" style="background:#E8F5F0;">✏️</div>
+                <span class="qi-lbl">Mi Menú</span>
               </div>
-              <div onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
-                <span style="font-size:13px;font-weight:600;color:#111;">💬 Chats</span>
-                <span style="color:#ccc;font-size:16px;">›</span>
+              <div class="qi" onclick="window.irACrearPromo&&window.irACrearPromo()">
+                <div class="qi-icon" style="background:#FFF3E0;">📣</div>
+                <span class="qi-lbl">Promos</span>
               </div>
-              <div onclick="window.irACrearPromo&&window.irACrearPromo()" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
-                <span style="font-size:13px;font-weight:600;color:#111;">📣 Promociones</span>
-                <span style="color:#ccc;font-size:16px;">›</span>
+              <div class="qi" onclick="navTo('vr-ventas')">
+                <div class="qi-icon" style="background:#E8F0F8;">📊</div>
+                <span class="qi-lbl">Ventas</span>
               </div>
             </div>
           </div>
@@ -3860,24 +3861,25 @@
         <div class="jornada-box"><div class="jornada-val" id="vnj-apertura">—</div><div class="jornada-lbl">Desde</div></div>
       </div>
       <!-- VN-ZONA ACCESOS RÁPIDOS -->
-      <div style="margin-top:12px;">
+      <div>
         <div class="sec-lbl">Accesos rápidos</div>
-        <div style="background:#fff;border-radius:16px;border:.5px solid #e8e8e8;margin:0 14px 4px;overflow:hidden;">
-          <div onclick="negTo('vn-pedidos')" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
-            <span style="font-size:13px;font-weight:600;color:#111;">📦 Ver pedidos</span>
-            <span style="color:#ccc;font-size:16px;">›</span>
+        <div class="quick-grid">
+          <div class="qi" onclick="negTo('vn-pedidos')">
+            <span class="qi-badge" id="vn-qi-badge" style="display:none"></span>
+            <div class="qi-icon" style="background:#F5EEF8;">📦</div>
+            <span class="qi-lbl">Pedidos</span>
           </div>
-          <div onclick="negTo('vn-menu')" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
-            <span style="font-size:13px;font-weight:600;color:#111;">✏️ Mis productos</span>
-            <span style="color:#ccc;font-size:16px;">›</span>
+          <div class="qi" onclick="negTo('vn-menu')">
+            <div class="qi-icon" style="background:#F0EBF8;">✏️</div>
+            <span class="qi-lbl">Productos</span>
           </div>
-          <div onclick="go('v-mis-chats','right');setTimeout(cargarMisChats,200)" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid #f5f5f5;cursor:pointer;">
-            <span style="font-size:13px;font-weight:600;color:#111;">💬 Chats</span>
-            <span style="color:#ccc;font-size:16px;">›</span>
+          <div class="qi" onclick="window.irACrearPromo&&window.irACrearPromo()">
+            <div class="qi-icon" style="background:#FFF3E0;">📣</div>
+            <span class="qi-lbl">Promos</span>
           </div>
-          <div onclick="window.irACrearPromo&&window.irACrearPromo()" style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
-            <span style="font-size:13px;font-weight:600;color:#111;">📣 Promociones</span>
-            <span style="color:#ccc;font-size:16px;">›</span>
+          <div class="qi" onclick="negTo('vn-ventas')">
+            <div class="qi-icon" style="background:#EDE8F5;">📊</div>
+            <span class="qi-lbl">Ventas</span>
           </div>
         </div>
       </div>
