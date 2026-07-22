@@ -592,6 +592,7 @@ window._calcMetricasNeg = async function(){
     setTxt('vnj-pedidos',nHoy); setTxt('vnj-ventas','$'+ventaHoy);
     setTxt('vn-semana-resumen', nSem + ' pedidos · $' + ventaSem + ' · 4.8★');
     ledSet('vncard-poraceptar',nAcep>0); ledSet('vncard-pedidoshoy',nHoy>0); ledSet('vncard-enproceso',nProc>0);
+    var qib=document.getElementById('vn-qi-badge'); if(qib){if(nAcep>0){qib.textContent=nAcep;qib.style.display='';}else{qib.style.display='none';}}
     // Banner de urgencia (igual que restaurante): X pedidos nuevos
     var wrap = document.getElementById('vn-urgencia-wrap');
     if (wrap) {
@@ -3254,6 +3255,7 @@ if (typeof window.go !== 'function') {
         ledSet('card-poraceptar', nAcep>0);
         ledSet('card-pedidoshoy', nPed>0);
         ledSet('card-enproceso', nProc>0);
+        var qib=document.getElementById('vr-qi-badge'); if(qib){if(nAcep>0){qib.textContent=nAcep;qib.style.display='';}else{qib.style.display='none';}}
       } else {
         setTxt('vmr-pedidos', nPed);
         setTxt('vmr-ventas', '$'+venta);
