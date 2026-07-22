@@ -263,21 +263,22 @@ function dcRest_navTo(id, isBack) {
 
   // REGLA: avisar antes de salir con cambios sin guardar (Configuración / Cómo me ve el cliente)
   if (window._dirtyView && cur.id === window._dirtyView) {
-    var _seguir = window.confirm('\u26A0\uFE0F Tienes cambios sin guardar.\n\nPresiona CANCELAR para quedarte y guardarlos,\no ACEPTAR para salir sin guardar.');
-    if (!_seguir) return;
-    window._dirtyView = null;
-    // DESCARTAR DE VERDAD: nada se guardó; restaurar la pantalla a lo último guardado
-    if (cur.id === 'vr-config') {
-      window._cfgEstadoPend = null;
-      try {
-        if (window._cfgSnapHor) { HORARIOS = JSON.parse(window._cfgSnapHor); }
-        var _selR = document.getElementById('cfg-est-sel');
-        var _efR = _estadoEfectivo();
-        if (_selR) _selR.value = _efR;
-        _syncEstadoCfgUI(_efR);
-        _renderHorarios();
-      } catch(e){}
-    }
+    window._dcConfirmar('⚠️ Tienes cambios sin guardar. ¿Salir sin guardar?', function() {
+      window._dirtyView = null;
+      if (cur.id === 'vr-config') {
+        window._cfgEstadoPend = null;
+        try {
+          if (window._cfgSnapHor) { HORARIOS = JSON.parse(window._cfgSnapHor); }
+          var _selR = document.getElementById('cfg-est-sel');
+          var _efR = _estadoEfectivo();
+          if (_selR) _selR.value = _efR;
+          _syncEstadoCfgUI(_efR);
+          _renderHorarios();
+        } catch(e){}
+      }
+      dcRest_navTo(id, isBack);
+    }, null, { lblSi: 'Salir sin guardar', colorSi: '#D63A2A' });
+    return;
   }
 
   // RESET SCROLL — siempre al inicio en la vista destino
@@ -362,13 +363,15 @@ function dcNeg_navTo(id, isBack) {
   _nNavBusy = true; setTimeout(function(){ _nNavBusy = false; }, 330);
   // REGLA #4: avisar antes de salir con cambios sin guardar
   if (window._dirtyView && cur.id === window._dirtyView) {
-    var _seguir = window.confirm('\u26A0\uFE0F Tienes cambios sin guardar.\n\nPresiona CANCELAR para quedarte y guardarlos,\no ACEPTAR para salir y descartarlos.');
-    if (!_seguir) return;
-    window._dirtyView = null;
-    // DESCARTAR DE VERDAD: recargar el estado/horarios guardados
-    if (cur.id === 'vn-config') { try { window.vnegCargarConfig && window.vnegCargarConfig(); } catch(e){} }
-    if (cur.id === 'vn-cmv') { try { window.vnegCmvCargar && window.vnegCmvCargar(); } catch(e){} }
-    if (cur.id === 'vn-prod-form') { try { _vnegFotoB64=null; var fi=document.getElementById('vn-pf-file-input'); if(fi) fi.value=''; } catch(e){} }
+    _nNavBusy = false;
+    window._dcConfirmar('⚠️ Tienes cambios sin guardar. ¿Salir sin guardar?', function() {
+      window._dirtyView = null;
+      if (cur.id === 'vn-config') { try { window.vnegCargarConfig && window.vnegCargarConfig(); } catch(e){} }
+      if (cur.id === 'vn-cmv') { try { window.vnegCmvCargar && window.vnegCmvCargar(); } catch(e){} }
+      if (cur.id === 'vn-prod-form') { try { _vnegFotoB64=null; var fi=document.getElementById('vn-pf-file-input'); if(fi) fi.value=''; } catch(e){} }
+      dcNeg_navTo(id, isBack);
+    }, null, { lblSi: 'Salir sin guardar', colorSi: '#D63A2A' });
+    return;
   }
   // Reset scroll en destino
   try { nxt.scrollTop = 0; var sc = nxt.querySelector('.scr'); if (sc) sc.scrollTop = 0; } catch(e){}
@@ -2184,31 +2187,24 @@ function _pfCatRecargar(catSel, seleccionar) {
 }
 
 function eliminarCategoria(nombre) {
-  // Verificar si tiene productos reales (excluyendo placeholders)
   var prods = _vrMenu().filter(function(p){ return p.categoria === nombre && !p._esPlaceholder; });
-  if (prods.length > 0) {
-    toast('⚠️ Primero elimina o mueve los productos de esta categoría.');
-    return;
-  }
-  window._dcConfirmar('¿Eliminar la categoría "' + nombre + '"?', function() {
+  var aviso = prods.length > 0
+    ? '<br><br>⚠️ También se eliminarán los <b>' + prods.length + ' producto' + (prods.length===1?'':'s') + '</b> de esta categoría.'
+    : '';
+  window._dcConfirmar('¿Eliminar la categoría <b>"' + nombre + '"</b>?' + aviso, function() {
     if (_vrIsD()) {
-      // Demo: eliminar del _vrMenuCache
-      var idx = _vrMenuCache.findIndex(function(p){ return p.categoria === nombre; });
-      if (idx !== -1) _vrMenuCache.splice(idx, 1);
+      _vrMenuCache = _vrMenuCache.filter(function(p){ return p.categoria !== nombre; });
       if (_rMenuCat === nombre) _rMenuCat = 'todos';
       _renderMenuRest();
       toast('🗑 Categoría "' + nombre + '" eliminada');
     } else {
-      // Firebase: eliminar placeholder(s) de esa categoría
       (async function(){
         var uid=_vrUid(); var db=_vrDb(); if(!uid||!db){toast('⚠️ Sin sesión'); return;}
         try {
           var f=await _vrFb();
           var snap=await f.getDocs(f.collection(db,'menu',uid,'productos'));
           var batch=f.writeBatch(db);
-          snap.forEach(function(d){
-            if(d.data().categoria===nombre && d.data()._esPlaceholder) batch.delete(d.ref);
-          });
+          snap.forEach(function(d){ if(d.data().categoria===nombre) batch.delete(d.ref); });
           await batch.commit();
           if (_rMenuCat === nombre) _rMenuCat = 'todos';
           await _vrCargarMenu(); _renderMenuRest();
@@ -2216,7 +2212,7 @@ function eliminarCategoria(nombre) {
         } catch(e){ toast('⚠️ Error: '+e.message); }
       })();
     }
-  });
+  }, null, { lblSi: 'Eliminar', colorSi: '#D63A2A' });
 }
 
 function toggleDisp(pid) {

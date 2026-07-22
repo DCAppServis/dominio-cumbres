@@ -167,10 +167,10 @@
   window.vnegSetMenuCat=function(cat){ window._vnegMenuCat=cat||'todos'; window.vnegRenderMenuDesdeCache&&window.vnegRenderMenuDesdeCache(); };
   window.vnegEliminarCategoria=function(nombre){
     var prods=getCache().filter(function(p){ return p.categoria===nombre && !p._esPlaceholder; });
-    if(prods.length>0){ if(window.toast) window.toast('⚠️ Primero elimina o mueve los productos de esta categoría.'); return; }
-    if(!window._dcConfirmar){ if(!confirm('¿Eliminar la categoría "'+nombre+'"?')) return; _doEliminarCat(nombre); return; }
-    window._dcConfirmar('¿Eliminar la categoría "'+nombre+'"?', function(){ _doEliminarCat(nombre); });
-    function _doEliminarCat(cat){
+    var aviso = prods.length > 0
+      ? '<br><br>⚠️ También se eliminarán los <b>'+prods.length+' producto'+(prods.length===1?'':'s')+'</b> de esta categoría.'
+      : '';
+    var doEliminar = function() {
       var user=window._fbAuth&&window._fbAuth.currentUser, db=window._fbDb;
       if(!user||!db){ if(window.toast) window.toast('⚠️ Sin sesión'); return; }
       (async function(){
@@ -179,15 +179,19 @@
           var uid=(window.vnegResolverMenuUid?await window.vnegResolverMenuUid(true):user.uid)||user.uid;
           var snap=await fb.getDocs(fb.collection(db,'menu',uid,'productos'));
           var batch=fb.writeBatch(db);
-          snap.forEach(function(d){ if(d.data().categoria===cat&&d.data()._esPlaceholder) batch.delete(d.ref); });
+          snap.forEach(function(d){ if(d.data().categoria===nombre) batch.delete(d.ref); });
           await batch.commit();
-          if(window._vnegMenuCat===cat) window._vnegMenuCat='todos';
-          var arr=getCache().filter(function(p){ return !(p.categoria===cat&&p._esPlaceholder); });
-          window._vnegMenuCache=arr;
+          if(window._vnegMenuCat===nombre) window._vnegMenuCat='todos';
+          window._vnegMenuCache=getCache().filter(function(p){ return p.categoria!==nombre; });
           window.vnegRenderMenuDesdeCache&&window.vnegRenderMenuDesdeCache();
-          if(window.toast) window.toast('🗑 Categoría "'+cat+'" eliminada');
+          if(window.toast) window.toast('🗑 Categoría "'+nombre+'" eliminada');
         }catch(e){ if(window.toast) window.toast('⚠️ Error: '+e.message); }
       })();
+    };
+    if(window._dcConfirmar){
+      window._dcConfirmar('¿Eliminar la categoría <b>"'+nombre+'"</b>?'+aviso, doEliminar, null, { lblSi:'Eliminar', colorSi:'#D63A2A' });
+    } else {
+      if(confirm('¿Eliminar la categoría "'+nombre+'"?')) doEliminar();
     }
   };
   window.vnegFiltrarMenu=function(){ window.vnegRenderMenuDesdeCache&&window.vnegRenderMenuDesdeCache(); };

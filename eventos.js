@@ -432,7 +432,7 @@ window.evMeInteresa = async function(){
   var ev = window._evActual||{};
   if(!ev.id) return;
   var auth = window._fbAuth && window._fbAuth.currentUser;
-  if(!auth){ alert('Inicia sesión para marcar interés.'); return; }
+  if(!auth){ window._dcAlerta&&window._dcAlerta('Inicia sesión para marcar interés.'); return; }
   var uid = auth.uid;
   var btn = get('ev-interes-btn');
   if(btn){ btn.disabled=true; btn.textContent='Registrando...'; }
@@ -466,7 +466,7 @@ window.evCompartir = async function(){
       compartido = true;
     }catch(_){}
   } else {
-    try{ await navigator.clipboard.writeText(window.location.href); alert('¡Enlace copiado!'); compartido=true; }catch(_){}
+    try{ await navigator.clipboard.writeText(window.location.href); if(window.toast)toast('🔗 ¡Enlace copiado!'); compartido=true; }catch(_){}
   }
   if(compartido && ev.id){
     try{
@@ -483,7 +483,7 @@ window.evCompartir = async function(){
 // ─── CREAR EVENTO ─────────────────────────────────────
 window.evIniciarCrear = function(){
   var auth = window._fbAuth && window._fbAuth.currentUser;
-  if(!auth){ alert('Inicia sesión para crear un evento.'); return; }
+  if(!auth){ window._dcAlerta&&window._dcAlerta('Inicia sesión para crear un evento.'); return; }
   window._evFormData = {};
   window._evEditId   = null;
   _evPromoActivo     = null;
@@ -493,7 +493,7 @@ window.evIniciarCrear = function(){
 window.evElegirTipo = async function(tipo){
   if(tipo==='oficial'){
     var esAdmin = await evVerificarAdmin();
-    if(!esAdmin){ alert('Solo los administradores pueden crear eventos oficiales.'); return; }
+    if(!esAdmin){ window._dcAlerta&&window._dcAlerta('Solo los administradores pueden crear eventos oficiales.'); return; }
   }
   window._evFormData.tipo = tipo;
   go('v-ev-reglas','right');
@@ -652,8 +652,8 @@ window.evSubirImagen = function(input){
   var file = input.files && input.files[0];
   if(!file) return;
   var TIPOS_OK = ['image/jpeg','image/jpg','image/png','image/webp','image/gif'];
-  if(TIPOS_OK.indexOf(file.type)===-1){ alert('Formato no permitido. Usa JPG, PNG, WEBP o GIF.'); input.value=''; return; }
-  if(file.size > 3*1024*1024){ alert('La imagen no puede superar 3 MB.'); input.value=''; return; }
+  if(TIPOS_OK.indexOf(file.type)===-1){ window._dcAlerta&&window._dcAlerta('Formato no permitido. Usa JPG, PNG, WEBP o GIF.'); input.value=''; return; }
+  if(file.size > 3*1024*1024){ window._dcAlerta&&window._dcAlerta('La imagen no puede superar 3 MB.'); input.value=''; return; }
   var prev=get('ev-img-preview'), lbl=get('ev-img-label'), err=get('ev-img-err');
   if(err) err.style.display='none';
   var reader = new FileReader();
@@ -1092,9 +1092,9 @@ async function evConsumirCodigo(promo, uid, eventoId){
 
 window.evPublicarCortesia = async function(){
   var uid = window._fbAuth&&window._fbAuth.currentUser&&window._fbAuth.currentUser.uid;
-  if(!uid){ alert('Debes iniciar sesión.'); return; }
+  if(!uid){ window._dcAlerta&&window._dcAlerta('Debes iniciar sesión.'); return; }
   var disponibles = await evLeerCortesia(uid);
-  if(disponibles<=0){ alert('Ya no tienes cortesías disponibles.'); evMostrarOpciones(); return; }
+  if(disponibles<=0){ window._dcAlerta&&window._dcAlerta('Ya no tienes cortesías disponibles.'); evMostrarOpciones(); return; }
   // Guardar evento PRIMERO, descontar cortesía SOLO si el guardado tuvo éxito
   var ok = await evGuardarEvento('en_revision','normal',null);
   if(ok && ok.id) await evDescontarCortesia(uid);
@@ -1147,7 +1147,7 @@ async function evGuardarEvento(estado, tipoPub, promoData, sinAlert, noNav){
       } else {
         imagenUrl = await evUploadImagen();
         if(!imagenUrl){
-          alert('Error al subir la imagen. Intenta de nuevo.');
+          window._dcAlerta&&window._dcAlerta('⚠️ Error al subir la imagen. Intenta de nuevo.');
           if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
           return false;
         }
@@ -1261,7 +1261,7 @@ async function evGuardarEvento(estado, tipoPub, promoData, sinAlert, noNav){
     return { id: eventoIdResultado, msgPrincipal: msgPrincipal, msgSub: msgSub };
   } catch(e){
     console.error('[Dominio Eventos] Error evGuardarEvento:', e);
-    if(!sinAlert) alert('Error al guardar: '+e.message);
+    if(!sinAlert&&window._dcAlerta) window._dcAlerta('⚠️ Error al guardar: '+e.message);
     if(btn){ btn.disabled=false; btn.textContent='Reintentar'; }
     return false;
   }
@@ -1403,7 +1403,7 @@ window.evRepublicar = async function(id){
   try {
     var F = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
     var snap = await F.getDoc(F.doc(window._fbDb,'eventos',id));
-    if(!snap.exists()){ alert('Evento no encontrado.'); return; }
+    if(!snap.exists()){ window._dcAlerta&&window._dcAlerta('Evento no encontrado.'); return; }
     var ev = snap.data();
     window._evFormData = {
       tipo:           ev.tipo||'normal',
@@ -1426,7 +1426,7 @@ window.evRepublicar = async function(id){
       var c=get('ev-cat');    if(c) c.value=ev.categoria||'';
       var te=get('ev-tipo-ev'); if(te) te.value=ev.tipoEvento||'';
     },80);
-  } catch(e){ alert('Error al republicar: '+e.message); }
+  } catch(e){ window._dcAlerta&&window._dcAlerta('⚠️ Error al republicar: '+e.message); }
 };
 
 // ─── IMPULSAR ─────────────────────────────────────────
