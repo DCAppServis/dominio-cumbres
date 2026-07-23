@@ -386,7 +386,7 @@ window.dcFood_cargarMenu = async function(restId) {
       el.innerHTML='<div class="empty"><div class="empty-ic">🍽️</div><div class="empty-tit">Sin menú disponible</div><div class="empty-sub">Este restaurante aún no tiene menú disponible.</div></div><div style="height:80px;"></div>';
       _updateCartBar(); return;
     }
-    var prods=[]; snap.forEach(function(d){prods.push(Object.assign({_id:d.id},d.data()));});
+    var prods=[]; snap.forEach(function(d){var p=Object.assign({_id:d.id},d.data()); if(!p._esPlaceholder) prods.push(p);});
     _renderMenu(el, prods);
   } catch(e) {
     el.innerHTML='<div class="empty"><div class="empty-ic">⚠️</div><div class="empty-tit">Error al cargar</div><div class="empty-sub">'+e.message+'</div></div>';
