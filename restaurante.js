@@ -341,10 +341,7 @@ function dcRest_navTo(id, isBack) {
     }, 320);
   }
 
-  if (!isBack) {
-    _rNavStack.push(id);
-    try { localStorage.setItem('dc_lastSubVr', id === 'vr-home' ? '' : id); } catch(_) {}
-  }
+  if (!isBack) _rNavStack.push(id);
   window.dcRest_onViewEnter(id);
 }
 // Alias público: HTML onclicks usan navTo() — se mantiene para compatibilidad
