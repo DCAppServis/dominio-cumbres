@@ -6596,3 +6596,42 @@ window.adminImpulsaConfigGuardar = async function() {
     if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar datos bancarios'; }
   }
 };
+
+// ── RESTAURAR SESIÓN AL REFRESCAR ──────────────────────────────────────
+(function() {
+  var _done = false;
+  function _trySetup(n) {
+    if (!window._fbAuth || !window._fbAuth.onAuthStateChanged) {
+      if (n < 30) setTimeout(function(){ _trySetup(n+1); }, 100);
+      return;
+    }
+    var unsub = window._fbAuth.onAuthStateChanged(function(user) {
+      unsub();
+      if (_done) return; _done = true;
+      if (!user) return;
+      if (window._dcLoginInProgress) return;
+      var cur = document.querySelector('.view.active');
+      if (!cur || cur.id !== 'v-splash') return;
+      var estado = (localStorage.getItem('dcuserEstado') || '').trim().toLowerCase();
+      var tipo = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
+      var noRestore = ['pendiente_revision','aprobado_pendiente_pago','suspendido','rechazado'];
+      if (noRestore.indexOf(estado) !== -1) {
+        var statusNav = 'v-espera-revision';
+        if (estado === 'aprobado_pendiente_pago') statusNav = 'v-espera-pago';
+        else if (estado === 'suspendido') statusNav = (tipo === 'vecino') ? 'v-vecino-suspendido' : 'v-cuenta-suspendida';
+        else if (estado === 'rechazado') statusNav = 'v-solicitud-rechazada';
+        window.go(statusNav, 'right');
+        return;
+      }
+      var lastV = localStorage.getItem('dc_lastView') || 'v-home';
+      var noRestV = ['v-splash','v-login','v-register','v-role','v-loading'];
+      if (noRestV.indexOf(lastV) !== -1) lastV = 'v-home';
+      window.go(lastV, 'right');
+      setTimeout(function() {
+        window._dcFabInit && window._dcFabInit();
+        window.actualizarBadgesReales && window.actualizarBadgesReales();
+      }, 500);
+    });
+  }
+  _trySetup(0);
+})();
