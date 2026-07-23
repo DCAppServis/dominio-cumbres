@@ -6600,10 +6600,11 @@ window.adminImpulsaConfigGuardar = async function() {
 // ── RESTAURAR SESIÓN AL REFRESCAR ──────────────────────────────────────
 (function() {
   function _doRestore() {
-    if (window._dcLoginInProgress) return;
     var user = window._fbAuth && window._fbAuth.currentUser;
-    if (!user) return;
     var cur = document.querySelector('.view.active');
+    console.log('[R] user=', user&&user.uid, 'vista=', cur&&cur.id, 'login=', window._dcLoginInProgress);
+    if (window._dcLoginInProgress) return;
+    if (!user) return;
     if (!cur || cur.id !== 'v-splash') return;
     var estado = (localStorage.getItem('dcuserEstado') || '').trim().toLowerCase();
     var tipo = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
@@ -6619,6 +6620,7 @@ window.adminImpulsaConfigGuardar = async function() {
     var lastV = localStorage.getItem('dc_lastView') || 'v-home';
     var noRestV = ['v-splash','v-login','v-register','v-role','v-loading'];
     if (noRestV.indexOf(lastV) !== -1) lastV = 'v-home';
+    console.log('[R] navegando a', lastV);
     window.go(lastV, 'right');
     setTimeout(function() {
       window._dcFabInit && window._dcFabInit();
@@ -6627,6 +6629,7 @@ window.adminImpulsaConfigGuardar = async function() {
   }
 
   function _trySetup(n) {
+    console.log('[R] trySetup n=', n, '_fbAuth=', !!window._fbAuth);
     if (!window._fbAuth) {
       if (n < 30) setTimeout(function(){ _trySetup(n+1); }, 100);
       return;
@@ -6635,7 +6638,6 @@ window.adminImpulsaConfigGuardar = async function() {
     if (ready && typeof ready.then === 'function') {
       ready.then(_doRestore).catch(function(){ _doRestore(); });
     } else {
-      // fallback: onAuthStateChanged
       var unsub = window._fbAuth.onAuthStateChanged(function() { unsub(); _doRestore(); });
     }
   }
