@@ -144,7 +144,7 @@
     if(sub) sub.textContent=productos.length+' producto'+(productos.length===1?'':'s');
     var searchEl=document.getElementById('vn-menu-search-inp'); var q=norm(searchEl&&searchEl.value);
     var visibles=productos.filter(function(p){ var catOk=actual==='todos'||String(p.categoria||'')===actual; var txt=norm((p.nombre||'')+' '+(p.categoria||'')+' '+(p.descripcion||'')); return catOk&&(!q||txt.indexOf(q)!==-1); });
-    var addCard='<div onclick="vnegAbrirFormProd(null)" style="background:#fafafa;border-radius:14px;overflow:hidden;border:2px dashed #ddd;box-shadow:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:160px;"><div style="width:44px;height:44px;border-radius:50%;background:#F0EBF8;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--purple);">+</div><div style="font-size:11px;font-weight:700;color:#999;text-align:center;line-height:1.4;">Agregar<br>producto</div></div>';
+    var addCard='<div onclick="vnegAbrirFormProd(null,\''+c+'\')" style="background:#fafafa;border-radius:14px;overflow:hidden;border:2px dashed #ddd;box-shadow:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:160px;"><div style="width:44px;height:44px;border-radius:50%;background:#F0EBF8;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--purple);">+</div><div style="font-size:11px;font-weight:700;color:#999;text-align:center;line-height:1.4;">Agregar<br>producto</div></div>';
     if(!productos.length){ cont.innerHTML='<div style="text-align:center;color:#aaa;padding:40px 20px;font-size:13px;"><div style="font-size:40px;margin-bottom:12px;">📋</div>Aún no tienes productos.<br><br><button onclick="vnegAbrirFormProd(null)" style="margin-top:6px;background:var(--purple,#7B3FA0);color:#fff;border:none;border-radius:14px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">+ Agregar producto</button></div>'; return; }
     if(!visibles.length){ cont.innerHTML='<div style="text-align:center;color:#aaa;padding:40px 20px;font-size:13px;"><div style="font-size:40px;margin-bottom:12px;">📋</div>Sin productos en esta categoría.<br><br><button onclick="vnegAbrirFormProd(null)" style="margin-top:6px;background:var(--purple,#7B3FA0);color:#fff;border:none;border-radius:14px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">+ Agregar producto</button></div>'; return; }
     var grupos=[]; visibles.forEach(function(p){ var c=p.categoria||'General'; if(grupos.indexOf(c)===-1) grupos.push(c); });
@@ -212,7 +212,7 @@
       window.vnegRenderMenuDesdeCache();
     }catch(e){ console.error('[v14 vnegCargarMenu]',e); cont.innerHTML='<div style="text-align:center;color:#c00;padding:30px;font-size:12px;">Error al cargar productos: '+esc(e.message)+'</div>'; }
   };
-  window.vnegAbrirFormProd=function(pid){
+  window.vnegAbrirFormProd=function(pid, catPre){
     window._dirtyView=null; window._vnegEditPid=pid||null;
     var p=pid?getById(pid):null;
     var titulo=document.getElementById('vn-rf-pform-titulo'); if(titulo) titulo.textContent=pid?'Editar producto':'Nuevo producto';
@@ -220,7 +220,7 @@
     setVal('vn-rf-pform-id', pid||''); setVal('vn-pf-nombre', p?p.nombre:''); setVal('vn-pf-desc', p?p.descripcion:''); setVal('vn-pf-precio', p?p.precio:'');
     window._vnegPfDisp = p ? (p.disponible!==false) : true;
     window._vnegFotoB64 = (p&&p.foto&&String(p.foto).indexOf('data:image')===0)?p.foto:null;
-    poblarCategorias(document.getElementById('vn-pf-cat'), (p&&p.categoria)||'General');
+    poblarCategorias(document.getElementById('vn-pf-cat'), (p&&p.categoria)||((!pid&&catPre)||'General'));
     var del=document.getElementById('vn-pf-del-btn'); if(del) del.style.display=pid?'block':'none';
     var file=document.getElementById('vn-pf-file-input'); if(file) file.value='';
     var tog=document.getElementById('vn-pf-toggle'); if(tog) tog.className='toggle'+(window._vnegPfDisp?' on':'');
