@@ -1982,7 +1982,7 @@ function _renderMenuRest() {
     var colorIdx = Math.abs(cat.split('').reduce(function(a,c){return a+c.charCodeAt(0);},0)) % colores.length;
     var bg = colores[colorIdx];
 
-    var addCard = '<div class="menu-pcard" onclick="abrirFormProd(null)" style="border:2px dashed #ddd;background:#fafafa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:160px;cursor:pointer;"><div style="width:44px;height:44px;border-radius:50%;background:var(--green-lt);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--green);">+</div><div style="font-size:11px;font-weight:700;color:#999;text-align:center;line-height:1.4;">Agregar<br>producto</div></div>';
+    var addCard = '<div class="menu-pcard" onclick="abrirFormProd(null,\''+cat+'\')" style="border:2px dashed #ddd;background:#fafafa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:160px;cursor:pointer;"><div style="width:44px;height:44px;border-radius:50%;background:var(--green-lt);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--green);">+</div><div style="font-size:11px;font-weight:700;color:#999;text-align:center;line-height:1.4;">Agregar<br>producto</div></div>';
     var items = '<div class="menu-grid">' + grupos[cat].map(function(p){
       // Zona de imagen: foto real (base64), o emoji/placeholder como fallback
       var imgContent;
@@ -2081,7 +2081,7 @@ function _renderMenuRestFiltrado() {
     var emoji = _catEmoji(cat);
     var colorIdx = Math.abs(cat.split('').reduce(function(a,c){return a+c.charCodeAt(0);},0)) % colores.length;
     var bg = colores[colorIdx];
-    var addCard = '<div class="menu-pcard" onclick="abrirFormProd(null)" style="border:2px dashed #ddd;background:#fafafa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:160px;cursor:pointer;"><div style="width:44px;height:44px;border-radius:50%;background:var(--green-lt);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--green);">+</div><div style="font-size:11px;font-weight:700;color:#999;text-align:center;line-height:1.4;">Agregar<br>producto</div></div>';
+    var addCard = '<div class="menu-pcard" onclick="abrirFormProd(null,\''+cat+'\')" style="border:2px dashed #ddd;background:#fafafa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:160px;cursor:pointer;"><div style="width:44px;height:44px;border-radius:50%;background:var(--green-lt);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--green);">+</div><div style="font-size:11px;font-weight:700;color:#999;text-align:center;line-height:1.4;">Agregar<br>producto</div></div>';
     var items = '<div class="menu-grid">' + grupos[cat].map(function(p){
       var agotadoOverlay = p.disponible ? '' : '<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(214,58,42,.85);color:#fff;font-size:11px;font-weight:800;padding:4px 0;text-align:center;letter-spacing:.5px;">AGOTADO</div>';
       var imgContent;
@@ -2240,7 +2240,7 @@ function toggleDisp(pid) {
 /* ═══════════════════════════════════════════════════════
    FORM PRODUCTO
 ═══════════════════════════════════════════════════════ */
-function abrirFormProd(pid) {
+function abrirFormProd(pid, catPre) {
   document.getElementById('rf-pform-id').value = pid || '';
   document.getElementById('rf-pform-titulo').textContent = pid ? 'Editar producto' : 'Nuevo producto';
   document.getElementById('pf-err').style.display = 'none';
@@ -2275,7 +2275,7 @@ function abrirFormProd(pid) {
     delBtn.style.display = 'block';
   } else {
     document.getElementById('pf-nombre').value='';
-    if (catSel) catSel.value = (catSel.options && catSel.options.length === 3 && catSel.options[1] ? catSel.options[1].value : '');
+    if (catSel) catSel.value = catPre || (catSel.options && catSel.options.length === 3 && catSel.options[1] ? catSel.options[1].value : '');
     document.getElementById('pf-desc').value='';
     document.getElementById('pf-precio').value='';
     _rPfDisp = true;
