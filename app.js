@@ -6601,17 +6601,20 @@ window.adminImpulsaConfigGuardar = async function() {
 // Lee localStorage del login anterior — si hay uid guardado, redirige sin esperar Firebase
 (function() {
   var uid = localStorage.getItem('dcuserUid');
-  if (!uid) return; // No había sesión, quedarse en splash
+  console.log('[DC-RESTORE] uid=', uid, 'dc_lastView=', localStorage.getItem('dc_lastView'), 'estado=', localStorage.getItem('dcuserEstado'));
+  if (!uid) return;
   var estado = (localStorage.getItem('dcuserEstado') || '').trim().toLowerCase();
   var noRestore = ['pendiente_revision','aprobado_pendiente_pago','suspendido','rechazado'];
-  if (noRestore.indexOf(estado) !== -1) return; // Estado especial, no restaurar
+  if (noRestore.indexOf(estado) !== -1) { console.log('[DC-RESTORE] estado bloqueado:', estado); return; }
   var lastV = localStorage.getItem('dc_lastView') || 'v-home';
   var noRestV = ['v-splash','v-login','v-register','v-role','v-loading'];
   if (noRestV.indexOf(lastV) !== -1) lastV = 'v-home';
+  console.log('[DC-RESTORE] navegando a:', lastV);
   setTimeout(function() {
     var splash = document.getElementById('v-splash');
+    console.log('[DC-RESTORE] 300ms - splash.active=', splash && splash.classList.contains('active'));
     if (!splash || !splash.classList.contains('active')) return;
-    go(lastV, 'right');
+    window.go(lastV, 'right');
     setTimeout(function() {
       window._dcFabInit && window._dcFabInit();
       window.actualizarBadgesReales && window.actualizarBadgesReales();
