@@ -6599,52 +6599,40 @@ window.adminImpulsaConfigGuardar = async function() {
 
 // ── RESTAURAR SESIÓN AL REFRESCAR ──────────────────────────────────────
 (function() {
-  function _doRestore() {
-    var user = window._fbAuth && window._fbAuth.currentUser;
-    if (window._dcLoginInProgress) return;
-    if (!user) return;
-    var cur = document.querySelector('.view.active');
-    if (!cur) { setTimeout(_doRestore, 400); return; }
-    if (cur.id !== 'v-splash') return;
-    var estado = (localStorage.getItem('dcuserEstado') || '').trim().toLowerCase();
-    var tipo = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
-    var noRestore = ['pendiente_revision','aprobado_pendiente_pago','suspendido','rechazado'];
-    if (noRestore.indexOf(estado) !== -1) {
-      var statusNav = 'v-espera-revision';
-      if (estado === 'aprobado_pendiente_pago') statusNav = 'v-espera-pago';
-      else if (estado === 'suspendido') statusNav = (tipo === 'vecino') ? 'v-vecino-suspendido' : 'v-cuenta-suspendida';
-      else if (estado === 'rechazado') statusNav = 'v-solicitud-rechazada';
-      window.go(statusNav, 'right');
-      return;
-    }
-    var lastV = localStorage.getItem('dc_lastView') || 'v-home';
-    var noRestV = ['v-splash','v-login','v-register','v-role','v-loading'];
-    if (noRestV.indexOf(lastV) !== -1) lastV = 'v-home';
-    window.go(lastV, 'right');
-    setTimeout(function() {
-      if (lastV === 'v-impulsa') {
-        window.impulsaCargar && window.impulsaCargar();
-      }
-      var subVr = localStorage.getItem('dc_lastSubVr');
-      var subVn = localStorage.getItem('dc_lastSubVn');
-      if (subVr && lastV === 'vr-home') window.dcRest_navTo && window.dcRest_navTo(subVr);
-      if (subVn && lastV === 'vn-home') window.dcNeg_navTo && window.dcNeg_navTo(subVn);
-      window._dcFabInit && window._dcFabInit();
-      window.actualizarBadgesReales && window.actualizarBadgesReales();
-    }, 500);
-  }
-
+  var _done = false;
   function _trySetup(n) {
-    if (!window._fbAuth) {
+    if (!window._fbAuth || !window._fbAuth.onAuthStateChanged) {
       if (n < 30) setTimeout(function(){ _trySetup(n+1); }, 100);
       return;
     }
-    var ready = window._fbAuth.authStateReady ? window._fbAuth.authStateReady() : null;
-    if (ready && typeof ready.then === 'function') {
-      ready.then(_doRestore).catch(function(){ _doRestore(); });
-    } else {
-      var unsub = window._fbAuth.onAuthStateChanged(function() { unsub(); _doRestore(); });
-    }
+    var unsub = window._fbAuth.onAuthStateChanged(function(user) {
+      unsub();
+      if (_done) return; _done = true;
+      if (!user) return;
+      if (window._dcLoginInProgress) return;
+      var cur = document.querySelector('.view.active');
+      if (!cur) { setTimeout(function(){ _done=false; _trySetup(0); }, 400); return; }
+      if (cur.id !== 'v-splash') return;
+      var estado = (localStorage.getItem('dcuserEstado') || '').trim().toLowerCase();
+      var tipo = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
+      var noRestore = ['pendiente_revision','aprobado_pendiente_pago','suspendido','rechazado'];
+      if (noRestore.indexOf(estado) !== -1) {
+        var statusNav = 'v-espera-revision';
+        if (estado === 'aprobado_pendiente_pago') statusNav = 'v-espera-pago';
+        else if (estado === 'suspendido') statusNav = (tipo === 'vecino') ? 'v-vecino-suspendido' : 'v-cuenta-suspendida';
+        else if (estado === 'rechazado') statusNav = 'v-solicitud-rechazada';
+        window.go(statusNav, 'right');
+        return;
+      }
+      var lastV = localStorage.getItem('dc_lastView') || 'v-home';
+      var noRestV = ['v-splash','v-login','v-register','v-role','v-loading'];
+      if (noRestV.indexOf(lastV) !== -1) lastV = 'v-home';
+      window.go(lastV, 'right');
+      setTimeout(function() {
+        window._dcFabInit && window._dcFabInit();
+        window.actualizarBadgesReales && window.actualizarBadgesReales();
+      }, 500);
+    });
   }
   _trySetup(0);
 })();
