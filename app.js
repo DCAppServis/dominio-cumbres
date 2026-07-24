@@ -6624,16 +6624,10 @@ window.adminImpulsaConfigGuardar = async function() {
         window.go(statusNav, 'right');
         return;
       }
-      var lastV = localStorage.getItem('dc_lastView') || 'v-home';
-      var noRestV = ['v-splash','v-login','v-register','v-role','v-loading'];
-      if (noRestV.indexOf(lastV) !== -1) lastV = 'v-home';
-      _navStack.length = 0;
-      if (lastV !== 'v-home') _navStack.push('v-home');
-      window.go(lastV, 'right');
+      window.go('v-home', 'right');
       setTimeout(function() {
         window._dcFabInit && window._dcFabInit();
         window.actualizarBadgesReales && window.actualizarBadgesReales();
-        if (lastV === 'v-impulsa') window.impulsaCargar && window.impulsaCargar();
       }, 500);
     });
   }
