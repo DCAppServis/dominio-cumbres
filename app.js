@@ -6611,12 +6611,7 @@ window.adminImpulsaConfigGuardar = async function() {
       if (!user) return;
       if (window._dcLoginInProgress) return;
       var cur = document.querySelector('.view.active');
-      if (!cur) {
-        var loadingEl = document.getElementById('v-loading');
-        var delay = (loadingEl && loadingEl.style.zIndex === '999') ? 1700 : 400;
-        setTimeout(function(){ _done=false; _trySetup(0); }, delay);
-        return;
-      }
+      if (!cur) { setTimeout(function(){ _done=false; _trySetup(0); }, 400); return; }
       if (cur.id !== 'v-splash') return;
       var estado = (localStorage.getItem('dcuserEstado') || '').trim().toLowerCase();
       var tipo = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
