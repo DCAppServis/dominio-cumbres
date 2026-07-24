@@ -6613,7 +6613,7 @@ window.adminImpulsaConfigGuardar = async function() {
       var cur = document.querySelector('.view.active');
       if (!cur) {
         var loadingEl = document.getElementById('v-loading');
-        var delay = (loadingEl && loadingEl.style.zIndex === '999') ? 1700 : 400;
+        var delay = (loadingEl && loadingEl.style.display !== 'none' && loadingEl.style.cssText) ? 1700 : 400;
         setTimeout(function(){ _done=false; _trySetup(0); }, delay);
         return;
       }
