@@ -6615,15 +6615,22 @@ window.adminImpulsaConfigGuardar = async function() {
       var noRestore = ['pendiente_revision','aprobado_pendiente_pago','suspendido','rechazado'];
       function _doRestore() {
         document.body.classList.remove('dc-restoring');
+        var targetV = 'v-home';
         if (noRestore.indexOf(estado) !== -1) {
-          var statusNav = 'v-espera-revision';
-          if (estado === 'aprobado_pendiente_pago') statusNav = 'v-espera-pago';
-          else if (estado === 'suspendido') statusNav = (tipo === 'vecino') ? 'v-vecino-suspendido' : 'v-cuenta-suspendida';
-          else if (estado === 'rechazado') statusNav = 'v-solicitud-rechazada';
-          window.go(statusNav, 'right');
-          return;
+          if (estado === 'aprobado_pendiente_pago') targetV = 'v-espera-pago';
+          else if (estado === 'suspendido') targetV = (tipo === 'vecino') ? 'v-vecino-suspendido' : 'v-cuenta-suspendida';
+          else if (estado === 'rechazado') targetV = 'v-solicitud-rechazada';
+          else targetV = 'v-espera-revision';
         }
-        window.go('v-home', 'right');
+        window.go(targetV, 'right');
+        var sp = document.getElementById('v-splash');
+        if (sp) {
+          var gObs = new MutationObserver(function() {
+            if (sp.classList.contains('active')) sp.classList.remove('active');
+          });
+          gObs.observe(sp, { attributes: true, attributeFilter: ['class'] });
+          setTimeout(function() { gObs.disconnect(); }, 2000);
+        }
         setTimeout(function() {
           window._dcFabInit && window._dcFabInit();
           window.actualizarBadgesReales && window.actualizarBadgesReales();
