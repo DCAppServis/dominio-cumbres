@@ -6611,7 +6611,8 @@ window.adminImpulsaConfigGuardar = async function() {
       if (!user) return;
       if (window._dcLoginInProgress) return;
       var cur = document.querySelector('.view.active');
-      if (!cur || cur.id !== 'v-splash') return;
+      if (!cur) { setTimeout(function(){ _done=false; _trySetup(0); }, 400); return; }
+      if (cur.id !== 'v-splash') return;
       var estado = (localStorage.getItem('dcuserEstado') || '').trim().toLowerCase();
       var tipo = (localStorage.getItem('dcuserTipo') || '').toLowerCase();
       var noRestore = ['pendiente_revision','aprobado_pendiente_pago','suspendido','rechazado'];
