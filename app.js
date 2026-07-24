@@ -6636,9 +6636,11 @@ window.adminImpulsaConfigGuardar = async function() {
       var obs = new MutationObserver(function() {
         if (splashEl.classList.contains('active')) {
           obs.disconnect();
-          splashEl.style.opacity = '0';
-          splashEl.style.transition = 'none';
+          var ov = document.createElement('div');
+          ov.style.cssText = 'position:fixed;inset:0;background:#0C1A10;z-index:9999;';
+          document.body.appendChild(ov);
           _doRestore();
+          setTimeout(function(){ ov.parentNode && ov.parentNode.removeChild(ov); }, 600);
         }
       });
       obs.observe(splashEl, { attributes: true, attributeFilter: ['class'] });
