@@ -6644,6 +6644,11 @@ window.adminImpulsaConfigGuardar = async function() {
         }
       });
       obs.observe(splashEl, { attributes: true, attributeFilter: ['class'] });
+      setTimeout(function() {
+        var loadingEl = document.getElementById('v-loading');
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (!splashEl.classList.contains('active')) splashEl.classList.add('active');
+      }, 800);
     });
   }
   _trySetup(0);
